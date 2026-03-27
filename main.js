@@ -33,6 +33,11 @@ let progressMax = 250; // score points needed to fill gauge
 let levelStartScore = 0;
 let spawningDone = false;
 
+// Roll-back (triggered when gauge fills)
+const ROLL_BACK_DURATION = 2.0;
+const ROLL_BACK_SPEED    = 3.0;
+let rollBackTimer = 0;
+
 // Roll-in phase
 let rollInCount = 20;
 const ROLL_IN_SPEED = 8.0;
@@ -191,8 +196,11 @@ function animate() {
     }
 
     // Advance chain
-    const activeSpeed = rollingIn ? ROLL_IN_SPEED : chainSpeed;
-    if (chain.length > 0) {
+    if (rollBackTimer > 0) {
+      rollBackTimer = Math.max(0, rollBackTimer - dt);
+      for (let i = 0; i < chain.length; i++) chain[i].s -= ROLL_BACK_SPEED * dt;
+    } else if (chain.length > 0) {
+      const activeSpeed = rollingIn ? ROLL_IN_SPEED : chainSpeed;
       // Collect all split points (indices where a gap or push-forward boundary exists)
       const splitIndices = new Set();
 
@@ -318,7 +326,7 @@ function startGame() {
   score = 0; combo = 1; chainBonus = 1; level = 1;
   loadLevel(LEVELS[0]);
   spawnTimer = 0;
-  progress = 0; levelStartScore = 0; spawningDone = false;
+  progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0;
   rollInRemaining = rollInCount; rollInSpawned = 0;
 
   updateHUD(); updateProgressBar();
@@ -342,7 +350,7 @@ function levelUp() {
   loadLevel(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
   spawnTimer = -2;
   progress = 0; levelStartScore = score; chainBonus = 1;
-  spawningDone = false;
+  spawningDone = false; rollBackTimer = 0;
   rollInRemaining = rollInCount; rollInSpawned = 0;
   updateProgressBar();
   showBanner('LEVEL ' + level);
@@ -363,6 +371,7 @@ function updateHUD() {
   updateProgressBar();
   if (progress >= 1 && !spawningDone) {
     spawningDone = true;
+    rollBackTimer = ROLL_BACK_DURATION;
     showBanner('NO MORE BALLS!');
   }
 }

@@ -121,7 +121,12 @@ function createShooter() {
 }
 
 function pickColor() {
-  return Math.floor(Math.random() * Math.min(3 + Math.floor(level / 2), COLORS.length));
+  const maxColor = Math.min(3 + Math.floor(level / 2), COLORS.length);
+  if (spawningDone && chain.length > 0) {
+    const present = [...new Set(chain.map(b => b.colorIdx))];
+    if (present.length > 0) return present[Math.floor(Math.random() * present.length)];
+  }
+  return Math.floor(Math.random() * maxColor);
 }
 
 function makeBallPreview(colorIdx, size) {

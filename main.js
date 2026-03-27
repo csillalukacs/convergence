@@ -22,7 +22,8 @@ let particles = [];
 let score = 0, combo = 1, level = 1;
 let gameActive = false;
 let mouseX = 0, mouseY = 0;
-let chainSpeed = 1.2; // world units per second (arc-length)
+const CHAIN_SPEED_INITIAL = 1.6;
+let chainSpeed = CHAIN_SPEED_INITIAL; // world units per second (arc-length)
 let spawnTimer = 0;
 
 // Progress / spawning
@@ -300,7 +301,7 @@ function startGame() {
   pushForwards = [];
 
   score = 0; combo = 1; level = 1;
-  chainSpeed = 1.2; spawnTimer = 0;
+  chainSpeed = CHAIN_SPEED_INITIAL; spawnTimer = 0;
   shotsFired = 0; progress = 0; progressMax = 40; spawningDone = false;
   rollInRemaining = ROLL_IN_COUNT; rollInSpawned = 0;
 
@@ -321,7 +322,7 @@ function gameOver() {
 function levelUp() {
   level++;
   playSound('levelup');
-  chainSpeed = Math.min(3.0, 1.2 + level * 0.2);
+  chainSpeed = Math.min(3.5, CHAIN_SPEED_INITIAL + level * 0.2);
   spawnTimer = -2;
   shotsFired = 0; progress = 0;
   progressMax = Math.min(60, 40 + level * 5);

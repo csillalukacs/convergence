@@ -29,8 +29,8 @@ let spawnTimer = 0;
 
 // Progress / spawning
 let progress = 0;
-let progressMax = 40;
-let shotsFired = 0;
+let progressMax = 250; // score points needed to fill gauge
+let levelStartScore = 0;
 let spawningDone = false;
 
 // Roll-in phase
@@ -101,13 +101,6 @@ function onShoot(e) {
   scene.add(proj);
   projectiles.push({ mesh: proj, vx: dir.x * 28, vy: dir.y * 28, colorIdx: shooterColorIdx, alive: true });
 
-  shotsFired++;
-  progress = Math.min(1, shotsFired / progressMax);
-  updateProgressBar();
-  if (progress >= 1 && !spawningDone) {
-    spawningDone = true;
-    showBanner('NO MORE BALLS!');
-  }
   reloadPrimary();
 }
 
@@ -314,7 +307,7 @@ function startGame() {
 
   score = 0; combo = 1; level = 1;
   chainSpeed = CHAIN_SPEED_INITIAL; spawnTimer = 0;
-  shotsFired = 0; progress = 0; progressMax = 40; spawningDone = false;
+  progress = 0; levelStartScore = 0; progressMax = 250; spawningDone = false;
   rollInRemaining = ROLL_IN_COUNT; rollInSpawned = 0;
 
   updateHUD(); updateProgressBar();
@@ -337,8 +330,8 @@ function levelUp() {
   playSound('levelup');
   chainSpeed = Math.min(3.5, CHAIN_SPEED_INITIAL + level * 0.2);
   spawnTimer = -2;
-  shotsFired = 0; progress = 0;
-  progressMax = Math.min(60, 40 + level * 5);
+  progress = 0; levelStartScore = score;
+  progressMax = Math.min(800, 250 + level * 100);
   spawningDone = false;
   rollInRemaining = ROLL_IN_COUNT; rollInSpawned = 0;
   updateProgressBar();
@@ -356,6 +349,12 @@ function updateHUD() {
   document.getElementById('score-val').textContent = score;
   document.getElementById('level-val').textContent = level;
   document.getElementById('combo-val').textContent = 'x' + combo;
+  progress = Math.min(1, (score - levelStartScore) / progressMax);
+  updateProgressBar();
+  if (progress >= 1 && !spawningDone) {
+    spawningDone = true;
+    showBanner('NO MORE BALLS!');
+  }
 }
 
 function updateProgressBar() {

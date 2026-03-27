@@ -39,6 +39,13 @@ let progressMax = 40;
 let shotsFired = 0;
 let spawningDone = false;
 
+// Roll-in phase
+const ROLL_IN_COUNT = 20;
+const ROLL_IN_SPEED = 8.0;
+const ROLL_IN_INTERVAL = 0.1;
+let rollInRemaining = 0;
+let rollInSpawned = 0;
+
 // Gap collapse
 let collapseGaps = [];
 
@@ -308,8 +315,8 @@ function spawnChainBall() {
   const colorIdx = pickColor();
   const mesh = createBallMesh(colorIdx);
   scene.add(mesh);
-  let startS = 0;
-  if (chain.length > 0) startS = Math.max(0, chain[chain.length - 1].s - BALL_SPACING);
+  let startS = -BALL_SPACING;
+  if (chain.length > 0) startS = chain[chain.length - 1].s - BALL_SPACING;
   chain.push({ mesh, colorIdx, s: startS, alive: true });
 }
 
@@ -615,12 +622,19 @@ function animate() {
     spawnTimer += dt;
 
     // Spawn at back of chain
-    if (!spawningDone && spawnTimer > 0.45) {
+    const rollingIn = rollInRemaining > 0;
+    const spawnInterval = rollInSpawned < ROLL_IN_COUNT ? ROLL_IN_INTERVAL : 0.45;
+    if (!spawningDone && spawnTimer > spawnInterval) {
       spawnChainBall();
       spawnTimer = 0;
+      if (rollInSpawned < ROLL_IN_COUNT) {
+        chain[chain.length - 1].isRollIn = true;
+        rollInSpawned++;
+      }
     }
 
     // Advance chain
+    const activeSpeed = rollingIn ? ROLL_IN_SPEED : chainSpeed;
     if (chain.length > 0) {
       // Collect all split points (indices where a gap or push-forward boundary exists)
       let splitIndices = new Set();
@@ -637,7 +651,7 @@ function animate() {
       if (splitIndices.size === 0) {
         // No gaps — advance all balls uniformly
         for (let i = 0; i < chain.length; i++) {
-          chain[i].s += chainSpeed * dt;
+          chain[i].s += activeSpeed * dt;
         }
         // Enforce spacing (front to back)
         for (let i = 1; i < chain.length; i++) {
@@ -650,7 +664,7 @@ function animate() {
         const lastSplit = sorted[sorted.length - 1];
 
         for (let i = lastSplit; i < chain.length; i++) {
-          chain[i].s += chainSpeed * dt;
+          chain[i].s += activeSpeed * dt;
         }
         // Enforce spacing only within the back segment
         for (let i = lastSplit + 1; i < chain.length; i++) {
@@ -677,11 +691,18 @@ function animate() {
 
     // Update ball positions
     for (let i = 0; i < chain.length; i++) {
-      const pos = getPathPosFromS(chain[i].s);
-      chain[i].mesh.position.copy(pos);
-      chain[i].mesh.position.z = 0;
-      chain[i].mesh.rotation.z += dt * 1.5;
-      chain[i].mesh.rotation.x += dt * 0.8;
+      const ball = chain[i];
+      if (ball.isRollIn && !ball.rolledIn && ball.s >= 0) {
+        ball.rolledIn = true;
+        rollInRemaining--;
+      }
+      ball.mesh.visible = ball.s >= 0;
+      if (!ball.mesh.visible) continue;
+      const pos = getPathPosFromS(ball.s);
+      ball.mesh.position.copy(pos);
+      ball.mesh.position.z = 0;
+      ball.mesh.rotation.z += dt * 1.5;
+      ball.mesh.rotation.x += dt * 0.8;
     }
 
     // Game over
@@ -721,6 +742,7 @@ function startGame() {
   score = 0; combo = 1; level = 1;
   chainSpeed = 1.2; spawnTimer = 0;
   shotsFired = 0; progress = 0; progressMax = 40; spawningDone = false;
+  rollInRemaining = ROLL_IN_COUNT; rollInSpawned = 0;
 
   updateHUD(); updateProgressBar();
   loadShooterBalls();
@@ -742,6 +764,7 @@ spawnTimer = -2;
   shotsFired = 0; progress = 0;
   progressMax = Math.min(60, 40 + level * 5);
   spawningDone = false;
+  rollInRemaining = ROLL_IN_COUNT; rollInSpawned = 0;
   updateProgressBar();
   showBanner('LEVEL ' + level);
   updateHUD();

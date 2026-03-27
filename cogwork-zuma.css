@@ -152,6 +152,34 @@ body {
   transform: scale(1.05);
 }
 
+#pause-screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: rgba(10,8,6,0.80);
+}
+
+#pause-screen h2 {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 48px;
+  color: #D4A847;
+  text-shadow: 0 0 30px rgba(212,168,71,0.5);
+  margin-bottom: 16px;
+  letter-spacing: 4px;
+}
+
+#pause-screen .pause-hint {
+  font-family: 'Spectral', serif;
+  font-style: italic;
+  color: #8B6914;
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+
 #game-over {
   position: fixed;
   inset: 0;

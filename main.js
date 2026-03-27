@@ -21,6 +21,7 @@ let projectiles = [];
 let particles = [];
 let score = 0, combo = 1, level = 1;
 let gameActive = false;
+let gamePaused = false;
 let mouseX = 0, mouseY = 0;
 const CHAIN_SPEED_INITIAL = 1.6;
 let chainSpeed = CHAIN_SPEED_INITIAL; // world units per second (arc-length)
@@ -80,7 +81,10 @@ function init() {
   canvas.addEventListener('touchstart', onTouchStart, { passive: false });
   canvas.addEventListener('touchmove', e => { e.preventDefault(); mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; }, { passive: false });
   window.addEventListener('resize', onResize);
-  window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); onSwapAction(); } });
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); onSwapAction(); }
+    if (e.code === 'KeyP' || e.code === 'Escape') { e.preventDefault(); togglePause(); }
+  });
 
   animate();
 }
@@ -164,7 +168,7 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  if (gameActive) {
+  if (gameActive && !gamePaused) {
     const dir = getAimDir(mouseX, mouseY);
     shooterPivot.rotation.z = -Math.atan2(dir.x, dir.y);
   }
@@ -179,7 +183,7 @@ function animate() {
     if (s.position.y < -15) { s.position.y = 15; }
   });
 
-  if (gameActive) {
+  if (gameActive && !gamePaused) {
     spawnTimer += dt;
 
     // Spawn at back of chain
@@ -290,9 +294,17 @@ function animate() {
 
 // ─── GAME STATE ───
 
+function togglePause() {
+  if (!gameActive) return;
+  gamePaused = !gamePaused;
+  document.getElementById('pause-screen').style.display = gamePaused ? 'flex' : 'none';
+  if (!gamePaused) clock.getDelta(); // discard time accumulated while paused
+}
+
 function startGame() {
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
+  document.getElementById('pause-screen').style.display = 'none';
 
   chain.forEach(b => scene.remove(b.mesh)); chain = [];
   projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
@@ -308,6 +320,7 @@ function startGame() {
   updateHUD(); updateProgressBar();
   loadShooterBalls();
   gameActive = true;
+  gamePaused = false;
   showBanner('LEVEL 1');
 }
 

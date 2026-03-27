@@ -324,12 +324,41 @@ function spawnChainBall() {
 // Tracked by ball references so indices don't go stale
 let pushForwards = []; // { insertedBall, frontBall } — everything ahead of insertedBall pushes forward
 
-function insertBallInChain(insertIdx, colorIdx) {
+// hitBallIdx: the chain index of the ball the projectile physically collided
+// with (chain[i] at the call site). Used to determine which side of a
+// collapsing gap the new ball joins when insertIdx falls between frontBall and
+// backBall.
+function insertBallInChain(insertIdx, colorIdx, hitBallIdx = -1) {
   const mesh = createBallMesh(colorIdx);
   scene.add(mesh);
 
+  // Detect whether insertIdx splits an existing collapsing gap, and which side:
+  //   Case A — hit frontBall from behind (hitBallIdx === fi):
+  //     newBall joins front segment, placed just behind frontBall.
+  //     Gap becomes newBall → originalBackBall.
+  //   Case B — hit backBall from front (hitBallIdx === bi):
+  //     newBall joins back segment, placed at backBall's position.
+  //     Gap becomes originalFrontBall → newBall.
+  // In both cases the pushForward is suppressed: the new ball is already
+  // correctly positioned relative to its front neighbor.
+  let splitGap = null;
+  let splitCase = null; // 'A' or 'B'
+  for (let gi = 0; gi < collapseGaps.length; gi++) {
+    const cg = collapseGaps[gi];
+    const fi = chain.indexOf(cg.frontBall);
+    const bi = chain.indexOf(cg.backBall);
+    if (bi !== fi + 1 || insertIdx !== bi) continue;
+    if (hitBallIdx === fi) { splitGap = cg; splitCase = 'A'; }
+    else if (hitBallIdx === bi) { splitGap = cg; splitCase = 'B'; }
+    break;
+  }
+
   let refS;
-  if (insertIdx < chain.length) {
+  if (splitCase === 'A') {
+    // Place newBall snug behind frontBall; the remaining gap is between newBall
+    // and originalBackBall.
+    refS = splitGap.frontBall.s - BALL_SPACING;
+  } else if (insertIdx < chain.length) {
     refS = chain[insertIdx].s;
   } else if (chain.length > 0) {
     refS = chain[chain.length - 1].s;
@@ -338,11 +367,22 @@ function insertBallInChain(insertIdx, colorIdx) {
   }
 
   const newBall = { mesh, colorIdx, s: refS, alive: true };
+
+  if (splitCase === 'A') {
+    // newBall becomes the new frontBall; gap is now newBall → oldBackBall
+    splitGap.frontBall = newBall;
+    splitGap.matching = colorIdx === splitGap.backBall.colorIdx;
+  } else if (splitCase === 'B') {
+    // newBall becomes the new backBall; gap is now oldFrontBall → newBall
+    splitGap.backBall = newBall;
+    splitGap.matching = splitGap.frontBall.colorIdx === colorIdx;
+  }
+
   chain.splice(insertIdx, 0, newBall);
 
-  // The back segment (insertIdx+1..end) stays put.
-  // The front segment (0..insertIdx-1) needs to slide FORWARD (toward skull).
-  if (insertIdx > 0) {
+  // Suppress pushForward when landing inside a gap: the new ball is already
+  // placed correctly and the collapse handles the remaining gap animation.
+  if (insertIdx > 0 && splitGap === null) {
     pushForwards.push({ insertedBall: newBall, frontBall: chain[insertIdx - 1] });
   }
 
@@ -589,7 +629,7 @@ function checkProjectileCollisions(dt) {
         const insertIdx = dot > 0 ? i : i + 1;
 
         scene.remove(proj.mesh); proj.alive = false;
-        insertBallInChain(insertIdx, proj.colorIdx);
+        insertBallInChain(insertIdx, proj.colorIdx, i);
         checkMatches(insertIdx);
         break;
       }

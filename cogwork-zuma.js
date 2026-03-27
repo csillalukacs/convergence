@@ -47,7 +47,7 @@ let rollInRemaining = 0;
 let rollInSpawned = 0;
 
 // Gap collapse
-let collapseGaps = [];
+let gaps = [];
 
 const COLORS = [
   0xC0392B, 0x2980B9, 0x27AE60, 0xD4A847, 0x8E44AD,
@@ -343,8 +343,8 @@ function insertBallInChain(insertIdx, colorIdx, hitBallIdx = -1) {
   // correctly positioned relative to its front neighbor.
   let splitGap = null;
   let splitCase = null; // 'A' or 'B'
-  for (let gi = 0; gi < collapseGaps.length; gi++) {
-    const cg = collapseGaps[gi];
+  for (let gi = 0; gi < gaps.length; gi++) {
+    const cg = gaps[gi];
     const fi = chain.indexOf(cg.frontBall);
     const bi = chain.indexOf(cg.backBall);
     if (bi !== fi + 1 || insertIdx !== bi) continue;
@@ -433,7 +433,7 @@ function scheduleCollapse(gapFrontIdx) {
   const frontBall = chain[gapFrontIdx - 1];
   const backBall = chain[gapFrontIdx];
   const matching = frontBall && backBall && frontBall.colorIdx === backBall.colorIdx;
-  collapseGaps.push({ frontBall, backBall, matching });
+  gaps.push({ frontBall, backBall, matching });
 }
 
 function updatePushForwards(dt) {
@@ -457,7 +457,7 @@ function updatePushForwards(dt) {
       // Propagate spacing forward within the contiguous segment only
       for (let i = frontIdx - 1; i >= 0; i--) {
         // Check if there's a gap between i and i+1
-        const gapHere = collapseGaps.some(cg => {
+        const gapHere = gaps.some(cg => {
           const fi = chain.indexOf(cg.frontBall);
           const bi = chain.indexOf(cg.backBall);
           return fi === i && bi === i + 1;
@@ -474,7 +474,7 @@ function updatePushForwards(dt) {
       // But also push everything ahead of frontIdx that's contiguous (no gap)
       let pushStart = frontIdx;
       for (let i = frontIdx - 1; i >= 0; i--) {
-        const gapHere = collapseGaps.some(cg => {
+        const gapHere = gaps.some(cg => {
           const fi = chain.indexOf(cg.frontBall);
           const bi = chain.indexOf(cg.backBall);
           return fi === i && bi === i + 1;
@@ -488,10 +488,10 @@ function updatePushForwards(dt) {
 }
 
 function updateCollapses(dt) {
-  if (collapseGaps.length === 0) return;
+  if (gaps.length === 0) return;
 
-  for (let g = collapseGaps.length - 1; g >= 0; g--) {
-    const gap = collapseGaps[g];
+  for (let g = gaps.length - 1; g >= 0; g--) {
+    const gap = gaps[g];
 
     // Find current indices of the referenced balls
     const frontIdx = chain.indexOf(gap.frontBall);
@@ -500,7 +500,7 @@ function updateCollapses(dt) {
     // Validate: frontBall should be at a lower index (higher s) than backBall
     if (frontIdx < 0 || backIdx < 0 || backIdx !== frontIdx + 1) {
       // Balls removed or no longer adjacent gap — discard
-      collapseGaps.splice(g, 1); continue;
+      gaps.splice(g, 1); continue;
     }
 
     const targetS = gap.frontBall.s - BALL_SPACING;
@@ -513,7 +513,7 @@ function updateCollapses(dt) {
         const tgt = chain[i - 1].s - BALL_SPACING;
         if (chain[i].s > tgt) chain[i].s = tgt; else break;
       }
-      collapseGaps.splice(g, 1);
+      gaps.splice(g, 1);
 
       // Chain reaction check
       if (gap.frontBall.colorIdx === gap.backBall.colorIdx) {
@@ -527,7 +527,7 @@ function updateCollapses(dt) {
       // Only move the contiguous segment (stop at other gaps)
       let moveStart = frontIdx;
       for (let i = frontIdx - 1; i >= 0; i--) {
-        const gapHere = collapseGaps.some(cg => {
+        const gapHere = gaps.some(cg => {
           if (cg === gap) return false; // skip self
           const fi = chain.indexOf(cg.frontBall);
           const bi = chain.indexOf(cg.backBall);
@@ -679,7 +679,7 @@ function animate() {
       // Collect all split points (indices where a gap or push-forward boundary exists)
       let splitIndices = new Set();
 
-      for (const g of collapseGaps) {
+      for (const g of gaps) {
         const bi = chain.indexOf(g.backBall);
         if (bi > 0) splitIndices.add(bi);
       }
@@ -776,7 +776,7 @@ function startGame() {
   chain.forEach(b => scene.remove(b.mesh)); chain = [];
   projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
   particles.forEach(p => scene.remove(p)); particles = [];
-  collapseGaps = [];
+  gaps = [];
   pushForwards = [];
 
   score = 0; combo = 1; level = 1;

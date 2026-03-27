@@ -285,7 +285,7 @@ function animate() {
     checkProjectileCollisions(dt);
 
     // Level clear
-    if (chain.length === 0 && spawningDone) levelUp();
+    if (spawningDone && !chain.some(b => b.s >= 0)) levelUp();
   }
 
   // Particles

@@ -169,6 +169,28 @@ function onSwapAction() {
   rebuildShooterVisuals();
 }
 
+// ─── COMBO TEXT ───
+
+function spawnComboText(worldPos, comboVal) {
+  const ndc = worldPos.clone().project(camera);
+  const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;
+  const y = (-ndc.y * 0.5 + 0.5) * window.innerHeight;
+
+  const el = document.createElement('div');
+  el.className = 'combo-text';
+  el.textContent = 'COMBO ×' + comboVal;
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  document.body.appendChild(el);
+
+  // Double rAF ensures the element is painted before the transition starts
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.style.transform = 'translate(-50%, -70px)';
+    el.style.opacity = '0';
+  }));
+  setTimeout(() => el.remove(), 900);
+}
+
 // ─── BALL TEXTURES ───
 // One procedural canvas texture per color, lazily created and cached.
 // To swap in image files, replace createBallTexture() with a loader and return

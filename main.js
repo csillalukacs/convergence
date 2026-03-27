@@ -348,7 +348,6 @@ function showBanner(text) {
 function updateHUD() {
   document.getElementById('score-val').textContent = score;
   document.getElementById('level-val').textContent = level;
-  document.getElementById('combo-val').textContent = 'x' + combo;
   document.getElementById('chain-bonus-val').textContent = 'x' + chainBonus;
   progress = Math.min(1, (score - levelStartScore) / progressMax);
   updateProgressBar();

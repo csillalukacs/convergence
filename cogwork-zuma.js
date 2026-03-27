@@ -349,12 +349,17 @@ function insertBallInChain(insertIdx, colorIdx) {
 }
 
 // ─── MATCHING & CHAIN REACTIONS ───
+function hasGapBetween(frontIdx, backIdx) {
+  // frontIdx has higher s (closer to skull), backIdx = frontIdx + 1
+  return chain[frontIdx].s - chain[backIdx].s > BALL_SPACING * 1.5;
+}
+
 function checkMatches(idx) {
   if (idx < 0 || idx >= chain.length) return;
   const col = chain[idx].colorIdx;
   let start = idx, end = idx;
-  while (start > 0 && chain[start - 1].colorIdx === col) start--;
-  while (end < chain.length - 1 && chain[end + 1].colorIdx === col) end++;
+  while (start > 0 && chain[start - 1].colorIdx === col && !hasGapBetween(start - 1, start)) start--;
+  while (end < chain.length - 1 && chain[end + 1].colorIdx === col && !hasGapBetween(end, end + 1)) end++;
 
   const count = end - start + 1;
   if (count >= 3) {

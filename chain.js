@@ -103,6 +103,7 @@ function checkMatches(idx) {
 
   const count = end - start + 1;
   if (count >= 3) {
+    playSound('match');
     for (let i = start; i <= end; i++) {
       explodeBall(chain[i]);
       chain[i].alive = false;
@@ -211,7 +212,10 @@ function updateCollapses(dt) {
       if (gap.frontBall.colorIdx === gap.backBall.colorIdx) {
         const checkIdx = backIdx;
         setTimeout(() => {
-          if (chain.length > 0) checkMatches(Math.min(checkIdx, chain.length - 1));
+          if (chain.length > 0) {
+            playSound('chain');
+            checkMatches(Math.min(checkIdx, chain.length - 1));
+          }
         }, 100);
       }
     } else if (gap.matching) {

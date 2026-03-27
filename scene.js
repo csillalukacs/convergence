@@ -157,6 +157,7 @@ function reloadPrimary() {
 
 function onSwapAction() {
   if (!gameActive) return;
+  playSound('swap');
   const tmp = shooterColorIdx;
   shooterColorIdx = nextColorIdx;
   nextColorIdx = tmp;

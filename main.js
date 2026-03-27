@@ -84,6 +84,7 @@ function init() {
 
 function onShoot(e) {
   if (!gameActive || e.button !== 0) return;
+  playSound('shoot');
   const dir = getAimDir(e.clientX, e.clientY);
   const proj = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 16, 12),
     new THREE.MeshStandardMaterial({ color: COLORS[shooterColorIdx], metalness: 0.5, roughness: 0.3, emissive: COLOR_EMISSIVE[shooterColorIdx] }));
@@ -142,6 +143,7 @@ function checkProjectileCollisions(dt) {
         const insertIdx = dot > 0 ? i : i + 1;
 
         scene.remove(proj.mesh); proj.alive = false;
+        playSound('hit');
         insertBallInChain(insertIdx, proj.colorIdx, i);
         checkMatches(insertIdx);
         break;
@@ -306,6 +308,7 @@ function startGame() {
 
 function gameOver() {
   gameActive = false;
+  playSound('gameover');
   document.getElementById('game-over').style.display = 'flex';
   document.getElementById('final-score').textContent = 'Score: ' + score;
   document.getElementById('go-title').textContent = 'GEARS HALTED';
@@ -313,6 +316,7 @@ function gameOver() {
 
 function levelUp() {
   level++;
+  playSound('levelup');
   chainSpeed = Math.min(3.0, 1.2 + level * 0.2);
   spawnTimer = -2;
   shotsFired = 0; progress = 0;

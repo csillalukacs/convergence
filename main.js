@@ -38,6 +38,10 @@ const ROLL_BACK_DURATION = 2.0;
 const ROLL_BACK_SPEED    = 3.0;
 let rollBackTimer = 0;
 
+// Snap-back impulse (triggered when a gap closes)
+let snapImpulse = 0;        // current backwards velocity (world units/sec), decays to 0
+const SNAP_FRICTION = 5.0;  // deceleration rate
+
 // Roll-in phase
 let rollInCount = 20;
 const ROLL_IN_SPEED = 8.0;
@@ -253,6 +257,12 @@ function animate() {
     updateCollapses(dt);
     updatePushForwards(dt);
 
+    // Apply snap-back impulse from gap closures
+    if (snapImpulse > 0) {
+      for (let i = 0; i < chain.length; i++) chain[i].s -= snapImpulse * dt;
+      snapImpulse = Math.max(0, snapImpulse - SNAP_FRICTION * dt);
+    }
+
     // Update ball positions
     for (let i = 0; i < chain.length; i++) {
       const ball = chain[i];
@@ -326,7 +336,7 @@ function startGame() {
   score = 0; combo = 1; chainBonus = 1; level = 1;
   loadLevel(LEVELS[0]);
   spawnTimer = 0;
-  progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0;
+  progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0; snapImpulse = 0;
   rollInRemaining = rollInCount; rollInSpawned = 0;
 
   updateHUD(); updateProgressBar();
@@ -350,7 +360,7 @@ function levelUp() {
   loadLevel(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
   spawnTimer = -2;
   progress = 0; levelStartScore = score; chainBonus = 1;
-  spawningDone = false; rollBackTimer = 0;
+  spawningDone = false; rollBackTimer = 0; snapImpulse = 0;
   rollInRemaining = rollInCount; rollInSpawned = 0;
   updateProgressBar();
   showBanner('LEVEL ' + level);

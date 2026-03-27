@@ -135,7 +135,8 @@ function scheduleCollapse(gapFrontIdx) {
   const frontBall = chain[gapFrontIdx - 1];
   const backBall = chain[gapFrontIdx];
   const matching = frontBall && backBall && frontBall.colorIdx === backBall.colorIdx;
-  gaps.push({ frontBall, backBall, matching });
+  const initialGapSize = backBall && frontBall ? frontBall.s - backBall.s - BALL_SPACING : 0;
+  gaps.push({ frontBall, backBall, matching, initialGapSize });
 }
 
 function updatePushForwards(dt) {
@@ -215,6 +216,9 @@ function updateCollapses(dt) {
         if (chain[i].s > tgt) chain[i].s = tgt; else break;
       }
       gaps.splice(g, 1);
+
+      // Apply snap-back impulse proportional to the gap that just closed
+      snapImpulse = Math.min(snapImpulse + gap.initialGapSize * 1.2, 8.0);
 
       // Chain reaction check
       if (gap.frontBall.colorIdx === gap.backBall.colorIdx) {

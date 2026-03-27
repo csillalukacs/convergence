@@ -126,7 +126,7 @@ function pickColor() {
 
 function makeBallPreview(colorIdx, size) {
   return new THREE.Mesh(new THREE.SphereGeometry(size, 12, 10),
-    new THREE.MeshStandardMaterial({ color: COLORS[colorIdx], metalness: 0.5, roughness: 0.3, emissive: COLOR_EMISSIVE[colorIdx] }));
+    new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.5, roughness: 0.3, emissive: COLOR_EMISSIVE[colorIdx] }));
 }
 
 function loadShooterBalls() {
@@ -164,11 +164,166 @@ function onSwapAction() {
   rebuildShooterVisuals();
 }
 
+// ─── BALL TEXTURES ───
+// One procedural canvas texture per color, lazily created and cached.
+// To swap in image files, replace createBallTexture() with a loader and return
+// a THREE.TextureLoader().load('sounds/ball0.png') etc.
+
+const ballTextures = [];
+
+function getBallTexture(colorIdx) {
+  if (!ballTextures[colorIdx]) ballTextures[colorIdx] = createBallTexture(colorIdx);
+  return ballTextures[colorIdx];
+}
+
+function createBallTexture(colorIdx) {
+  const S = 256;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const ctx = cv.getContext('2d');
+
+  const hex = COLORS[colorIdx];
+  const r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff;
+  const cols = {
+    base: `rgb(${r},${g},${b})`,
+    dark: `rgb(${Math.round(r * 0.20)},${Math.round(g * 0.20)},${Math.round(b * 0.20)})`,
+    mid:  `rgb(${Math.round(r * 0.48)},${Math.round(g * 0.48)},${Math.round(b * 0.48)})`,
+    lite: `rgb(${Math.min(255, Math.round(r * 1.9 + 60))},${Math.min(255, Math.round(g * 1.9 + 60))},${Math.min(255, Math.round(b * 1.9 + 60))})`,
+  };
+
+  ctx.fillStyle = cols.base;
+  ctx.fillRect(0, 0, S, S);
+
+  [texRivets, texGear, texDiamondPlate, texHexBolts, texPipes][colorIdx](ctx, S, cols);
+
+  return new THREE.CanvasTexture(cv);
+}
+
+// 0 — Red: staggered rivets
+function texRivets(ctx, S, cols) {
+  const spacing = S / 4.5;
+  for (let row = 0; row < 6; row++) {
+    for (let col = 0; col < 6; col++) {
+      const x = (col + (row % 2 === 0 ? 0.2 : 0.7)) * spacing;
+      const y = row * spacing;
+      const rv = S * 0.062;
+      ctx.fillStyle = cols.dark;
+      ctx.beginPath(); ctx.arc(x, y, rv, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = cols.lite;
+      ctx.beginPath(); ctx.arc(x - rv * 0.35, y - rv * 0.35, rv * 0.42, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+// 1 — Blue: central gear with spokes
+function texGear(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2;
+  const teeth = 8, outerR = S * 0.40, innerR = S * 0.26, hubR = S * 0.09;
+
+  ctx.fillStyle = cols.dark;
+  ctx.beginPath();
+  for (let i = 0; i < teeth * 2; i++) {
+    const a = (i / (teeth * 2)) * Math.PI * 2;
+    const rr = i % 2 === 0 ? outerR : outerR * 0.80;
+    if (i === 0) ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+    else         ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = cols.base;
+  ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, Math.PI * 2); ctx.fill();
+
+  ctx.strokeStyle = cols.dark;
+  ctx.lineWidth = S * 0.07;
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * hubR, cy + Math.sin(a) * hubR);
+    ctx.lineTo(cx + Math.cos(a) * innerR * 0.92, cy + Math.sin(a) * innerR * 0.92);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = cols.dark;
+  ctx.beginPath(); ctx.arc(cx, cy, hubR, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = cols.lite;
+  ctx.beginPath(); ctx.arc(cx - hubR * 0.3, cy - hubR * 0.3, hubR * 0.38, 0, Math.PI * 2); ctx.fill();
+}
+
+// 2 — Green: diamond / checker plate
+function texDiamondPlate(ctx, S, cols) {
+  const step = S / 5;
+  ctx.strokeStyle = cols.dark;
+  ctx.lineWidth = S * 0.038;
+  for (let i = -S; i < S * 2; i += step) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + S, S); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i - S, S); ctx.stroke();
+  }
+  ctx.fillStyle = cols.lite;
+  for (let row = 0; row < 7; row++) {
+    for (let col = 0; col < 7; col++) {
+      const x = col * step + (row % 2 === 0 ? 0 : step / 2);
+      const y = row * (step / 2);
+      ctx.beginPath(); ctx.arc(x, y, S * 0.013, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+// 3 — Yellow: hex-bolt grid
+function texHexBolts(ctx, S, cols) {
+  const r = S * 0.11;
+  const colW = r * Math.sqrt(3);
+  const boltR = r * 0.32;
+  for (let row = -1; row < 6; row++) {
+    for (let col = -1; col < 6; col++) {
+      const cx = col * colW + (row % 2 === 0 ? 0 : colW / 2);
+      const cy = row * r * 1.5;
+      ctx.strokeStyle = cols.dark;
+      ctx.lineWidth = S * 0.030;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const x = cx + Math.cos(a) * r * 0.88, y = cy + Math.sin(a) * r * 0.88;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.stroke();
+      ctx.fillStyle = cols.dark;
+      ctx.beginPath(); ctx.arc(cx, cy, boltR, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = cols.lite;
+      ctx.beginPath(); ctx.arc(cx - boltR * 0.3, cy - boltR * 0.3, boltR * 0.38, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+// 4 — Purple: cross of pipes with flanges
+function texPipes(ctx, S, cols) {
+  const pW = S * 0.24, fW = S * 0.07;
+  const p0 = (S - pW) / 2;
+
+  ctx.fillStyle = cols.dark;
+  ctx.fillRect(0, p0, S, pW);
+  ctx.fillRect(p0, 0, pW, S);
+
+  ctx.fillStyle = cols.mid;
+  const hW = pW * 0.28;
+  ctx.fillRect(0, (S - hW) / 2, S, hW);
+  ctx.fillRect((S - hW) / 2, 0, hW, S);
+
+  ctx.fillStyle = cols.dark;
+  [0.22, 0.78].forEach(t => {
+    ctx.fillRect(S * t - fW / 2, p0 - fW, fW, pW + fW * 2);
+    ctx.fillRect(p0 - fW, S * t - fW / 2, pW + fW * 2, fW);
+  });
+
+  ctx.beginPath(); ctx.arc(S / 2, S / 2, pW * 0.68, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = cols.lite;
+  ctx.beginPath(); ctx.arc(S / 2 - pW * 0.18, S / 2 - pW * 0.18, pW * 0.22, 0, Math.PI * 2); ctx.fill();
+}
+
 // ─── CHAIN BALL MESH ───
 
 function createBallMesh(colorIdx) {
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 16, 12),
-    new THREE.MeshStandardMaterial({ color: COLORS[colorIdx], metalness: 0.5, roughness: 0.3, emissive: COLOR_EMISSIVE[colorIdx] }));
+    new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.5, roughness: 0.3, emissive: COLOR_EMISSIVE[colorIdx] }));
   mesh.add(new THREE.Mesh(new THREE.TorusGeometry(BALL_RADIUS * 0.95, 0.03, 4, 12),
     new THREE.MeshStandardMaterial({ color: 0xD4A847, metalness: 1, roughness: 0.1 })));
   return mesh;

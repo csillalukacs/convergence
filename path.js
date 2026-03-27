@@ -8,7 +8,7 @@ const COLOR_EMISSIVE = [
   0x601010, 0x103050, 0x104020, 0x604010, 0x401050,
 ];
 
-const BALL_RADIUS = 0.55;
+const BALL_RADIUS = 0.75;
 const SHOOTER_POS = { x: 0, y: 0, z: 0 };
 
 // ─── PATH ───

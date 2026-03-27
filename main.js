@@ -58,11 +58,15 @@ function init() {
 
   clock = new THREE.Clock();
 
-  scene.add(new THREE.AmbientLight(0x3a2a10, 0.6));
-  const dl = new THREE.DirectionalLight(0xD4A847, 0.8);
+  scene.add(new THREE.AmbientLight(0x6a4a20, 1.4));
+  const dl = new THREE.DirectionalLight(0xD4A847, 1.8);
   dl.position.set(5, 8, 15); scene.add(dl);
-  const pl = new THREE.PointLight(0xF0C040, 0.6, 30);
+  const dl2 = new THREE.DirectionalLight(0xffd080, 1.0);
+  dl2.position.set(-8, -5, 10); scene.add(dl2);
+  const pl = new THREE.PointLight(0xF0C040, 1.4, 40);
   pl.position.set(0, 0, 8); scene.add(pl);
+  const pl2 = new THREE.PointLight(0xffffff, 0.8, 25);
+  pl2.position.set(-6, 6, 10); scene.add(pl2);
 
   buildPath();
   createTrack();

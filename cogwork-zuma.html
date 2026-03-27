@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cogwork Zuma - Steampunk Ball Shooter</title>
+<link rel="stylesheet" href="cogwork-zuma.css">
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="hud">
+  <div class="hud-panel">Score: <span class="value" id="score-val">0</span></div>
+  <div class="hud-panel">Level: <span class="value" id="level-val">1</span></div>
+  <div class="hud-panel">Combo: <span class="value" id="combo-val">x1</span></div>
+</div>
+
+<div id="progress-wrap"><div id="progress-bar"></div></div>
+<div id="progress-label">PRESSURE GAUGE</div>
+
+<div id="swap-hint">Right-click or Space to swap balls</div>
+
+<div id="title-screen">
+  <div class="gear-deco"></div>
+  <div class="gear-deco"></div>
+  <div class="gear-deco"></div>
+  <h1>COGWORK ZUMA</h1>
+  <div class="subtitle">A Steampunk Marble Engine</div>
+  <button class="btn-start" onclick="startGame()">ENGAGE</button>
+</div>
+
+<div id="game-over">
+  <h2 id="go-title">GEARS HALTED</h2>
+  <div class="final-score" id="final-score">Score: 0</div>
+  <button class="btn-start" onclick="startGame()">RESTART ENGINE</button>
+</div>
+
+<div id="level-banner"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="cogwork-zuma.js"></script>
+</body>
+</html>

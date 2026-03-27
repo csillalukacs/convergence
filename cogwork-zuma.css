@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Spectral:ital,wght@0,400;1,400&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0806;
+  overflow: hidden;
+  font-family: 'Cinzel Decorative', serif;
+  cursor: crosshair;
+  user-select: none;
+}
+
+#game-canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud-panel {
+  background: linear-gradient(135deg, rgba(42,28,12,0.92), rgba(26,18,8,0.96));
+  border: 1px solid #8B6914;
+  border-radius: 4px;
+  padding: 6px 18px;
+  color: #D4A847;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  box-shadow: 0 0 15px rgba(139,105,20,0.3), inset 0 0 10px rgba(0,0,0,0.5);
+  text-shadow: 0 0 8px rgba(212,168,71,0.5);
+}
+
+.hud-panel .value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #F0C040;
+  text-shadow: 0 0 12px rgba(240,192,64,0.6);
+}
+
+#progress-wrap {
+  position: fixed;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(400px, 70vw);
+  height: 14px;
+  background: rgba(20,14,6,0.9);
+  border: 1px solid #5a4020;
+  border-radius: 7px;
+  overflow: hidden;
+  z-index: 10;
+  box-shadow: 0 0 10px rgba(0,0,0,0.6), inset 0 2px 4px rgba(0,0,0,0.5);
+}
+
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #8B6914, #F0C040, #D4A847);
+  border-radius: 7px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 12px rgba(240,192,64,0.5);
+}
+
+#progress-label {
+  position: fixed;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #8B6914;
+  font-size: 9px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  z-index: 10;
+  pointer-events: none;
+  font-family: 'Spectral', serif;
+}
+
+#swap-hint {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #5a4a2a;
+  font-size: 11px;
+  letter-spacing: 2px;
+  z-index: 10;
+  pointer-events: none;
+  font-family: 'Spectral', serif;
+  font-style: italic;
+}
+
+#title-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: radial-gradient(ellipse at center, #1a120a 0%, #0a0806 70%);
+}
+
+#title-screen h1 {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: clamp(36px, 6vw, 72px);
+  color: #D4A847;
+  text-shadow: 0 0 30px rgba(212,168,71,0.6), 0 4px 8px rgba(0,0,0,0.8);
+  margin-bottom: 8px;
+  letter-spacing: 6px;
+}
+
+#title-screen .subtitle {
+  font-family: 'Spectral', serif;
+  font-style: italic;
+  color: #8B6914;
+  font-size: clamp(14px, 2vw, 20px);
+  margin-bottom: 50px;
+  letter-spacing: 3px;
+}
+
+.btn-start {
+  font-family: 'Cinzel Decorative', serif;
+  background: linear-gradient(135deg, #8B6914, #D4A847, #8B6914);
+  color: #1a120a;
+  border: 2px solid #D4A847;
+  padding: 14px 48px;
+  font-size: 18px;
+  letter-spacing: 4px;
+  cursor: pointer;
+  pointer-events: all;
+  text-transform: uppercase;
+  transition: all 0.3s;
+  box-shadow: 0 0 20px rgba(212,168,71,0.3);
+}
+
+.btn-start:hover {
+  background: linear-gradient(135deg, #D4A847, #F0C040, #D4A847);
+  box-shadow: 0 0 40px rgba(212,168,71,0.6);
+  transform: scale(1.05);
+}
+
+#game-over {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: rgba(10,8,6,0.92);
+}
+
+#game-over h2 {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 48px;
+  color: #D4A847;
+  text-shadow: 0 0 30px rgba(212,168,71,0.5);
+  margin-bottom: 16px;
+}
+
+#game-over .final-score {
+  color: #F0C040;
+  font-size: 28px;
+  margin-bottom: 40px;
+  letter-spacing: 3px;
+}
+
+#level-banner {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 42px;
+  color: #F0C040;
+  text-shadow: 0 0 40px rgba(240,192,64,0.8);
+  letter-spacing: 8px;
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+
+.gear-deco {
+  position: absolute;
+  border: 3px solid rgba(139,105,20,0.15);
+  border-radius: 50%;
+  animation: spin 20s linear infinite;
+}
+
+.gear-deco:nth-child(1) { width: 200px; height: 200px; top: -60px; left: -60px; }
+.gear-deco:nth-child(2) { width: 150px; height: 150px; bottom: -40px; right: -40px; animation-direction: reverse; }
+.gear-deco:nth-child(3) { width: 120px; height: 120px; top: 20%; right: 10%; animation-duration: 15s; }
+
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -8,25 +8,32 @@ let bgStars = [];
 
 // ─── TRACK ───
 
+let trackMeshes = [];
+
+function clearTrack() {
+  trackMeshes.forEach(m => scene.remove(m));
+  trackMeshes = [];
+}
+
 function createTrack() {
   const curve = new THREE.CatmullRomCurve3(pathPoints);
   const t1 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.12, 6, false),
     new THREE.MeshStandardMaterial({ color: 0x3a2a10, metalness: 0.8, roughness: 0.3, emissive: 0x1a1005 }));
-  t1.position.z = -0.3; scene.add(t1);
+  t1.position.z = -0.3; scene.add(t1); trackMeshes.push(t1);
   const t2 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.06, 4, false),
     new THREE.MeshStandardMaterial({ color: 0x8B6914, metalness: 0.9, roughness: 0.2, emissive: 0x2a1a05 }));
-  t2.position.z = -0.25; scene.add(t2);
+  t2.position.z = -0.25; scene.add(t2); trackMeshes.push(t2);
 
   // Skull / danger zone
   const ep = getPathPosFromS(pathLength);
   const dg = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.9, 8),
     new THREE.MeshStandardMaterial({ color: 0xC0392B, emissive: 0x601010, metalness: 0.5, side: THREE.DoubleSide }));
-  dg.position.copy(ep); dg.position.z = -0.2; scene.add(dg);
+  dg.position.copy(ep); dg.position.z = -0.2; scene.add(dg); trackMeshes.push(dg);
   const cm = new THREE.MeshStandardMaterial({ color: 0xC0392B, emissive: 0x801515, side: THREE.DoubleSide });
   const c1 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.15), cm);
-  c1.position.copy(ep); c1.position.z = -0.15; scene.add(c1);
+  c1.position.copy(ep); c1.position.z = -0.15; scene.add(c1); trackMeshes.push(c1);
   const c2 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.15), cm);
-  c2.position.copy(ep); c2.position.z = -0.15; c2.rotation.z = Math.PI / 2; scene.add(c2);
+  c2.position.copy(ep); c2.position.z = -0.15; c2.rotation.z = Math.PI / 2; scene.add(c2); trackMeshes.push(c2);
 }
 
 // ─── BACKGROUND ───
@@ -121,12 +128,11 @@ function createShooter() {
 }
 
 function pickColor() {
-  const maxColor = Math.min(3 + Math.floor(level / 2), COLORS.length);
   if (spawningDone && chain.length > 0) {
     const present = [...new Set(chain.map(b => b.colorIdx))];
     if (present.length > 0) return present[Math.floor(Math.random() * present.length)];
   }
-  return Math.floor(Math.random() * maxColor);
+  return Math.floor(Math.random() * levelColors);
 }
 
 function makeBallPreview(colorIdx, size) {

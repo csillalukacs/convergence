@@ -11,6 +11,11 @@ const COLOR_EMISSIVE = [
 const BALL_RADIUS = 0.75;
 const SHOOTER_POS = { x: 0, y: 0, z: 0 };
 
+// ─── LEVELS ───
+
+const LEVELS = [];
+let levelColors = 3;
+
 // ─── PATH ───
 
 let pathPoints = [];
@@ -19,16 +24,17 @@ let arcLengths;
 
 const BALL_SPACING = BALL_RADIUS * 2.05;
 
-function buildPath() {
+// waypoints: array of {x, y} — the skull sits at the last waypoint
+function buildPath(waypoints) {
+  const curve = new THREE.CatmullRomCurve3(
+    waypoints.map(p => new THREE.Vector3(p.x, p.y, 0)),
+    false, 'catmullrom', 0.5
+  );
   pathPoints = [];
   const steps = 600;
   for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const angle = t * Math.PI * 4.5 + Math.PI;
-    const radius = 11 - t * 8.5;
-    pathPoints.push(new THREE.Vector3(Math.cos(angle) * radius, Math.sin(angle) * radius, 0));
+    pathPoints.push(curve.getPoint(i / steps));
   }
-  // Build arc-length table: arcLengths[i] = cumulative distance from pathPoints[0] to pathPoints[i]
   arcLengths = new Float64Array(pathPoints.length);
   arcLengths[0] = 0;
   for (let i = 1; i < pathPoints.length; i++) {

@@ -23,9 +23,9 @@ let score = 0, combo = 1, chainBonus = 1, level = 1;
 let gameActive = false;
 let gamePaused = false;
 let mouseX = 0, mouseY = 0;
-const CHAIN_SPEED_INITIAL = 1.6;
-let chainSpeed = CHAIN_SPEED_INITIAL; // world units per second (arc-length)
+let chainSpeed = 1.6; // world units per second (arc-length)
 let spawnTimer = 0;
+let spawnInterval = 0.45;
 
 // Progress / spawning
 let progress = 0;
@@ -34,7 +34,7 @@ let levelStartScore = 0;
 let spawningDone = false;
 
 // Roll-in phase
-const ROLL_IN_COUNT = 20;
+let rollInCount = 20;
 const ROLL_IN_SPEED = 8.0;
 const ROLL_IN_INTERVAL = 0.1;
 let rollInRemaining = 0;
@@ -70,8 +70,7 @@ function init() {
   const pl2 = new THREE.PointLight(0xffffff, 0.8, 25);
   pl2.position.set(-6, 6, 10); scene.add(pl2);
 
-  buildPath();
-  createTrack();
+  loadLevel(LEVELS[0]);
   createBackground();
   createShooter();
 
@@ -181,11 +180,11 @@ function animate() {
 
     // Spawn at back of chain
     const rollingIn = rollInRemaining > 0;
-    const spawnInterval = rollInSpawned < ROLL_IN_COUNT ? ROLL_IN_INTERVAL : 0.45;
-    if (!spawningDone && spawnTimer > spawnInterval) {
+    const effectiveInterval = rollInSpawned < rollInCount ? ROLL_IN_INTERVAL : spawnInterval;
+    if (!spawningDone && spawnTimer > effectiveInterval) {
       spawnChainBall();
       spawnTimer = 0;
-      if (rollInSpawned < ROLL_IN_COUNT) {
+      if (rollInSpawned < rollInCount) {
         chain[chain.length - 1].isRollIn = true;
         rollInSpawned++;
       }
@@ -294,6 +293,17 @@ function togglePause() {
   if (!gamePaused) clock.getDelta(); // discard time accumulated while paused
 }
 
+function loadLevel(def) {
+  levelColors    = def.colors;
+  chainSpeed     = def.chainSpeed;
+  spawnInterval  = def.spawnInterval;
+  rollInCount    = def.rollInCount;
+  progressMax    = def.progressThreshold;
+  clearTrack();
+  buildPath(def.waypoints);
+  createTrack();
+}
+
 function startGame() {
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
@@ -306,9 +316,10 @@ function startGame() {
   pushForwards = [];
 
   score = 0; combo = 1; chainBonus = 1; level = 1;
-  chainSpeed = CHAIN_SPEED_INITIAL; spawnTimer = 0;
-  progress = 0; levelStartScore = 0; progressMax = 250; spawningDone = false;
-  rollInRemaining = ROLL_IN_COUNT; rollInSpawned = 0;
+  loadLevel(LEVELS[0]);
+  spawnTimer = 0;
+  progress = 0; levelStartScore = 0; spawningDone = false;
+  rollInRemaining = rollInCount; rollInSpawned = 0;
 
   updateHUD(); updateProgressBar();
   loadShooterBalls();
@@ -328,12 +339,11 @@ function gameOver() {
 function levelUp() {
   level++;
   playSound('levelup');
-  chainSpeed = Math.min(3.5, CHAIN_SPEED_INITIAL + level * 0.2);
+  loadLevel(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
   spawnTimer = -2;
   progress = 0; levelStartScore = score; chainBonus = 1;
-  progressMax = Math.min(800, 250 + level * 100);
   spawningDone = false;
-  rollInRemaining = ROLL_IN_COUNT; rollInSpawned = 0;
+  rollInRemaining = rollInCount; rollInSpawned = 0;
   updateProgressBar();
   showBanner('LEVEL ' + level);
   updateHUD();

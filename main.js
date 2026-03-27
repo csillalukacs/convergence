@@ -19,7 +19,7 @@
 let scene, camera, renderer, clock;
 let projectiles = [];
 let particles = [];
-let score = 0, combo = 1, level = 1;
+let score = 0, combo = 1, chainBonus = 1, level = 1;
 let gameActive = false;
 let gamePaused = false;
 let mouseX = 0, mouseY = 0;
@@ -305,7 +305,7 @@ function startGame() {
   gaps = [];
   pushForwards = [];
 
-  score = 0; combo = 1; level = 1;
+  score = 0; combo = 1; chainBonus = 1; level = 1;
   chainSpeed = CHAIN_SPEED_INITIAL; spawnTimer = 0;
   progress = 0; levelStartScore = 0; progressMax = 250; spawningDone = false;
   rollInRemaining = ROLL_IN_COUNT; rollInSpawned = 0;
@@ -330,7 +330,7 @@ function levelUp() {
   playSound('levelup');
   chainSpeed = Math.min(3.5, CHAIN_SPEED_INITIAL + level * 0.2);
   spawnTimer = -2;
-  progress = 0; levelStartScore = score;
+  progress = 0; levelStartScore = score; chainBonus = 1;
   progressMax = Math.min(800, 250 + level * 100);
   spawningDone = false;
   rollInRemaining = ROLL_IN_COUNT; rollInSpawned = 0;
@@ -349,6 +349,7 @@ function updateHUD() {
   document.getElementById('score-val').textContent = score;
   document.getElementById('level-val').textContent = level;
   document.getElementById('combo-val').textContent = 'x' + combo;
+  document.getElementById('chain-bonus-val').textContent = 'x' + chainBonus;
   progress = Math.min(1, (score - levelStartScore) / progressMax);
   updateProgressBar();
   if (progress >= 1 && !spawningDone) {

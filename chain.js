@@ -94,23 +94,26 @@ function hasGapBetween(frontIdx, backIdx) {
   return chain[frontIdx].s - chain[backIdx].s > BALL_SPACING * 1.5;
 }
 
-function checkMatches(idx) {
+function checkMatches(idx, fromChainReaction = false) {
   if (idx < 0 || idx >= chain.length) return;
   const col = chain[idx].colorIdx;
   let start = idx, end = idx;
   while (start > 0 && chain[start - 1].colorIdx === col && !hasGapBetween(start - 1, start)) start--;
   while (end < chain.length - 1 && chain[end + 1].colorIdx === col && !hasGapBetween(end, end + 1)) end++;
 
+  if (!fromChainReaction) combo = 1;
+
   const count = end - start + 1;
   if (count >= 3) {
+    if (fromChainReaction) combo++;
     playSound('match');
     for (let i = start; i <= end; i++) {
       explodeBall(chain[i]);
       chain[i].alive = false;
     }
     chain = chain.filter(b => b.alive);
-    score += count * 10 * combo;
-    combo++;
+    score += count * 10 * combo + chainBonus * 10;
+    if (!fromChainReaction) chainBonus++;
     updateHUD();
 
     // Gap collapse: if there are balls on both sides of the removed section
@@ -118,7 +121,8 @@ function checkMatches(idx) {
       scheduleCollapse(start);
     }
   } else {
-    combo = 1;
+    combo = 1; // cascade ended with no match
+    if (!fromChainReaction) chainBonus = 1;
     updateHUD();
   }
 }
@@ -214,9 +218,12 @@ function updateCollapses(dt) {
         setTimeout(() => {
           if (chain.length > 0) {
             playSound('chain');
-            checkMatches(Math.min(checkIdx, chain.length - 1));
+            checkMatches(Math.min(checkIdx, chain.length - 1), true);
           }
         }, 100);
+      } else {
+        combo = 1; // gap closed, no chain reaction — cascade over
+        updateHUD();
       }
     } else if (gap.matching) {
       // Matching colors: front segment actively slides backward to close gap.

@@ -3,7 +3,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: #0a0806;
+  background: #000008;
   overflow: hidden;
   font-family: 'Cinzel Decorative', serif;
   cursor: crosshair;
@@ -31,23 +31,23 @@ body {
 }
 
 .hud-panel {
-  background: linear-gradient(135deg, rgba(42,28,12,0.92), rgba(26,18,8,0.96));
-  border: 1px solid #8B6914;
+  background: linear-gradient(135deg, rgba(8,16,40,0.92), rgba(4,8,24,0.96));
+  border: 1px solid #336699;
   border-radius: 4px;
   padding: 6px 18px;
-  color: #D4A847;
+  color: #88ccff;
   font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  box-shadow: 0 0 15px rgba(139,105,20,0.3), inset 0 0 10px rgba(0,0,0,0.5);
-  text-shadow: 0 0 8px rgba(212,168,71,0.5);
+  box-shadow: 0 0 15px rgba(136,204,255,0.2), inset 0 0 10px rgba(0,0,0,0.5);
+  text-shadow: 0 0 8px rgba(136,204,255,0.5);
 }
 
 .hud-panel .value {
   font-size: 18px;
   font-weight: 700;
-  color: #F0C040;
-  text-shadow: 0 0 12px rgba(240,192,64,0.6);
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(136,204,255,0.8);
 }
 
 #progress-wrap {
@@ -57,8 +57,8 @@ body {
   transform: translateX(-50%);
   width: min(400px, 70vw);
   height: 14px;
-  background: rgba(20,14,6,0.9);
-  border: 1px solid #5a4020;
+  background: rgba(4,8,24,0.9);
+  border: 1px solid #224466;
   border-radius: 7px;
   overflow: hidden;
   z-index: 10;
@@ -68,10 +68,10 @@ body {
 #progress-bar {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #8B6914, #F0C040, #D4A847);
+  background: linear-gradient(90deg, #0066cc, #88ccff, #ffffff, #cc88ff);
   border-radius: 7px;
   transition: width 0.3s ease;
-  box-shadow: 0 0 12px rgba(240,192,64,0.5);
+  box-shadow: 0 0 12px rgba(136,204,255,0.6);
 }
 
 #progress-label {
@@ -79,7 +79,7 @@ body {
   top: 66px;
   left: 50%;
   transform: translateX(-50%);
-  color: #8B6914;
+  color: #446688;
   font-size: 9px;
   letter-spacing: 3px;
   text-transform: uppercase;
@@ -93,7 +93,7 @@ body {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  color: #5a4a2a;
+  color: #334466;
   font-size: 11px;
   letter-spacing: 2px;
   z-index: 10;
@@ -110,14 +110,14 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 100;
-  background: radial-gradient(ellipse at center, #1a120a 0%, #0a0806 70%);
+  background: radial-gradient(ellipse at center, #080820 0%, #000008 70%);
 }
 
 #title-screen h1 {
   font-family: 'Cinzel Decorative', serif;
   font-size: clamp(36px, 6vw, 72px);
-  color: #D4A847;
-  text-shadow: 0 0 30px rgba(212,168,71,0.6), 0 4px 8px rgba(0,0,0,0.8);
+  color: #aaddff;
+  text-shadow: 0 0 30px rgba(136,204,255,0.8), 0 0 60px rgba(136,204,255,0.3), 0 4px 8px rgba(0,0,0,0.8);
   margin-bottom: 8px;
   letter-spacing: 6px;
 }
@@ -125,7 +125,7 @@ body {
 #title-screen .subtitle {
   font-family: 'Spectral', serif;
   font-style: italic;
-  color: #8B6914;
+  color: #446688;
   font-size: clamp(14px, 2vw, 20px);
   margin-bottom: 50px;
   letter-spacing: 3px;
@@ -133,9 +133,9 @@ body {
 
 .btn-start {
   font-family: 'Cinzel Decorative', serif;
-  background: linear-gradient(135deg, #8B6914, #D4A847, #8B6914);
-  color: #1a120a;
-  border: 2px solid #D4A847;
+  background: linear-gradient(135deg, #112244, #224488, #112244);
+  color: #aaddff;
+  border: 1px solid #4488cc;
   padding: 14px 48px;
   font-size: 18px;
   letter-spacing: 4px;
@@ -143,12 +143,13 @@ body {
   pointer-events: all;
   text-transform: uppercase;
   transition: all 0.3s;
-  box-shadow: 0 0 20px rgba(212,168,71,0.3);
+  box-shadow: 0 0 20px rgba(136,204,255,0.2), inset 0 0 20px rgba(136,204,255,0.05);
 }
 
 .btn-start:hover {
-  background: linear-gradient(135deg, #D4A847, #F0C040, #D4A847);
-  box-shadow: 0 0 40px rgba(212,168,71,0.6);
+  background: linear-gradient(135deg, #224488, #336699, #224488);
+  box-shadow: 0 0 40px rgba(136,204,255,0.5), inset 0 0 30px rgba(136,204,255,0.1);
+  color: #ffffff;
   transform: scale(1.05);
 }
 
@@ -160,14 +161,14 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 100;
-  background: rgba(10,8,6,0.80);
+  background: rgba(0,0,8,0.80);
 }
 
 #pause-screen h2 {
   font-family: 'Cinzel Decorative', serif;
   font-size: 48px;
-  color: #D4A847;
-  text-shadow: 0 0 30px rgba(212,168,71,0.5);
+  color: #aaddff;
+  text-shadow: 0 0 30px rgba(136,204,255,0.6);
   margin-bottom: 16px;
   letter-spacing: 4px;
 }
@@ -175,7 +176,7 @@ body {
 #pause-screen .pause-hint {
   font-family: 'Spectral', serif;
   font-style: italic;
-  color: #8B6914;
+  color: #446688;
   font-size: 20px;
   letter-spacing: 2px;
 }
@@ -188,30 +189,31 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 100;
-  background: rgba(10,8,6,0.92);
+  background: rgba(0,0,8,0.92);
 }
 
 #game-over h2 {
   font-family: 'Cinzel Decorative', serif;
   font-size: 48px;
-  color: #D4A847;
-  text-shadow: 0 0 30px rgba(212,168,71,0.5);
+  color: #ff4477;
+  text-shadow: 0 0 30px rgba(255,68,119,0.6);
   margin-bottom: 16px;
 }
 
 #game-over .final-score {
-  color: #F0C040;
+  color: #aaddff;
   font-size: 28px;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
   letter-spacing: 3px;
+  text-shadow: 0 0 12px rgba(136,204,255,0.5);
 }
 
 .combo-text {
   position: fixed;
   font-family: 'Cinzel Decorative', serif;
   font-size: 20px;
-  color: #F0C040;
-  text-shadow: 0 0 12px rgba(240,192,64,0.9), 0 2px 4px rgba(0,0,0,0.9);
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(136,204,255,1), 0 0 24px rgba(204,136,255,0.8), 0 2px 4px rgba(0,0,0,0.9);
   pointer-events: none;
   z-index: 50;
   transform: translate(-50%, -50%);
@@ -228,8 +230,8 @@ body {
   transform: translate(-50%, -50%);
   font-family: 'Cinzel Decorative', serif;
   font-size: 42px;
-  color: #F0C040;
-  text-shadow: 0 0 40px rgba(240,192,64,0.8);
+  color: #ffffff;
+  text-shadow: 0 0 40px rgba(136,204,255,1), 0 0 80px rgba(136,204,255,0.5);
   letter-spacing: 8px;
   z-index: 50;
   opacity: 0;
@@ -239,7 +241,7 @@ body {
 
 .gear-deco {
   position: absolute;
-  border: 3px solid rgba(139,105,20,0.15);
+  border: 1px solid rgba(136,204,255,0.12);
   border-radius: 50%;
   animation: spin 20s linear infinite;
 }

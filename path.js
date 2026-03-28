@@ -1,11 +1,19 @@
 // ─── CONSTANTS ───
 
 const COLORS = [
-  0xC0392B, 0x2980B9, 0x27AE60, 0xD4A847, 0x8E44AD,
+  0xFF2255, // ruby
+  0x00AAFF, // sapphire
+  0x00FF88, // emerald
+  0xFFCC00, // amber
+  0xCC44FF, // amethyst
 ];
 
 const COLOR_EMISSIVE = [
-  0x601010, 0x103050, 0x104020, 0x604010, 0x401050,
+  0x880020,
+  0x004488,
+  0x007744,
+  0x886600,
+  0x661188,
 ];
 
 const BALL_RADIUS = 0.75;

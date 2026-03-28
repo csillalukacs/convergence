@@ -56,10 +56,10 @@ function init() {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x0a0806);
+  renderer.setClearColor(0x000008);
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x0a0806, 0.018);
+  scene.fog = new THREE.FogExp2(0x000208, 0.012);
 
   const aspect = window.innerWidth / window.innerHeight;
   const f = 14;
@@ -69,14 +69,14 @@ function init() {
 
   clock = new THREE.Clock();
 
-  scene.add(new THREE.AmbientLight(0x6a4a20, 1.4));
-  const dl = new THREE.DirectionalLight(0xD4A847, 1.8);
+  scene.add(new THREE.AmbientLight(0x112244, 1.2));
+  const dl = new THREE.DirectionalLight(0xaaddff, 1.8);
   dl.position.set(5, 8, 15); scene.add(dl);
-  const dl2 = new THREE.DirectionalLight(0xffd080, 1.0);
+  const dl2 = new THREE.DirectionalLight(0xff88ff, 0.9);
   dl2.position.set(-8, -5, 10); scene.add(dl2);
-  const pl = new THREE.PointLight(0xF0C040, 1.4, 40);
+  const pl = new THREE.PointLight(0x88ccff, 1.8, 40);
   pl.position.set(0, 0, 8); scene.add(pl);
-  const pl2 = new THREE.PointLight(0xffffff, 0.8, 25);
+  const pl2 = new THREE.PointLight(0xffffff, 1.0, 25);
   pl2.position.set(-6, 6, 10); scene.add(pl2);
 
   loadLevel(LEVELS[0]);
@@ -174,7 +174,10 @@ function animate() {
     shooterPivot.rotation.z = -Math.atan2(dir.x, dir.y);
   }
 
-  gears.forEach(g => { g.rotation.z += g.userData.spinSpeed * dt; });
+  gears.forEach(g => {
+    g.rotation.z += g.userData.spinSpeed * dt;
+    g.rotation.x += g.userData.spinSpeed * 0.7 * dt;
+  });
 
   bgStars.forEach(s => {
     s.position.x += s.userData.vx * dt;

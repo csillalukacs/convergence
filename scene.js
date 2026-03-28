@@ -3,7 +3,7 @@
 let shooterPivot;
 let shooterBallMesh, nextBallMesh;
 let shooterColorIdx = 0, nextColorIdx = 0;
-let gears = [];
+let gears = []; // crystal shards (reuses gears array for animate loop)
 let bgStars = [];
 
 // ─── TRACK ───
@@ -17,19 +17,21 @@ function clearTrack() {
 
 function createTrack() {
   const curve = new THREE.CatmullRomCurve3(pathPoints);
-  const t1 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.12, 6, false),
-    new THREE.MeshStandardMaterial({ color: 0x3a2a10, metalness: 0.8, roughness: 0.3, emissive: 0x1a1005 }));
+  // Outer glow shell — translucent crystal
+  const t1 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.15, 8, false),
+    new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.1, roughness: 0.0, emissive: 0x224466, transparent: true, opacity: 0.30 }));
   t1.position.z = -0.3; scene.add(t1); trackMeshes.push(t1);
-  const t2 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.06, 4, false),
-    new THREE.MeshStandardMaterial({ color: 0x8B6914, metalness: 0.9, roughness: 0.2, emissive: 0x2a1a05 }));
+  // Inner glowing core
+  const t2 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.05, 6, false),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.0, roughness: 0.0, emissive: 0x99ddff }));
   t2.position.z = -0.25; scene.add(t2); trackMeshes.push(t2);
 
-  // Skull / danger zone
+  // Danger zone at skull end
   const ep = getPathPosFromS(pathLength);
   const dg = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.9, 8),
-    new THREE.MeshStandardMaterial({ color: 0xC0392B, emissive: 0x601010, metalness: 0.5, side: THREE.DoubleSide }));
+    new THREE.MeshStandardMaterial({ color: 0xFF2255, emissive: 0x880020, metalness: 0.5, side: THREE.DoubleSide }));
   dg.position.copy(ep); dg.position.z = -0.2; scene.add(dg); trackMeshes.push(dg);
-  const cm = new THREE.MeshStandardMaterial({ color: 0xC0392B, emissive: 0x801515, side: THREE.DoubleSide });
+  const cm = new THREE.MeshStandardMaterial({ color: 0xFF2255, emissive: 0xaa0030, side: THREE.DoubleSide });
   const c1 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.15), cm);
   c1.position.copy(ep); c1.position.z = -0.15; scene.add(c1); trackMeshes.push(c1);
   const c2 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.15), cm);
@@ -39,67 +41,35 @@ function createTrack() {
 // ─── BACKGROUND ───
 
 function createBackground() {
-  [
-    { x: -10, y: 8, s: 2.5, sp: 0.3 }, { x: 12, y: -7, s: 3, sp: -0.2 },
-    { x: -8, y: -9, s: 1.8, sp: 0.4 }, { x: 11, y: 9, s: 2, sp: -0.35 },
-    { x: -13, y: 0, s: 1.5, sp: 0.25 }, { x: 7, y: 11, s: 1.2, sp: -0.5 },
-  ].forEach(gp => {
-    const gear = createGearMesh(gp.s, 12);
-    gear.position.set(gp.x, gp.y, -2);
-    gear.userData.spinSpeed = gp.sp;
-    scene.add(gear); gears.push(gear);
-  });
+  // Floating crystal shards
+  const shardColors = [0xFF2255, 0x00AAFF, 0x00FF88, 0xFFCC00, 0xCC44FF, 0xffffff, 0x88ccff];
+  for (let i = 0; i < 20; i++) {
+    const col = shardColors[Math.floor(Math.random() * shardColors.length)];
+    const size = 0.12 + Math.random() * 0.45;
+    const shard = new THREE.Mesh(
+      new THREE.OctahedronGeometry(size, 0),
+      new THREE.MeshStandardMaterial({
+        color: col, emissive: col, emissiveIntensity: 0.35,
+        metalness: 0.3, roughness: 0.0, transparent: true, opacity: 0.55 + Math.random() * 0.3
+      })
+    );
+    shard.position.set((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 28, -1.5 - Math.random() * 2);
+    shard.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    shard.userData.spinSpeed = (Math.random() - 0.5) * 0.5;
+    scene.add(shard);
+    gears.push(shard);
+  }
 
-  [
-    { x1: -15, y1: -5, x2: -15, y2: 12 },
-    { x1: 15, y1: -12, x2: 15, y2: 8 },
-    { x1: -12, y1: -12, x2: 8, y2: -12 },
-  ].forEach(pd => {
-    const dir = new THREE.Vector3(pd.x2 - pd.x1, pd.y2 - pd.y1, 0);
-    const len = dir.length(); dir.normalize();
-    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, len, 6),
-      new THREE.MeshStandardMaterial({ color: 0x4a3a1a, metalness: 0.9, roughness: 0.3 }));
-    pipe.position.set((pd.x1 + pd.x2) / 2, (pd.y1 + pd.y2) / 2, -1.5);
-    pipe.rotation.z = Math.atan2(dir.y, dir.x) - Math.PI / 2;
-    scene.add(pipe);
-    for (let i = 0; i < 6; i++) {
-      const t = i / 5;
-      const r = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 4),
-        new THREE.MeshStandardMaterial({ color: 0x8B6914, metalness: 1, roughness: 0.2 }));
-      r.position.set(pd.x1 + (pd.x2 - pd.x1) * t, pd.y1 + (pd.y2 - pd.y1) * t, -1.35);
-      scene.add(r);
-    }
-  });
-
-  for (let i = 0; i < 40; i++) {
-    const mat = new THREE.MeshBasicMaterial({ color: 0xF0C040, transparent: true, opacity: Math.random() * 0.4 + 0.1 });
-    const s = new THREE.Mesh(new THREE.SphereGeometry(0.04, 4, 4), mat);
-    s.position.set((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 28, -1 + Math.random() * 2);
-    s.userData = { vy: (Math.random() - 0.3) * 0.5, vx: (Math.random() - 0.5) * 0.2, baseOp: mat.opacity };
+  // Colorful twinkling stars
+  const starPalette = [0xffffff, 0xaaddff, 0xff88cc, 0x88ffdd, 0xffddaa, 0xcc88ff];
+  for (let i = 0; i < 80; i++) {
+    const col = starPalette[Math.floor(Math.random() * starPalette.length)];
+    const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: Math.random() * 0.5 + 0.1 });
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.02 + Math.random() * 0.04, 4, 4), mat);
+    s.position.set((Math.random() - 0.5) * 32, (Math.random() - 0.5) * 30, -1 + Math.random() * 2);
+    s.userData = { vy: (Math.random() - 0.3) * 0.3, vx: (Math.random() - 0.5) * 0.12, baseOp: mat.opacity };
     scene.add(s); bgStars.push(s);
   }
-}
-
-function createGearMesh(radius, teeth) {
-  const shape = new THREE.Shape();
-  const th = radius * 0.15, steps = teeth * 2;
-  for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * Math.PI * 2;
-    const r = (i % 2 === 0) ? radius + th : radius - th * 0.3;
-    if (i === 0) shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-    else shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-  }
-  const hole = new THREE.Path();
-  for (let i = 0; i <= 20; i++) {
-    const a = (i / 20) * Math.PI * 2, hr = radius * 0.21;
-    if (i === 0) hole.moveTo(Math.cos(a) * hr, Math.sin(a) * hr);
-    else hole.lineTo(Math.cos(a) * hr, Math.sin(a) * hr);
-  }
-  shape.holes.push(hole);
-  return new THREE.Mesh(
-    new THREE.ExtrudeGeometry(shape, { depth: 0.3, bevelEnabled: false }),
-    new THREE.MeshStandardMaterial({ color: 0x2a1a0a, metalness: 0.8, roughness: 0.4, emissive: 0x0a0500 })
-  );
 }
 
 // ─── SHOOTER ───
@@ -109,19 +79,22 @@ function createShooter() {
   shooterPivot.position.set(SHOOTER_POS.x, SHOOTER_POS.y, 0);
   scene.add(shooterPivot);
 
+  // Crystal base disc
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.75, 0.4, 16),
-    new THREE.MeshStandardMaterial({ color: 0x5a4020, metalness: 0.9, roughness: 0.2 }));
+    new THREE.MeshStandardMaterial({ color: 0x224466, metalness: 0.9, roughness: 0.1, emissive: 0x112233 }));
   base.rotation.x = Math.PI / 2; shooterPivot.add(base);
 
+  // Glow ring
   shooterPivot.add(new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.06, 8, 16),
-    new THREE.MeshStandardMaterial({ color: 0xD4A847, metalness: 1, roughness: 0.1 })));
+    new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.8, roughness: 0.0, emissive: 0x336699 })));
 
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.6, 8),
-    new THREE.MeshStandardMaterial({ color: 0x4a3a1a, metalness: 0.9, roughness: 0.2, emissive: 0x1a0a00 }));
+  // Crystal barrel
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.20, 1.6, 8),
+    new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.8, roughness: 0.05, emissive: 0x112244, transparent: true, opacity: 0.85 }));
   barrel.position.y = 0.9; shooterPivot.add(barrel);
 
   const tip = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.04, 6, 12),
-    new THREE.MeshStandardMaterial({ color: 0xD4A847, metalness: 1, roughness: 0.1, emissive: 0x3a2a05 }));
+    new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.0, emissive: 0x4488aa }));
   tip.position.y = 1.65; shooterPivot.add(tip);
 
   loadShooterBalls();
@@ -137,7 +110,7 @@ function pickColor() {
 
 function makeBallPreview(colorIdx, size) {
   return new THREE.Mesh(new THREE.SphereGeometry(size, 12, 10),
-    new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.5, roughness: 0.3, emissive: COLOR_EMISSIVE[colorIdx] }));
+    new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
 }
 
 function loadShooterBalls() {
@@ -189,7 +162,6 @@ function spawnComboText(worldPos, comboVal) {
   el.style.top  = y + 'px';
   document.body.appendChild(el);
 
-  // Double rAF ensures the element is painted before the transition starts
   requestAnimationFrame(() => requestAnimationFrame(() => {
     el.style.transform = 'translate(-50%, -70px)';
     el.style.opacity = '0';
@@ -198,9 +170,6 @@ function spawnComboText(worldPos, comboVal) {
 }
 
 // ─── BALL TEXTURES ───
-// One procedural canvas texture per color, lazily created and cached.
-// To swap in image files, replace createBallTexture() with a loader and return
-// a THREE.TextureLoader().load('sounds/ball0.png') etc.
 
 const ballTextures = [];
 
@@ -219,147 +188,135 @@ function createBallTexture(colorIdx) {
   const r = (hex >> 16) & 0xff, g = (hex >> 8) & 0xff, b = hex & 0xff;
   const cols = {
     base: `rgb(${r},${g},${b})`,
-    dark: `rgb(${Math.round(r * 0.20)},${Math.round(g * 0.20)},${Math.round(b * 0.20)})`,
-    mid:  `rgb(${Math.round(r * 0.48)},${Math.round(g * 0.48)},${Math.round(b * 0.48)})`,
-    lite: `rgb(${Math.min(255, Math.round(r * 1.9 + 60))},${Math.min(255, Math.round(g * 1.9 + 60))},${Math.min(255, Math.round(b * 1.9 + 60))})`,
+    dark: `rgb(${Math.round(r * 0.15)},${Math.round(g * 0.15)},${Math.round(b * 0.15)})`,
+    mid:  `rgb(${Math.round(r * 0.45)},${Math.round(g * 0.45)},${Math.round(b * 0.45)})`,
+    lite: `rgb(${Math.min(255, Math.round(r * 1.5 + 80))},${Math.min(255, Math.round(g * 1.5 + 80))},${Math.min(255, Math.round(b * 1.5 + 80))})`,
   };
 
   ctx.fillStyle = cols.base;
   ctx.fillRect(0, 0, S, S);
 
-  [texRivets, texGear, texDiamondPlate, texHexBolts, texPipes][colorIdx](ctx, S, cols);
+  [texBrilliant, texHexFacets, texEmeraldCut, texStarburst, texDiamondGrid][colorIdx](ctx, S, cols);
 
   return new THREE.CanvasTexture(cv);
 }
 
-// 0 — Red: staggered rivets
-function texRivets(ctx, S, cols) {
-  const spacing = S / 4.5;
-  for (let row = 0; row < 6; row++) {
-    for (let col = 0; col < 6; col++) {
-      const x = (col + (row % 2 === 0 ? 0.2 : 0.7)) * spacing;
-      const y = row * spacing;
-      const rv = S * 0.062;
-      ctx.fillStyle = cols.dark;
-      ctx.beginPath(); ctx.arc(x, y, rv, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = cols.lite;
-      ctx.beginPath(); ctx.arc(x - rv * 0.35, y - rv * 0.35, rv * 0.42, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-}
-
-// 1 — Blue: central gear with spokes
-function texGear(ctx, S, cols) {
+// 0 — Ruby: brilliant-cut radial facets
+function texBrilliant(ctx, S, cols) {
   const cx = S / 2, cy = S / 2;
-  const teeth = 8, outerR = S * 0.40, innerR = S * 0.26, hubR = S * 0.09;
-
-  ctx.fillStyle = cols.dark;
-  ctx.beginPath();
-  for (let i = 0; i < teeth * 2; i++) {
-    const a = (i / (teeth * 2)) * Math.PI * 2;
-    const rr = i % 2 === 0 ? outerR : outerR * 0.80;
-    if (i === 0) ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
-    else         ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  const slices = 8;
+  for (let i = 0; i < slices; i++) {
+    const a1 = (i / slices) * Math.PI * 2;
+    const a2 = ((i + 1) / slices) * Math.PI * 2;
+    const aMid = (a1 + a2) / 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, S * 0.48, a1, a2); ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a1) * S * 0.22, cy + Math.sin(a1) * S * 0.22);
+    ctx.lineTo(cx + Math.cos(aMid) * S * 0.22, cy + Math.sin(aMid) * S * 0.22);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
   }
-  ctx.closePath(); ctx.fill();
-
-  ctx.fillStyle = cols.base;
-  ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, Math.PI * 2); ctx.fill();
-
-  ctx.strokeStyle = cols.dark;
-  ctx.lineWidth = S * 0.07;
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a) * hubR, cy + Math.sin(a) * hubR);
-    ctx.lineTo(cx + Math.cos(a) * innerR * 0.92, cy + Math.sin(a) * innerR * 0.92);
-    ctx.stroke();
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015;
+  for (let i = 0; i < slices; i++) {
+    const a = (i / slices) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * S * 0.48, cy + Math.sin(a) * S * 0.48); ctx.stroke();
   }
-
-  ctx.fillStyle = cols.dark;
-  ctx.beginPath(); ctx.arc(cx, cy, hubR, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = cols.lite;
-  ctx.beginPath(); ctx.arc(cx - hubR * 0.3, cy - hubR * 0.3, hubR * 0.38, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.06, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
 }
 
-// 2 — Green: diamond / checker plate
-function texDiamondPlate(ctx, S, cols) {
-  const step = S / 5;
-  ctx.strokeStyle = cols.dark;
-  ctx.lineWidth = S * 0.038;
-  for (let i = -S; i < S * 2; i += step) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + S, S); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i - S, S); ctx.stroke();
-  }
-  ctx.fillStyle = cols.lite;
-  for (let row = 0; row < 7; row++) {
-    for (let col = 0; col < 7; col++) {
-      const x = col * step + (row % 2 === 0 ? 0 : step / 2);
-      const y = row * (step / 2);
-      ctx.beginPath(); ctx.arc(x, y, S * 0.013, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-}
-
-// 3 — Yellow: hex-bolt grid
-function texHexBolts(ctx, S, cols) {
-  const r = S * 0.11;
-  const colW = r * Math.sqrt(3);
-  const boltR = r * 0.32;
-  for (let row = -1; row < 6; row++) {
-    for (let col = -1; col < 6; col++) {
-      const cx = col * colW + (row % 2 === 0 ? 0 : colW / 2);
+// 1 — Sapphire: hexagonal facet grid
+function texHexFacets(ctx, S, cols) {
+  const r = S * 0.14, w = r * Math.sqrt(3);
+  for (let row = -1; row < 7; row++) {
+    for (let col = -1; col < 7; col++) {
+      const cx = col * w + (row % 2 === 0 ? 0 : w / 2);
       const cy = row * r * 1.5;
-      ctx.strokeStyle = cols.dark;
-      ctx.lineWidth = S * 0.030;
       ctx.beginPath();
       for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
-        const x = cx + Math.cos(a) * r * 0.88, y = cy + Math.sin(a) * r * 0.88;
+        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+        const x = cx + Math.cos(a) * r * 0.9, y = cy + Math.sin(a) * r * 0.9;
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
-      ctx.closePath(); ctx.stroke();
-      ctx.fillStyle = cols.dark;
-      ctx.beginPath(); ctx.arc(cx, cy, boltR, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = cols.lite;
-      ctx.beginPath(); ctx.arc(cx - boltR * 0.3, cy - boltR * 0.3, boltR * 0.38, 0, Math.PI * 2); ctx.fill();
+      ctx.closePath();
+      ctx.fillStyle = (row + col) % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
+      ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.018; ctx.stroke();
     }
   }
 }
 
-// 4 — Purple: cross of pipes with flanges
-function texPipes(ctx, S, cols) {
-  const pW = S * 0.24, fW = S * 0.07;
-  const p0 = (S - pW) / 2;
+// 2 — Emerald: diagonal step cuts
+function texEmeraldCut(ctx, S, cols) {
+  const step = S / 6;
+  for (let i = -2; i < 10; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * step, 0); ctx.lineTo((i + 1) * step, 0);
+    ctx.lineTo((i + 1) * step - S, S); ctx.lineTo(i * step - S, S);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
+  }
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.022;
+  for (let i = -2; i < 10; i++) {
+    ctx.beginPath(); ctx.moveTo(i * step, 0); ctx.lineTo(i * step - S, S); ctx.stroke();
+  }
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath(); ctx.moveTo(0, i * step + step * 0.5); ctx.lineTo(S, i * step + step * 0.5); ctx.stroke();
+  }
+}
 
-  ctx.fillStyle = cols.dark;
-  ctx.fillRect(0, p0, S, pW);
-  ctx.fillRect(p0, 0, pW, S);
+// 3 — Amber: starburst
+function texStarburst(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2, rays = 12;
+  for (let i = 0; i < rays; i++) {
+    const a1 = (i / rays) * Math.PI * 2;
+    const a2 = ((i + 0.5) / rays) * Math.PI * 2;
+    const a3 = ((i + 1) / rays) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, S * 0.46, a1, a3); ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, S * 0.22, a1, a2); ctx.closePath();
+    ctx.fillStyle = cols.lite; ctx.fill();
+  }
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015;
+  for (let i = 0; i < rays; i++) {
+    const a = (i / rays) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * S * 0.46, cy + Math.sin(a) * S * 0.46); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.07, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
+}
 
-  ctx.fillStyle = cols.mid;
-  const hW = pW * 0.28;
-  ctx.fillRect(0, (S - hW) / 2, S, hW);
-  ctx.fillRect((S - hW) / 2, 0, hW, S);
-
-  ctx.fillStyle = cols.dark;
-  [0.22, 0.78].forEach(t => {
-    ctx.fillRect(S * t - fW / 2, p0 - fW, fW, pW + fW * 2);
-    ctx.fillRect(p0 - fW, S * t - fW / 2, pW + fW * 2, fW);
-  });
-
-  ctx.beginPath(); ctx.arc(S / 2, S / 2, pW * 0.68, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = cols.lite;
-  ctx.beginPath(); ctx.arc(S / 2 - pW * 0.18, S / 2 - pW * 0.18, pW * 0.22, 0, Math.PI * 2); ctx.fill();
+// 4 — Amethyst: rotated diamond grid
+function texDiamondGrid(ctx, S, cols) {
+  ctx.save();
+  ctx.translate(S / 2, S / 2); ctx.rotate(Math.PI / 4); ctx.translate(-S / 2, -S / 2);
+  const step = S / 5;
+  for (let row = -2; row < 8; row++) {
+    for (let col = -2; col < 8; col++) {
+      ctx.fillStyle = (row + col) % 2 === 0 ? cols.mid : cols.lite;
+      ctx.fillRect(col * step, row * step, step, step);
+    }
+  }
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.022;
+  for (let i = -2; i < 9; i++) {
+    ctx.beginPath(); ctx.moveTo(i * step, -S); ctx.lineTo(i * step, S * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-S, i * step); ctx.lineTo(S * 2, i * step); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(S / 2, S / 2, S * 0.08, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
 }
 
 // ─── CHAIN BALL MESH ───
 
 function createBallMesh(colorIdx) {
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 16, 12),
-    new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.5, roughness: 0.3, emissive: COLOR_EMISSIVE[colorIdx] }));
-  mesh.add(new THREE.Mesh(new THREE.TorusGeometry(BALL_RADIUS * 0.95, 0.03, 4, 12),
-    new THREE.MeshStandardMaterial({ color: 0xD4A847, metalness: 1, roughness: 0.1 })));
-  return mesh;
+  return new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 16, 12),
+    new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
 }
 
 // ─── EXPLOSIONS ───
@@ -368,19 +325,22 @@ function explodeBall(ball) {
   const pos = ball.mesh.position.clone();
   scene.remove(ball.mesh);
 
-  for (let i = 0; i < 10; i++) {
-    const p = new THREE.Mesh(new THREE.SphereGeometry(0.08, 4, 4),
+  // Colored crystal shards
+  for (let i = 0; i < 12; i++) {
+    const p = new THREE.Mesh(new THREE.OctahedronGeometry(0.06 + Math.random() * 0.08, 0),
       new THREE.MeshBasicMaterial({ color: COLORS[ball.colorIdx], transparent: true, opacity: 1 }));
     p.position.copy(pos);
-    const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3;
-    p.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: 0.025 + Math.random() * 0.02 };
+    const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 4;
+    p.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: 0.022 + Math.random() * 0.02 };
     scene.add(p); particles.push(p);
   }
-  for (let i = 0; i < 5; i++) {
-    const s = new THREE.Mesh(new THREE.SphereGeometry(0.12 + Math.random() * 0.12, 6, 6),
-      new THREE.MeshBasicMaterial({ color: 0xccbbaa, transparent: true, opacity: 0.5 }));
+  // White prismatic flash sparks
+  for (let i = 0; i < 6; i++) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.06 + Math.random() * 0.07, 4, 4),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }));
     s.position.copy(pos);
-    s.userData = { vx: (Math.random() - 0.5) * 1.2, vy: Math.random() * 2, life: 1, decay: 0.018 };
+    const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 2.5;
+    s.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: 0.03 };
     scene.add(s); particles.push(s);
   }
 }

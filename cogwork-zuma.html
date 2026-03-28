@@ -21,6 +21,11 @@
 
 <div id="swap-hint">Right-click or Space to swap balls</div>
 
+<div id="audio-control">
+  <button id="mute-btn" onclick="toggleMute()">SOUND</button>
+  <input type="range" id="volume-slider" min="0" max="100" value="75" oninput="setVolume(this.value)">
+</div>
+
 <div id="title-screen">
   <div class="gear-deco"></div>
   <div class="gear-deco"></div>

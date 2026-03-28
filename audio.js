@@ -1,130 +1,155 @@
 // ─── AUDIO ───
-//
-// All sounds go through playSound(name). Currently uses Web Audio API synthesis
-// so nothing to load. To swap in real audio files:
-//   1. Add files to a sounds/ folder
-//   2. Uncomment SOUND_FILES and loadSounds() below
-//   3. Replace each entry in SOUNDS with: () => playBuffer(name)
-//   4. Call loadSounds() inside init() in main.js after buildPath()
-
-/* const SOUND_FILES = {
-  shoot:    'sounds/shoot.wav',
-  hit:      'sounds/hit.wav',
-  match:    'sounds/match.wav',
-  chain:    'sounds/chain.wav',
-  swap:     'sounds/swap.wav',
-  levelup:  'sounds/levelup.wav',
-  gameover: 'sounds/gameover.wav',
-}; */
+// All sounds are layered sine-wave crystal bells with inharmonic partials
+// (modelled on real bell acoustics) routed through a synthetic reverb.
+// To swap in real audio files, replace each SOUNDS entry with a buffer player.
 
 let audioCtx = null;
+let masterGain = null;
+let reverbConvolver = null;
+let reverbSend = null;
+let currentVolume = 0.75;
+let isMuted = false;
 
 function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx) {
+    const W = /** @type {any} */ (window);
+    audioCtx = new (W.AudioContext || W.webkitAudioContext)();
+
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = currentVolume;
+    masterGain.connect(audioCtx.destination);
+
+    // Synthetic hall reverb — white noise shaped with exponential decay
+    reverbConvolver = audioCtx.createConvolver();
+    const duration = 2.2, decay = 2.8, sr = audioCtx.sampleRate;
+    const length = Math.ceil(sr * duration);
+    const impulse = audioCtx.createBuffer(2, length, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = impulse.getChannelData(ch);
+      for (let i = 0; i < length; i++)
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+    }
+    reverbConvolver.buffer = impulse;
+
+    reverbSend = audioCtx.createGain();
+    reverbSend.gain.value = 0.38;
+    reverbConvolver.connect(reverbSend);
+    reverbSend.connect(masterGain);
+  }
   return audioCtx;
 }
 
-// async function loadSounds() {
-//   const ctx = getAudioCtx();
-//   for (const [name, url] of Object.entries(SOUND_FILES)) {
-//     const res = await fetch(url);
-//     const buf = await res.arrayBuffer();
-//     audioBuffers[name] = await ctx.decodeAudioData(buf);
-//   }
-// }
-// const audioBuffers = {};
-// function playBuffer(name) {
-//   const ctx = getAudioCtx();
-//   if (!audioBuffers[name]) return;
-//   const src = ctx.createBufferSource();
-//   src.buffer = audioBuffers[name];
-//   src.connect(ctx.destination);
-//   src.start();
-// }
+// Route a gain node dry to masterGain and wet into the reverb
+function connectEnv(env) {
+  env.connect(masterGain);
+  env.connect(reverbConvolver);
+}
+
+// ─── BUILDING BLOCK ───
+// Inharmonic partials from real bell acoustics (Rossing ratios)
+const BELL_PARTIALS = [
+  { ratio: 1.000, amp: 1.00, decay: 1.00 },
+  { ratio: 2.756, amp: 0.38, decay: 0.72 },
+  { ratio: 5.404, amp: 0.16, decay: 0.52 },
+  { ratio: 8.933, amp: 0.07, decay: 0.38 },
+];
+
+function crystalBellAt(freq, time, duration, gain) {
+  const ctx = getAudioCtx();
+  BELL_PARTIALS.forEach(p => {
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.connect(env); connectEnv(env);
+    osc.type = 'sine';
+    osc.frequency.value = freq * p.ratio;
+    const pd = duration * p.decay;
+    env.gain.setValueAtTime(gain * p.amp, time);
+    env.gain.exponentialRampToValueAtTime(0.0001, time + pd);
+    osc.start(time);
+    osc.stop(time + pd + 0.1);
+  });
+}
+
+// ─── SOUNDS ───
 
 const SOUNDS = {
-  shoot:    () => synthTone({ freq: 520, endFreq: 260, duration: 0.10, gain: 0.25, type: 'square' }),
-  hit:      () => synthTone({ freq: 180, endFreq: 120, duration: 0.07, gain: 0.45, type: 'sine' }),
-  match:    () => synthExplosion(),
-  chain:    () => synthTone({ freq: 120, endFreq: 40, duration: 0.18, gain: 0.80, type: 'sine' }),
-  swap:     () => synthTone({ freq: 400, endFreq: 560, duration: 0.07, gain: 0.18, type: 'sine' }),
-  levelup:  () => synthArp([350, 530, 700, 880], 0.16, 0.45),
-  gameover: () => synthTone({ freq: 280, endFreq: 70,  duration: 0.90, gain: 0.30, type: 'sawtooth' }),
+  // Quick bright ping — A5 shooting out
+  shoot: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(880, t, 0.22, 0.28);
+  },
+
+  // Soft landing ting — ball joins chain, no match
+  hit: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(659.25, t, 0.28, 0.18);
+  },
+
+  // Crystal chord burst — C major triad with shimmer stagger
+  match: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(523.25, t,        1.4, 0.52);  // C5
+    crystalBellAt(659.25, t + 0.03, 1.2, 0.40);  // E5
+    crystalBellAt(783.99, t + 0.06, 1.1, 0.32);  // G5
+    crystalBellAt(1046.5, t + 0.10, 0.9, 0.20);  // C6
+  },
+
+  // Chain reaction — higher, more ethereal G major voicing
+  chain: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(783.99, t,        1.2, 0.44);  // G5
+    crystalBellAt(987.77, t + 0.03, 1.0, 0.34);  // B5
+    crystalBellAt(1174.7, t + 0.06, 0.9, 0.24);  // D6
+  },
+
+  // Two-note sparkle trill — swap
+  swap: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(783.99, t,       0.18, 0.22);  // G5
+    crystalBellAt(1046.5, t + 0.07, 0.18, 0.22); // C6
+  },
+
+  // Ascending C major arpeggio — level up
+  levelup: () => {
+    const ctx = getAudioCtx();
+    const t = ctx.currentTime;
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => {
+      crystalBellAt(f, t + i * 0.13, 0.7, 0.42);
+    });
+  },
+
+  // Descending A minor — game over
+  gameover: () => {
+    const ctx = getAudioCtx();
+    const t = ctx.currentTime;
+    [440, 392, 349.23, 261.63, 220].forEach((f, i) => {
+      crystalBellAt(f, t + i * 0.28, 1.6, 0.40);
+    });
+  },
 };
 
 function playSound(name) {
-  if (!SOUNDS[name]) return;
+  if (!SOUNDS[name] || isMuted) return;
   try {
     const ctx = getAudioCtx();
     if (ctx.state === 'suspended') ctx.resume();
     SOUNDS[name]();
-  } catch (e) {}
+  } catch(e) {}
 }
 
-function synthTone({ freq, endFreq, duration, gain, type }) {
-  const ctx = getAudioCtx();
-  const osc = ctx.createOscillator();
-  const env = ctx.createGain();
-  osc.connect(env);
-  env.connect(ctx.destination);
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + duration);
-  env.gain.setValueAtTime(gain, ctx.currentTime);
-  env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + duration + 0.01);
+// ─── VOLUME CONTROL ───
+
+function toggleMute() {
+  isMuted = !isMuted;
+  if (masterGain) masterGain.gain.value = isMuted ? 0 : currentVolume;
+  document.getElementById('mute-btn').classList.toggle('muted', isMuted);
+  document.getElementById('mute-btn').textContent = isMuted ? 'MUTED' : 'SOUND';
 }
 
-function synthArp(freqs, noteDuration, gain) {
-  const ctx = getAudioCtx();
-  freqs.forEach((freq, i) => {
-    const t = ctx.currentTime + i * noteDuration * 0.6;
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    osc.connect(env);
-    env.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, t);
-    osc.frequency.exponentialRampToValueAtTime(freq * 0.75, t + noteDuration);
-    env.gain.setValueAtTime(gain, t);
-    env.gain.exponentialRampToValueAtTime(0.001, t + noteDuration);
-    osc.start(t);
-    osc.stop(t + noteDuration + 0.01);
-  });
-}
-
-function synthExplosion() {
-  const ctx = getAudioCtx();
-  const t = ctx.currentTime;
-  const duration = 0.45;
-
-  // White noise burst
-  const bufSize = Math.ceil(ctx.sampleRate * duration);
-  const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
-  const noise = ctx.createBufferSource();
-  noise.buffer = buf;
-  const noiseEnv = ctx.createGain();
-  noiseEnv.gain.setValueAtTime(0.9, t);
-  noiseEnv.gain.exponentialRampToValueAtTime(0.001, t + duration);
-  // Low-pass the noise so it sounds boomier
-  const lp = ctx.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.setValueAtTime(800, t);
-  lp.frequency.exponentialRampToValueAtTime(120, t + duration);
-  noise.connect(lp); lp.connect(noiseEnv); noiseEnv.connect(ctx.destination);
-  noise.start(t); noise.stop(t + duration);
-
-  // Low sine thud underneath
-  const osc = ctx.createOscillator();
-  const oscEnv = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(160, t);
-  osc.frequency.exponentialRampToValueAtTime(40, t + 0.20);
-  oscEnv.gain.setValueAtTime(1.0, t);
-  oscEnv.gain.exponentialRampToValueAtTime(0.001, t + 0.20);
-  osc.connect(oscEnv); oscEnv.connect(ctx.destination);
-  osc.start(t); osc.stop(t + 0.25);
+function setVolume(val) {
+  currentVolume = val / 100;
+  isMuted = currentVolume === 0;
+  if (masterGain) masterGain.gain.value = currentVolume;
+  document.getElementById('mute-btn').classList.toggle('muted', isMuted);
+  document.getElementById('mute-btn').textContent = isMuted ? 'MUTED' : 'SOUND';
 }

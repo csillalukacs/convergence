@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  COGWORK ZUMA — Full Zuma Rules
+//  CONVERGENCE — Crystal Chain Puzzle
 // ═══════════════════════════════════════════════
 //
 // Chain convention:
@@ -288,7 +288,7 @@ function animate() {
     checkProjectileCollisions(dt);
 
     // Level clear
-    if (spawningDone && !chain.some(b => b.s >= -10)) levelUp();
+    if (spawningDone && !chain.some(b => b.s >= -2)) levelUp();
   }
 
   // Particles
@@ -355,7 +355,7 @@ function gameOver() {
   document.getElementById('game-over').style.display = 'flex';
   document.getElementById('final-score').textContent = 'Score: ' + score;
   document.getElementById('final-level').textContent = 'Level: ' + level;
-  document.getElementById('go-title').textContent = 'GEARS HALTED';
+  document.getElementById('go-title').textContent = 'CONVERGENCE LOST';
 }
 
 function levelUp() {
@@ -392,7 +392,7 @@ function updateHUD() {
 
 function updateProgressBar() {
   document.getElementById('progress-bar').style.width = (progress * 100) + '%';
-  document.getElementById('progress-label').textContent = spawningDone ? 'PRESSURE MAXED — CLEAR THE TRACK!' : 'PRESSURE GAUGE';
+  document.getElementById('progress-label').textContent = spawningDone ? 'RESONANCE PEAKED — CLEAR THE CHAIN!' : 'RESONANCE';
 }
 
 function onResize() {

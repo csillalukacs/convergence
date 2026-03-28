@@ -1,4 +1,4 @@
-// Level 5 — Inward spiral (same as level 1, 4 colours)
+// Level 9 — Inward spiral (same as level 1, 5 colours)
 LEVELS.push({
   waypoints: [
     { x: -11.00, y:   0.00 },
@@ -21,9 +21,9 @@ LEVELS.push({
     { x:  -2.10, y:  -2.10 },
     { x:   0.00, y:  -2.50 },
   ],
-  colors:            4,
-  chainSpeed:        1.9,
-  spawnInterval:     0.42,
+  colors:            5,
+  chainSpeed:        2.2,
+  spawnInterval:     0.38,
   rollInCount:       20,
-  progressThreshold: 350,
+  progressThreshold: 500,
 });

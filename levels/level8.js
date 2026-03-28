@@ -1,5 +1,4 @@
-// Level 4 — Paisley scroll: large outer oval curling into an inner scroll
-// Skull at centre: (0, 0)
+// Level 8 — Paisley scroll (same as level 4, 4 colours)
 LEVELS.push({
   waypoints: [
     { x: -10, y:  -2 },
@@ -17,9 +16,9 @@ LEVELS.push({
     { x:  -2, y:   2 },
     { x:   0, y:   0 },
   ],
-  colors:            3,
-  chainSpeed:        2.8,
-  spawnInterval:     0.31,
+  colors:            4,
+  chainSpeed:        3.1,
+  spawnInterval:     0.27,
   rollInCount:       20,
-  progressThreshold: 750,
+  progressThreshold: 1000,
 });

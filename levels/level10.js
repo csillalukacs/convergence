@@ -1,5 +1,4 @@
-// Level 2 — Tighter spiral (3 rotations), 4 colours
-// Skull near centre: (1, 0)
+// Level 10 — Tight spiral (same as level 2, 5 colours)
 LEVELS.push({
   waypoints: [
     { x: -11, y:   0 },
@@ -15,9 +14,9 @@ LEVELS.push({
     { x:   2, y:   0 },
     { x:   1, y:   0 },
   ],
-  colors:            3,
-  chainSpeed:        2.0,
-  spawnInterval:     0.40,
+  colors:            5,
+  chainSpeed:        2.6,
+  spawnInterval:     0.33,
   rollInCount:       20,
-  progressThreshold: 400,
+  progressThreshold: 650,
 });

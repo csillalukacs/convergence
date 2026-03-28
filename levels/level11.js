@@ -1,5 +1,4 @@
-// Level 3 — Figure-of-eight, 5 colours
-// Skull at centre: (0, 0)
+// Level 11 — Figure-of-eight (same as level 3, 5 colours)
 LEVELS.push({
   waypoints: [
     { x:   0, y: -12 },
@@ -14,9 +13,9 @@ LEVELS.push({
     { x:  -5, y:   1 },
     { x:   0, y:   0 },
   ],
-  colors:            3,
-  chainSpeed:        2.4,
-  spawnInterval:     0.35,
+  colors:            5,
+  chainSpeed:        3.0,
+  spawnInterval:     0.28,
   rollInCount:       20,
-  progressThreshold: 600,
+  progressThreshold: 900,
 });

@@ -285,7 +285,7 @@ function animate() {
     checkProjectileCollisions(dt);
 
     // Level clear
-    if (spawningDone && !chain.some(b => b.s >= 0)) levelUp();
+    if (spawningDone && !chain.some(b => b.s >= -10)) levelUp();
   }
 
   // Particles
@@ -351,6 +351,7 @@ function gameOver() {
   playSound('gameover');
   document.getElementById('game-over').style.display = 'flex';
   document.getElementById('final-score').textContent = 'Score: ' + score;
+  document.getElementById('final-level').textContent = 'Level: ' + level;
   document.getElementById('go-title').textContent = 'GEARS HALTED';
 }
 

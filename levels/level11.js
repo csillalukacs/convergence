@@ -15,7 +15,5 @@ LEVELS.push({
   ],
   colors:            5,
   chainSpeed:        3.0,
-  spawnInterval:     0.28,
-  rollInCount:       20,
   progressThreshold: 900,
 });

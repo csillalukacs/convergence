@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Level Editor — Convergence</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #06080f; color: #ccd; font-family: monospace; display: flex; height: 100vh; overflow: hidden; }
+
+/* ─── SIDEBAR ─── */
+#sidebar {
+  width: 268px; flex-shrink: 0;
+  background: #0c0f1c; border-right: 1px solid #1e2840;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sec { padding: 10px 12px; border-bottom: 1px solid #151d30; }
+.sec h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #5577aa; margin-bottom: 8px; }
+
+#wp-list { max-height: 180px; overflow-y: auto; }
+#wp-list::-webkit-scrollbar { width: 4px; }
+#wp-list::-webkit-scrollbar-thumb { background: #223; }
+.wp-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 2px; cursor: pointer; font-size: 11px; color: #778;
+  border-radius: 3px;
+}
+.wp-item:hover { color: #aac; background: #111828; }
+.wp-item.sel { color: #7cf; background: #0d1a2a; }
+.wp-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 17px; height: 17px; border-radius: 50%;
+  background: #1a2540; font-size: 9px; flex-shrink: 0;
+}
+.wp-item.sel .wp-num { background: #1a4060; color: #7cf; }
+.tag { font-size: 9px; margin-left: auto; padding: 1px 4px; border-radius: 2px; flex-shrink: 0; }
+.tag-start { color: #4c9; background: #0a1e15; }
+.tag-end   { color: #f46; background: #200c10; }
+.z-badge   { font-size: 9px; padding: 1px 3px; border-radius: 2px; flex-shrink: 0; }
+
+label { font-size: 10px; color: #667; display: block; margin-bottom: 3px; }
+input[type=number], input[type=text], textarea, select {
+  background: #080c18; border: 1px solid #1e2840; color: #bbc;
+  padding: 4px 7px; font-size: 11px; font-family: monospace;
+  border-radius: 3px; width: 100%;
+  transition: border-color 0.15s;
+}
+input[type=number]:focus, input[type=text]:focus, textarea:focus { border-color: #3a5a80; outline: none; }
+input[type=number] { width: 72px; }
+input[type=range] { width: 100%; height: 4px; cursor: pointer; }
+.row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 6px; }
+.row > div { flex: 1; }
+.hint { font-size: 10px; color: #3a4a6a; line-height: 1.7; }
+
+button {
+  background: #111b2e; border: 1px solid #2a3d5a; color: #7aaddd;
+  padding: 5px 10px; font-size: 10px; cursor: pointer;
+  border-radius: 3px; font-family: monospace; letter-spacing: 0.5px;
+  transition: background 0.1s;
+}
+button:hover { background: #182840; }
+button.primary { background: #0a2a12; border-color: #1e6a30; color: #4de870; font-weight: bold; }
+button.primary:hover { background: #0e3818; }
+button.danger { border-color: #4a1a22; color: #d06070; }
+button.danger:hover { background: #1e0a10; }
+.btn-row { display: flex; gap: 6px; margin-top: 6px; }
+
+#stats { font-size: 11px; color: #667; line-height: 1.8; }
+#stats b { color: #88bbdd; }
+#output { resize: vertical; font-size: 10px; height: 110px; color: #7fcc88; }
+
+/* depth slider track colors */
+#wp-z-slider { accent-color: #aa7733; }
+
+/* z axis labels */
+.z-axis-labels { display: flex; justify-content: space-between; font-size: 9px; color: #2a3a55; margin-top: 3px; }
+
+/* ─── CANVAS AREA ─── */
+#canvas-wrap { flex: 1; position: relative; overflow: hidden; }
+canvas { display: block; width: 100%; height: 100%; }
+#info-bar {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(6,8,15,0.80); border: 1px solid #1e2840;
+  padding: 5px 14px; font-size: 10px; color: #3a5a80;
+  border-radius: 20px; pointer-events: none; white-space: nowrap;
+}
+#coords {
+  position: absolute; top: 10px; right: 12px;
+  background: rgba(6,8,15,0.75); padding: 4px 10px;
+  font-size: 11px; color: #4a6a88; border-radius: 4px; pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+
+  <div class="sec">
+    <h3>Convergence — Level Editor</h3>
+    <div class="hint">
+      Left-click: add waypoint<br>
+      Drag: move &nbsp;·&nbsp; Right-click: delete<br>
+      Arrows: nudge (Shift = 1 unit)<br>
+      [ / ]: decrease/increase Z<br>
+      Ctrl+Z / Z: undo
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3>Waypoints &nbsp;<span id="wp-count" style="color:#2a3a55;font-weight:normal;letter-spacing:0">0</span></h3>
+    <div id="wp-list"></div>
+    <div class="btn-row">
+      <button onclick="undoLast()">↩ Undo</button>
+      <button class="danger" onclick="clearAll()">Clear all</button>
+    </div>
+  </div>
+
+  <!-- Selected waypoint detail panel -->
+  <div class="sec" id="wp-detail-sec" style="display:none">
+    <h3>Waypoint <span id="wp-detail-title">—</span></h3>
+    <div class="row" style="margin-bottom:8px">
+      <div><label>X</label><input type="number" id="wp-x" step="0.25" oninput="editSelectedXY()"></div>
+      <div><label>Y</label><input type="number" id="wp-y" step="0.25" oninput="editSelectedXY()"></div>
+    </div>
+    <label>Z — depth &nbsp;<span style="color:#2a3a55;font-size:9px">(− behind · + in front)</span></label>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+      <input type="range" id="wp-z-slider" min="-3" max="3" step="0.5" value="0" oninput="syncZFromSlider()" style="flex:1">
+      <input type="number" id="wp-z" step="0.5" min="-3" max="3" value="0" oninput="syncZFromInput()" style="width:52px">
+    </div>
+    <div class="z-axis-labels">
+      <span style="color:#7744bb">− behind</span>
+      <span>0</span>
+      <span style="color:#bb8833">in front +</span>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3>Level Settings</h3>
+    <div class="row">
+      <div><label>Colors (3–5)</label><input type="number" id="colors" min="3" max="5" value="3" oninput="updateOutput()"></div>
+      <div><label>Chain Speed</label><input type="number" id="chainSpeed" min="0.5" max="10" step="0.1" value="1.6" oninput="updateOutput()"></div>
+    </div>
+    <div class="row">
+      <div style="flex:none"><label>Progress Threshold</label><input type="number" id="threshold" min="50" max="2000" step="50" value="250" oninput="updateOutput()"></div>
+    </div>
+    <div><label>Comment (optional)</label>
+      <input type="text" id="comment" placeholder="e.g. Figure-8 crossing" oninput="updateOutput()">
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3>Stats</h3>
+    <div id="stats">—</div>
+  </div>
+
+  <div class="sec">
+    <h3>Export</h3>
+    <textarea id="output" readonly></textarea>
+    <div class="btn-row">
+      <button class="primary" onclick="copyOutput()" id="copy-btn">⎘ Copy JS</button>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3>Import (paste existing level)</h3>
+    <textarea id="import-area" style="height:64px;resize:vertical" placeholder="Paste LEVELS.push({...}) here"></textarea>
+    <div class="btn-row"><button onclick="importLevel()">Import</button></div>
+  </div>
+
+  <div class="sec">
+    <h3>Load Example</h3>
+    <select id="example-sel" style="margin-bottom:6px">
+      <option value="">— select —</option>
+      <option value="spiral">Spiral inward (Level 1)</option>
+      <option value="tightspiral">Tight spiral (Level 2)</option>
+      <option value="figure8">Figure-8 with z crossing</option>
+      <option value="snake">Wide snake</option>
+      <option value="zigzag">Zigzag</option>
+    </select>
+    <button onclick="loadExample()">Load</button>
+  </div>
+
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+  <div id="info-bar">Left-click: add &nbsp;·&nbsp; Drag: move &nbsp;·&nbsp; Right-click: delete &nbsp;·&nbsp; [ / ]: adjust Z depth &nbsp;·&nbsp; ⊕ = shooter &nbsp;·&nbsp; S = start &nbsp;·&nbsp; ✕ = skull</div>
+  <div id="coords">x: 0.00 &nbsp; y: 0.00</div>
+</div>
+
+<script>
+// ─── CONSTANTS ───
+const TENSION      = 0.5;
+const BALL_RADIUS  = 0.75;
+const BALL_SPACING = BALL_RADIUS * 2.05;
+const WORLD_H      = 14;
+const SNAP         = 0.25;
+
+// ─── STATE ───
+let waypoints   = [];
+let selectedIdx = -1;
+let dragIdx     = -1;
+let dragOffX    = 0, dragOffY = 0;
+let history     = [];
+let mouseWorld  = { x: 0, y: 0 };
+let shiftHeld   = false;
+
+// ─── CANVAS ───
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+let dpr = 1;
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  render();
+}
+window.addEventListener('resize', resize);
+
+// ─── COORDINATE TRANSFORMS ───
+function worldW() { return WORLD_H * (canvas.width / canvas.height); }
+
+function w2c(wx, wy) {
+  const ww = worldW();
+  return {
+    x: ((wx + ww)        / (2 * ww))      * canvas.width,
+    y: ((WORLD_H - wy)   / (2 * WORLD_H)) * canvas.height
+  };
+}
+
+function c2w(cx, cy) {
+  const ww = worldW();
+  return {
+    x:  (cx / canvas.width)  * 2 * ww    - ww,
+    y:  WORLD_H - (cy / canvas.height) * 2 * WORLD_H
+  };
+}
+
+function pxPerUnit() { return canvas.height / (2 * WORLD_H); }
+
+// ─── CATMULL-ROM (matches Three.js r128: catmullrom, tension 0.5) ───
+function wz(p) { return p.z ?? 0; }
+
+function hermite(p0, p1, p2, p3, t) {
+  const t2 = t*t, t3 = t2*t;
+  const h00 = 2*t3-3*t2+1, h10 = t3-2*t2+t, h01 = -2*t3+3*t2, h11 = t3-t2;
+  const m1x = TENSION*(p2.x-p0.x), m1y = TENSION*(p2.y-p0.y), m1z = TENSION*(wz(p2)-wz(p0));
+  const m2x = TENSION*(p3.x-p1.x), m2y = TENSION*(p3.y-p1.y), m2z = TENSION*(wz(p3)-wz(p1));
+  return {
+    x: h00*p1.x + h10*m1x + h01*p2.x + h11*m2x,
+    y: h00*p1.y + h10*m1y + h01*p2.y + h11*m2y,
+    z: h00*wz(p1) + h10*m1z + h01*wz(p2) + h11*m2z,
+  };
+}
+
+function sampleCurve(pts, stepsPerSeg = 40) {
+  if (pts.length < 2) return pts.length === 1 ? [{...pts[0], z: wz(pts[0])}] : [];
+  const n = pts.length, out = [];
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pts[Math.max(0, i-1)], p1 = pts[i];
+    const p2 = pts[i+1],              p3 = pts[Math.min(n-1, i+2)];
+    for (let j = 0; j < stepsPerSeg; j++) {
+      out.push(hermite(p0, p1, p2, p3, j / stepsPerSeg));
+    }
+  }
+  out.push({...pts[n-1], z: wz(pts[n-1])});
+  return out;
+}
+
+function calcArcLengths(samples) {
+  const lens = new Float64Array(samples.length);
+  for (let i = 1; i < samples.length; i++) {
+    const dx = samples[i].x - samples[i-1].x, dy = samples[i].y - samples[i-1].y;
+    lens[i] = lens[i-1] + Math.sqrt(dx*dx + dy*dy);
+  }
+  return lens;
+}
+
+// ─── RENDER ───
+function render() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#050810';
+  ctx.fillRect(0, 0, w, h);
+
+  drawGrid(w, h);
+
+  const samples = waypoints.length >= 2 ? sampleCurve(waypoints) : null;
+  const lens    = samples ? calcArcLengths(samples) : null;
+  const pathLen = lens ? lens[lens.length-1] : 0;
+
+  if (samples) {
+    drawPathGlow(samples);
+    drawPath(samples);
+    drawBallMarkers(samples, lens);
+    drawSkull(waypoints[waypoints.length-1]);
+    drawStartMarker(waypoints[0]);
+    updateStats(pathLen);
+  } else {
+    document.getElementById('stats').innerHTML = waypoints.length === 1
+      ? '<span style="color:#2a3a55">Add one more waypoint to see the path</span>'
+      : '<span style="color:#2a3a55">Add waypoints to begin</span>';
+  }
+
+  drawShooter();
+  drawWaypoints();
+}
+
+function drawGrid(w, h) {
+  const ww = worldW();
+  ctx.strokeStyle = '#0c1020';
+  ctx.lineWidth = 1;
+  for (let x = Math.ceil(-ww); x <= Math.floor(ww); x++) {
+    const cx = w2c(x, 0).x;
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+  }
+  for (let y = Math.ceil(-WORLD_H); y <= Math.floor(WORLD_H); y++) {
+    const cy = w2c(0, y).y;
+    ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
+  }
+  ctx.strokeStyle = '#141c30'; ctx.lineWidth = 1.5;
+  const o = w2c(0, 0);
+  ctx.beginPath(); ctx.moveTo(0, o.y); ctx.lineTo(w, o.y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(o.x, 0); ctx.lineTo(o.x, h); ctx.stroke();
+
+  // game boundary
+  const asp = w / h, fx = 14 * asp;
+  const bl = w2c(-fx, 14), br = w2c(fx, -14);
+  ctx.strokeStyle = '#1a3050'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 5]);
+  ctx.strokeRect(bl.x, bl.y, br.x - bl.x, br.y - bl.y);
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#1e2d48';
+  ctx.font = `${10 * dpr}px monospace`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('game bounds', bl.x + 4, bl.y + 3);
+}
+
+function drawPathGlow(samples) {
+  const s = pxPerUnit();
+  ctx.save();
+  ctx.strokeStyle = 'rgba(50, 120, 200, 0.10)';
+  ctx.lineWidth = BALL_RADIUS * 2 * s;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < samples.length; i++) {
+    const c = w2c(samples[i].x, samples[i].y);
+    i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Draw path as short segments, color-tinted by z so crossings are visually distinguishable
+function drawPath(samples) {
+  for (let i = 1; i < samples.length; i++) {
+    const z   = samples[i].z;
+    const a   = w2c(samples[i-1].x, samples[i-1].y);
+    const b   = w2c(samples[i].x,   samples[i].y);
+    const t   = Math.max(-1, Math.min(1, z));             // clamp to ±1 for color
+    // z>0 → warm blue-orange blend, z<0 → cool purple-blue blend, z=0 → neutral #2a5a8a
+    let r, g, bl;
+    if (t >= 0) {
+      r  = Math.round(42  + t * 120);
+      g  = Math.round(90  + t * 30);
+      bl = Math.round(138 - t * 60);
+    } else {
+      r  = Math.round(42  - t * 60);
+      g  = Math.round(90  + t * 40);
+      bl = Math.round(138 + (-t) * 80);
+    }
+    ctx.strokeStyle = `rgb(${r},${g},${bl})`;
+    ctx.lineWidth   = 2 * dpr;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+}
+
+function drawBallMarkers(samples, lens) {
+  const s = pxPerUnit();
+  const r = BALL_RADIUS * s;
+  let next = 0;
+  for (let i = 0; i < samples.length; i++) {
+    if (lens[i] >= next) {
+      const c = w2c(samples[i].x, samples[i].y);
+      ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+      ctx.fillStyle   = 'rgba(60, 130, 200, 0.10)';
+      ctx.strokeStyle = 'rgba(60, 130, 200, 0.28)';
+      ctx.lineWidth = 1;
+      ctx.fill(); ctx.stroke();
+      next += BALL_SPACING;
+    }
+  }
+}
+
+function drawSkull(wp) {
+  const c = w2c(wp.x, wp.y), r = 13 * dpr;
+  ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(220, 30, 60, 0.12)';
+  ctx.strokeStyle = '#c02040'; ctx.lineWidth = 2 * dpr;
+  ctx.fill(); ctx.stroke();
+  const d = 5 * dpr;
+  ctx.strokeStyle = '#e03050'; ctx.lineWidth = 2 * dpr;
+  ctx.beginPath(); ctx.moveTo(c.x-d, c.y-d); ctx.lineTo(c.x+d, c.y+d); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(c.x+d, c.y-d); ctx.lineTo(c.x-d, c.y+d); ctx.stroke();
+}
+
+function drawStartMarker(wp) {
+  const c = w2c(wp.x, wp.y), r = 10 * dpr;
+  ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(40, 180, 90, 0.15)';
+  ctx.strokeStyle = '#30a055'; ctx.lineWidth = 2 * dpr;
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#40c060';
+  ctx.font = `bold ${10 * dpr}px monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('S', c.x, c.y + 0.5);
+}
+
+function drawShooter() {
+  const c = w2c(0, 0);
+  ctx.beginPath(); ctx.arc(c.x, c.y, 13 * dpr, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(80, 160, 255, 0.08)';
+  ctx.strokeStyle = '#3a6a99'; ctx.lineWidth = 1.5 * dpr;
+  ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x, c.y - 18 * dpr);
+  ctx.strokeStyle = '#3a6a99'; ctx.lineWidth = 2 * dpr; ctx.stroke();
+  ctx.fillStyle = '#4a7aaa';
+  ctx.font = `${9 * dpr}px monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('⊕', c.x, c.y + 0.5);
+}
+
+function drawWaypoints() {
+  for (let i = 0; i < waypoints.length; i++) {
+    const wp    = waypoints[i];
+    const c     = w2c(wp.x, wp.y);
+    const z     = wz(wp);
+    const isSel = i === selectedIdx;
+    const isLast = i === waypoints.length - 1;
+    const r     = (isSel || i === dragIdx ? 10 : 8) * dpr;
+
+    // Control polygon connector
+    if (i > 0) {
+      const prev = w2c(waypoints[i-1].x, waypoints[i-1].y);
+      ctx.strokeStyle = 'rgba(50, 80, 130, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3 * dpr, 4 * dpr]);
+      ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Z depth ring (outer) — warm = in front, cool = behind
+    if (z !== 0) {
+      const ringR  = r + 4 * dpr;
+      const mag    = Math.min(Math.abs(z) / 3, 1);
+      const alpha  = 0.35 + mag * 0.55;
+      ctx.beginPath(); ctx.arc(c.x, c.y, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = z > 0
+        ? `rgba(210, 140, 40, ${alpha})`   // amber = in front
+        : `rgba(120, 50, 200, ${alpha})`;  // purple = behind
+      ctx.lineWidth = (1.5 + mag) * dpr;
+      ctx.stroke();
+    }
+
+    // Main circle
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = isLast  ? 'rgba(220, 50, 80, 0.75)'
+                  : isSel   ? 'rgba(60, 160, 255, 0.80)'
+                  :            'rgba(30, 80, 160, 0.70)';
+    ctx.fill();
+    ctx.strokeStyle = isLast ? '#e04060' : isSel ? '#70cfff' : '#3a70bb';
+    ctx.lineWidth = (isSel ? 2 : 1.5) * dpr;
+    ctx.stroke();
+
+    // Index number
+    ctx.fillStyle = isSel ? '#e8f4ff' : '#aabbcc';
+    ctx.font = `bold ${9 * dpr}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(i + 1, c.x, c.y + 0.5);
+
+    // Z label above when non-zero
+    if (z !== 0) {
+      ctx.fillStyle = z > 0 ? '#cc9944' : '#8844cc';
+      ctx.font = `${8 * dpr}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText((z > 0 ? '+' : '') + z.toFixed(1), c.x, c.y - r - 4 * dpr);
+    }
+  }
+}
+
+function updateStats(pathLen) {
+  const ballCount = Math.floor(pathLen / BALL_SPACING);
+  const hasZ = waypoints.some(p => (p.z ?? 0) !== 0);
+  document.getElementById('stats').innerHTML =
+    `Path length: <b>${pathLen.toFixed(1)}</b> units<br>` +
+    `Ball capacity: <b>~${ballCount}</b> balls<br>` +
+    `Waypoints: <b>${waypoints.length}</b>` +
+    (hasZ ? `<br>Depth layers: <b style="color:#aa7733">yes</b>` : '');
+}
+
+// ─── INPUT HELPERS ───
+function getCP(e) {
+  const rect = canvas.getBoundingClientRect();
+  const src  = e.touches ? e.touches[0] : e;
+  return { x: (src.clientX - rect.left) * dpr, y: (src.clientY - rect.top) * dpr };
+}
+
+function nearestWP(cx, cy, thresh = 14 * dpr) {
+  let best = -1, bd = thresh;
+  for (let i = 0; i < waypoints.length; i++) {
+    const c = w2c(waypoints[i].x, waypoints[i].y);
+    const d = Math.hypot(cx - c.x, cy - c.y);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+
+function snapV(v) { return shiftHeld ? Math.round(v / SNAP) * SNAP : Math.round(v * 100) / 100; }
+
+function saveHistory() {
+  history.push(waypoints.map(p => ({...p})));
+  if (history.length > 80) history.shift();
+}
+
+// ─── MOUSE EVENTS ───
+canvas.addEventListener('mousemove', e => {
+  const cp = getCP(e);
+  mouseWorld = c2w(cp.x, cp.y);
+  document.getElementById('coords').textContent =
+    `x: ${mouseWorld.x.toFixed(2)} \u00a0 y: ${mouseWorld.y.toFixed(2)}`;
+
+  if (dragIdx >= 0) {
+    const wp = waypoints[dragIdx];
+    wp.x = snapV(mouseWorld.x + dragOffX);
+    wp.y = snapV(mouseWorld.y + dragOffY);
+    updateAll(false);
+    updateWpDetail();
+  }
+});
+
+canvas.addEventListener('mousedown', e => {
+  e.preventDefault();
+  const cp  = getCP(e);
+  const hit = nearestWP(cp.x, cp.y);
+
+  if (e.button === 0) {
+    if (hit >= 0) {
+      saveHistory();
+      dragIdx     = hit;
+      selectedIdx = hit;
+      dragOffX    = waypoints[hit].x - mouseWorld.x;
+      dragOffY    = waypoints[hit].y - mouseWorld.y;
+      render(); updateWpList(); updateWpDetail();
+    } else {
+      saveHistory();
+      waypoints.push({ x: snapV(mouseWorld.x), y: snapV(mouseWorld.y), z: 0 });
+      selectedIdx = waypoints.length - 1;
+      updateAll();
+    }
+  }
+
+  if (e.button === 2) {
+    if (hit >= 0) {
+      saveHistory();
+      waypoints.splice(hit, 1);
+      if (selectedIdx >= waypoints.length) selectedIdx = waypoints.length - 1;
+      updateAll();
+    }
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  if (dragIdx >= 0) { dragIdx = -1; updateAll(); }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (dragIdx >= 0) { dragIdx = -1; updateAll(); }
+});
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ─── KEYBOARD ───
+window.addEventListener('keydown', e => {
+  if (e.key === 'Shift') { shiftHeld = true; return; }
+
+  const inInput = ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
+  if (inInput) return;
+
+  if ((e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault(); undoLast(); return;
+  }
+  if (e.code === 'KeyZ') { undoLast(); return; }
+
+  if ((e.code === 'Delete' || e.code === 'Backspace') && selectedIdx >= 0) {
+    saveHistory();
+    waypoints.splice(selectedIdx, 1);
+    if (selectedIdx >= waypoints.length) selectedIdx = waypoints.length - 1;
+    updateAll(); return;
+  }
+
+  if (e.code === 'Escape') { selectedIdx = -1; updateAll(); return; }
+
+  // Arrow nudge XY
+  if (selectedIdx >= 0 && e.code.startsWith('Arrow')) {
+    e.preventDefault();
+    const step = shiftHeld ? 1 : 0.25;
+    const wp = waypoints[selectedIdx];
+    if (e.code === 'ArrowLeft')  wp.x -= step;
+    if (e.code === 'ArrowRight') wp.x += step;
+    if (e.code === 'ArrowUp')    wp.y += step;
+    if (e.code === 'ArrowDown')  wp.y -= step;
+    wp.x = Math.round(wp.x * 100) / 100;
+    wp.y = Math.round(wp.y * 100) / 100;
+    updateAll(); return;
+  }
+
+  // [ / ] nudge Z
+  if (selectedIdx >= 0 && (e.code === 'BracketLeft' || e.code === 'BracketRight')) {
+    e.preventDefault();
+    const wp = waypoints[selectedIdx];
+    const cur = wz(wp);
+    const step = shiftHeld ? 1 : 0.5;
+    wp.z = Math.max(-3, Math.min(3, Math.round((cur + (e.code === 'BracketRight' ? step : -step)) * 10) / 10));
+    updateAll();
+  }
+});
+window.addEventListener('keyup', e => { if (e.key === 'Shift') shiftHeld = false; });
+
+// ─── ACTIONS ───
+function undoLast() {
+  if (!history.length) return;
+  waypoints = history.pop();
+  if (selectedIdx >= waypoints.length) selectedIdx = waypoints.length - 1;
+  updateAll();
+}
+
+function clearAll() {
+  if (!waypoints.length) return;
+  saveHistory();
+  waypoints = []; selectedIdx = -1;
+  updateAll();
+}
+
+// ─── WAYPOINT DETAIL PANEL ───
+function updateWpDetail() {
+  const sec = document.getElementById('wp-detail-sec');
+  if (selectedIdx < 0 || selectedIdx >= waypoints.length) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const wp = waypoints[selectedIdx];
+  const z  = wz(wp);
+  document.getElementById('wp-detail-title').textContent = `#${selectedIdx + 1}`;
+  document.getElementById('wp-x').value = wp.x.toFixed(2);
+  document.getElementById('wp-y').value = wp.y.toFixed(2);
+  document.getElementById('wp-z-slider').value = z;
+  document.getElementById('wp-z').value = z.toFixed(1);
+}
+
+function editSelectedXY() {
+  if (selectedIdx < 0) return;
+  const x = parseFloat(document.getElementById('wp-x').value);
+  const y = parseFloat(document.getElementById('wp-y').value);
+  const wp = waypoints[selectedIdx];
+  if (!isNaN(x)) wp.x = Math.round(x * 100) / 100;
+  if (!isNaN(y)) wp.y = Math.round(y * 100) / 100;
+  updateAll(true);
+}
+
+function syncZFromSlider() {
+  if (selectedIdx < 0) return;
+  const z = parseFloat(document.getElementById('wp-z-slider').value);
+  document.getElementById('wp-z').value = z.toFixed(1);
+  waypoints[selectedIdx].z = z;
+  updateAll(true);
+}
+
+function syncZFromInput() {
+  if (selectedIdx < 0) return;
+  let z = parseFloat(document.getElementById('wp-z').value);
+  if (isNaN(z)) return;
+  z = Math.max(-3, Math.min(3, Math.round(z * 10) / 10));
+  document.getElementById('wp-z-slider').value = z;
+  waypoints[selectedIdx].z = z;
+  updateAll(true);
+}
+
+// ─── SIDEBAR WAYPOINT LIST ───
+function updateWpList() {
+  document.getElementById('wp-count').textContent = waypoints.length;
+  const list = document.getElementById('wp-list');
+  if (!waypoints.length) {
+    list.innerHTML = '<div style="font-size:10px;color:#1e2d48;padding:4px 0">No waypoints yet — click the canvas</div>';
+    return;
+  }
+  list.innerHTML = waypoints.map((wp, i) => {
+    const z    = wz(wp);
+    const isFirst = i === 0 && waypoints.length > 1;
+    const isLast  = i === waypoints.length - 1;
+    const tag  = isFirst ? '<span class="tag tag-start">start</span>'
+               : isLast  ? '<span class="tag tag-end">skull</span>'
+               : '';
+    const zBadge = z !== 0
+      ? `<span class="z-badge" style="color:${z > 0 ? '#cc9944' : '#8844cc'};background:${z > 0 ? '#1a1000' : '#100818'}">${z > 0 ? '+' : ''}${z.toFixed(1)}z</span>`
+      : '';
+    return `<div class="wp-item${i === selectedIdx ? ' sel' : ''}" onclick="selectWP(${i})">
+      <span class="wp-num">${i+1}</span>
+      <span style="flex:1">${wp.x.toFixed(2)}, ${wp.y.toFixed(2)}</span>
+      ${zBadge}${tag}
+    </div>`;
+  }).join('');
+}
+
+function selectWP(i) {
+  selectedIdx = i;
+  render(); updateWpList(); updateWpDetail();
+}
+
+// ─── OUTPUT GENERATION ───
+function updateOutput() {
+  const colors    = parseInt(document.getElementById('colors').value) || 3;
+  const speed     = parseFloat(document.getElementById('chainSpeed').value) || 1.6;
+  const threshold = parseInt(document.getElementById('threshold').value) || 250;
+  const comment   = document.getElementById('comment').value.trim();
+
+  let js = comment ? `// ${comment}\n` : '';
+  js += `LEVELS.push({\n  waypoints: [\n`;
+  for (const wp of waypoints) {
+    const z     = wz(wp);
+    const zPart = z !== 0 ? `, z: ${String(z.toFixed(1)).padStart(4)}` : '';
+    js += `    { x: ${String(wp.x.toFixed(2)).padStart(6)}, y: ${String(wp.y.toFixed(2)).padStart(6)}${zPart} },\n`;
+  }
+  js += `  ],\n`;
+  js += `  colors:            ${colors},\n`;
+  js += `  chainSpeed:        ${speed.toFixed(1)},\n`;
+  js += `  progressThreshold: ${threshold},\n`;
+  js += `});\n`;
+  document.getElementById('output').value = js;
+}
+
+function copyOutput() {
+  navigator.clipboard.writeText(document.getElementById('output').value).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = '⎘ Copy JS', 1600);
+  });
+}
+
+// ─── IMPORT ───
+function importLevel() {
+  const raw = document.getElementById('import-area').value.trim();
+  if (!raw) return;
+  try {
+    const wpMatch = raw.match(/waypoints\s*:\s*\[([\s\S]*?)\]/);
+    if (!wpMatch) throw new Error('No waypoints array found');
+    // Support optional z field
+    const cleaned = '[' + wpMatch[1]
+      .replace(/\{[^}]+\}/g, m => {
+        const xm = m.match(/x\s*:\s*(-?[\d.]+)/);
+        const ym = m.match(/y\s*:\s*(-?[\d.]+)/);
+        const zm = m.match(/z\s*:\s*(-?[\d.]+)/);
+        if (!xm || !ym) throw new Error('Bad waypoint: ' + m);
+        return `{"x":${xm[1]},"y":${ym[1]}${zm ? `,"z":${zm[1]}` : ''}}`;
+      }) + ']';
+    const parsed = JSON.parse(cleaned);
+    if (!parsed.length) throw new Error('Empty waypoints');
+
+    saveHistory();
+    waypoints = parsed.map(p => ({ x: +p.x, y: +p.y, z: +(p.z ?? 0) }));
+
+    const cm = raw.match(/colors\s*:\s*(\d+)/);
+    const sm = raw.match(/chainSpeed\s*:\s*([\d.]+)/);
+    const tm = raw.match(/progressThreshold\s*:\s*(\d+)/);
+    if (cm) document.getElementById('colors').value = cm[1];
+    if (sm) document.getElementById('chainSpeed').value = sm[1];
+    if (tm) document.getElementById('threshold').value = tm[1];
+
+    selectedIdx = -1;
+    document.getElementById('import-area').value = '';
+    updateAll();
+  } catch (err) {
+    alert('Import failed: ' + err.message);
+  }
+}
+
+// ─── EXAMPLES ───
+const EXAMPLES = {
+  spiral: [
+    {x:-11.00,y: 0.00},{x:-7.44,y:-7.44},{x: 0.00,y:-10.06},
+    {x: 6.78,y:-6.78},{x: 9.11,y: 0.00},{x: 6.11,y: 6.11},
+    {x: 0.00,y: 8.17},{x:-5.44,y: 5.44},{x:-7.22,y: 0.00},
+    {x:-4.77,y:-4.77},{x: 0.00,y:-6.28},{x: 4.10,y:-4.10},
+    {x: 5.33,y: 0.00},{x: 3.44,y: 3.44},{x: 0.00,y: 4.39},
+    {x:-2.77,y: 2.77},{x:-3.44,y: 0.00},{x:-2.10,y:-2.10},
+    {x: 0.00,y:-2.50},
+  ],
+  tightspiral: [
+    {x:-11,y:0},{x:0,y:-10},{x:10,y:0},{x:0,y:9},
+    {x:-8,y:0},{x:0,y:-7},{x:6,y:0},{x:0,y:5},
+    {x:-4,y:0},{x:0,y:-3},{x:2,y:0},{x:1,y:0},
+  ],
+  // Figure-8: top loop in front (+z), bottom loop behind (−z), crosses at z=0
+  figure8: [
+    {x:-11,y:0,z:0},{x:-7,y:8,z:1.5},{x:0,y:5,z:1.5},{x:7,y:8,z:1.5},{x:11,y:0,z:0},
+    {x:7,y:-8,z:-1.5},{x:0,y:-5,z:-1.5},{x:-7,y:-8,z:-1.5},{x:-11,y:0,z:0},
+    {x:-5,y:3,z:0.5},{x:0,y:0,z:0},
+  ],
+  snake: [
+    {x:-12,y: 9},{x: 0,y: 9},{x: 10,y: 7},
+    {x: 12,y: 3},{x: 10,y:-1},{x: 0,y:-3},
+    {x:-10,y:-5},{x:-12,y:-9},{x:-4,y:-9},
+    {x: 4,y:-7},{x: 4,y:-3},{x: 0,y: 0},
+  ],
+  zigzag: [
+    {x:-12,y:0},{x:-8,y:10},{x:-4,y:0},{x:0,y:10},
+    {x:4,y:0},{x:8,y:10},{x:12,y:0},{x:8,y:-10},
+    {x:4,y:0},{x:0,y:-10},{x:-4,y:0},{x:-6,y:-5},
+    {x:-4,y:-2},{x:0,y:0},
+  ],
+};
+
+function loadExample() {
+  const key = document.getElementById('example-sel').value;
+  if (!key || !EXAMPLES[key]) return;
+  saveHistory();
+  waypoints = EXAMPLES[key].map(p => ({x: p.x, y: p.y, z: p.z ?? 0}));
+  selectedIdx = -1;
+  updateAll();
+}
+
+// ─── MAIN UPDATE ───
+function updateAll(regen = true) {
+  updateWpList();
+  updateWpDetail();
+  if (regen) updateOutput();
+  render();
+}
+
+// ─── BOOT ───
+resize();
+updateAll();
+</script>
+</body>
+</html>

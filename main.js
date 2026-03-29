@@ -264,7 +264,6 @@ function animate() {
       if (!ball.mesh.visible) continue;
       const pos = getPathPosFromS(ball.s);
       ball.mesh.position.copy(pos);
-      ball.mesh.position.z = 0;
       ball.mesh.rotation.z += dt * 1.5;
       ball.mesh.rotation.x += dt * 0.8;
     }

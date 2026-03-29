@@ -35,7 +35,7 @@ const BALL_SPACING = BALL_RADIUS * 2.05;
 // waypoints: array of {x, y} — the skull sits at the last waypoint
 function buildPath(waypoints) {
   const curve = new THREE.CatmullRomCurve3(
-    waypoints.map(p => new THREE.Vector3(p.x, p.y, 0)),
+    waypoints.map(p => new THREE.Vector3(p.x, p.y, p.z ?? 0)),
     false, 'catmullrom', 0.5
   );
   pathPoints = [];

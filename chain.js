@@ -7,6 +7,14 @@ let gaps = [];
 // Tracked by ball references so indices don't go stale.
 let pushForwards = []; // { insertedBall, frontBall } — everything ahead of insertedBall pushes forward
 
+// setTimeout IDs for pending chain reactions — cancelled on level up / game reset
+let chainTimeouts = [];
+
+function cancelChainReactions() {
+  chainTimeouts.forEach(clearTimeout);
+  chainTimeouts = [];
+}
+
 function spawnChainBall() {
   const colorIdx = pickColor();
   const mesh = createBallMesh(colorIdx);
@@ -223,12 +231,14 @@ function updateCollapses(dt) {
       // Chain reaction check
       if (gap.frontBall.colorIdx === gap.backBall.colorIdx) {
         const checkIdx = backIdx;
-        setTimeout(() => {
+        const tid = setTimeout(() => {
+          chainTimeouts = chainTimeouts.filter(t => t !== tid);
           if (chain.length > 0) {
             playSound('chain', combo);
             checkMatches(Math.min(checkIdx, chain.length - 1), true);
           }
         }, 100);
+        chainTimeouts.push(tid);
       } else {
         combo = 1; // gap closed, no chain reaction — cascade over
         updateHUD();

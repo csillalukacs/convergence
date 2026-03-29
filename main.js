@@ -310,6 +310,7 @@ function loadLevel(def) {
 }
 
 function startGame() {
+  cancelChainReactions();
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('pause-screen').style.display = 'none';
@@ -341,6 +342,11 @@ function gameOver() {
 }
 
 function levelUp() {
+  cancelChainReactions();
+  chain.forEach(b => scene.remove(b.mesh)); chain = [];
+  projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
+  gaps = []; pushForwards = [];
+
   level++;
   playSound('levelup');
   loadLevel(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
@@ -349,6 +355,7 @@ function levelUp() {
   updateProgressBar();
   showBanner('LEVEL ' + level);
   updateHUD();
+  loadShooterBalls();
 }
 
 function showBanner(text) {

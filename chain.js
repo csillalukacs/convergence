@@ -110,7 +110,7 @@ function checkMatches(idx, fromChainReaction = false) {
       const midPos = chain[Math.floor((start + end) / 2)].mesh.position.clone();
       spawnComboText(midPos, combo);
     }
-    playSound('match');
+    playSound('match', combo);
     for (let i = start; i <= end; i++) {
       explodeBall(chain[i]);
       chain[i].alive = false;
@@ -225,7 +225,7 @@ function updateCollapses(dt) {
         const checkIdx = backIdx;
         setTimeout(() => {
           if (chain.length > 0) {
-            playSound('chain');
+            playSound('chain', combo);
             checkMatches(Math.min(checkIdx, chain.length - 1), true);
           }
         }, 100);

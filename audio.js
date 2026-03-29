@@ -85,21 +85,23 @@ const SOUNDS = {
     crystalBellAt(659.25, t, 0.28, 0.18);
   },
 
-  // Crystal chord burst — C major triad with shimmer stagger
-  match: () => {
+  // Crystal chord burst — C major triad, pitched up 2 semitones per combo level
+  match: (combo = 1) => {
     const t = getAudioCtx().currentTime;
-    crystalBellAt(523.25, t,        1.4, 0.52);  // C5
-    crystalBellAt(659.25, t + 0.03, 1.2, 0.40);  // E5
-    crystalBellAt(783.99, t + 0.06, 1.1, 0.32);  // G5
-    crystalBellAt(1046.5, t + 0.10, 0.9, 0.20);  // C6
+    const p = Math.pow(2, Math.min(combo - 1, 6) * 2 / 12); // +2 semitones per combo, cap at 6
+    crystalBellAt(523.25 * p, t,        1.4, 0.52);  // C5
+    crystalBellAt(659.25 * p, t + 0.03, 1.2, 0.40);  // E5
+    crystalBellAt(783.99 * p, t + 0.06, 1.1, 0.32);  // G5
+    crystalBellAt(1046.5 * p, t + 0.10, 0.9, 0.20);  // C6
   },
 
-  // Chain reaction — higher, more ethereal G major voicing
-  chain: () => {
+  // Chain reaction — higher G major voicing, same pitch ladder as match
+  chain: (combo = 1) => {
     const t = getAudioCtx().currentTime;
-    crystalBellAt(783.99, t,        1.2, 0.44);  // G5
-    crystalBellAt(987.77, t + 0.03, 1.0, 0.34);  // B5
-    crystalBellAt(1174.7, t + 0.06, 0.9, 0.24);  // D6
+    const p = Math.pow(2, Math.min(combo - 1, 6) * 2 / 12);
+    crystalBellAt(783.99 * p, t,        1.2, 0.44);  // G5
+    crystalBellAt(987.77 * p, t + 0.03, 1.0, 0.34);  // B5
+    crystalBellAt(1174.7 * p, t + 0.06, 0.9, 0.24);  // D6
   },
 
   // Two-note sparkle trill — swap
@@ -128,12 +130,12 @@ const SOUNDS = {
   },
 };
 
-function playSound(name) {
+function playSound(name, ...args) {
   if (!SOUNDS[name] || isMuted) return;
   try {
     const ctx = getAudioCtx();
     if (ctx.state === 'suspended') ctx.resume();
-    SOUNDS[name]();
+    SOUNDS[name](...args);
   } catch(e) {}
 }
 

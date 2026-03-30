@@ -19,9 +19,6 @@ const COLOR_EMISSIVE = [
 const BALL_RADIUS = 0.75;
 const SHOOTER_POS = { x: 0, y: 0, z: 0 };
 
-// ─── LEVELS ───
-
-const LEVELS = [];
 let levelColors = 3;
 
 // ─── PATH ───

@@ -334,7 +334,7 @@ function loadLevel(def) {
   chainSpeed     = def.chainSpeed;
   progressMax    = def.progressThreshold;
   clearTrack();
-  buildPath(def.waypoints);
+  buildPath(MAPS[def.map].waypoints);
   createTrack();
 }
 

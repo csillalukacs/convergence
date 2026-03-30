@@ -120,6 +120,15 @@ const SOUNDS = {
     });
   },
 
+  // Magical shimmer — powerup activated
+  powerup: () => {
+    const ctx = getAudioCtx();
+    const t = ctx.currentTime;
+    [523.25, 740, 1046.5, 1480].forEach((f, i) => {
+      crystalBellAt(f, t + i * 0.07, 0.55, 0.38);
+    });
+  },
+
   // Descending A minor — game over
   gameover: () => {
     const ctx = getAudioCtx();

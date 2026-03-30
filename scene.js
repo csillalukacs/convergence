@@ -319,6 +319,53 @@ function createBallMesh(colorIdx) {
     new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
 }
 
+// ─── POWERUP SPRITES ───
+
+function createPowerupSprite(type) {
+  const S = 64;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, S, S);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = '#aaddff';
+  ctx.shadowBlur = 10;
+
+  if (type === 'pause') {
+    // Two vertical bars
+    const bw = S * 0.13, bh = S * 0.40, cy = S / 2, cx = S / 2;
+    ctx.fillRect(cx - bw - S * 0.06, cy - bh / 2, bw, bh);
+    ctx.fillRect(cx + S * 0.06,      cy - bh / 2, bw, bh);
+  } else if (type === 'backwards') {
+    // Left-pointing rewind arrow: triangle + bar
+    const cx = S / 2, cy = S / 2, r = S * 0.22;
+    ctx.beginPath();
+    ctx.moveTo(cx - r,       cy);
+    ctx.lineTo(cx + r * 0.6, cy - r * 0.7);
+    ctx.lineTo(cx + r * 0.6, cy + r * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillRect(cx - r - S * 0.10, cy - r * 0.7, S * 0.09, r * 1.4);
+  }
+
+  const tex = new THREE.CanvasTexture(cv);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.6, 1.6, 1);
+  return sprite;
+}
+
+function createPowerupHalo() {
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(BALL_RADIUS * 1.55, 8, 6),
+    new THREE.MeshBasicMaterial({
+      color: 0xaaddff, transparent: true, opacity: 0,
+      side: THREE.BackSide, depthWrite: false
+    })
+  );
+}
+
 // ─── EXPLOSIONS ───
 
 function explodeBall(ball) {

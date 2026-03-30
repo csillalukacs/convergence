@@ -40,6 +40,15 @@ let rollBackTimer = 0;
 let snapImpulse = 0;        // current backwards velocity (world units/sec), decays to 0
 const SNAP_FRICTION = 5.0;  // deceleration rate
 
+// Powerup state
+let chainFreezeTimer = 0;         // pause powerup — chain doesn't advance
+let powerupBackTimer  = 0;        // backwards powerup — chain reverses
+let pauseSpawnTimer    = 15;      // countdown to next 'pause' ball assignment
+let backSpawnTimer     = 20;      // countdown to next 'backwards' ball assignment
+const PAUSE_SPAWN_INTERVAL = 15;  // seconds between pause powerup spawns
+const BACK_SPAWN_INTERVAL  = 18;  // seconds between backwards powerup spawns
+const POWERUP_BALL_DURATION = 10; // seconds a ball keeps its powerup icon
+
 // Roll-in phase
 const ROLL_IN_SPEED = 8.0;
 const ROLL_IN_COUNT = 20;
@@ -198,6 +207,11 @@ function animate() {
     if (rollBackTimer > 0) {
       rollBackTimer = Math.max(0, rollBackTimer - dt);
       for (let i = 0; i < chain.length; i++) chain[i].s -= ROLL_BACK_SPEED * dt;
+    } else if (powerupBackTimer > 0) {
+      powerupBackTimer = Math.max(0, powerupBackTimer - dt);
+      for (let i = 0; i < chain.length; i++) chain[i].s -= ROLL_BACK_SPEED * dt;
+    } else if (chainFreezeTimer > 0) {
+      chainFreezeTimer = Math.max(0, chainFreezeTimer - dt);
     } else if (chain.length > 0) {
       const activeSpeed = rollingIn ? ROLL_IN_SPEED : chainSpeed;
       // Collect all split points (indices where a gap or push-forward boundary exists)
@@ -251,6 +265,20 @@ function animate() {
 
     updateCollapses(dt);
     updatePushForwards(dt);
+    tickBallPowerups(dt);
+
+    if (!spawningDone) {
+      pauseSpawnTimer -= dt;
+      if (pauseSpawnTimer <= 0) {
+        tryAssignPowerup('pause');
+        pauseSpawnTimer = PAUSE_SPAWN_INTERVAL;
+      }
+      backSpawnTimer -= dt;
+      if (backSpawnTimer <= 0) {
+        tryAssignPowerup('backwards');
+        backSpawnTimer = BACK_SPAWN_INTERVAL;
+      }
+    }
 
     // Apply snap-back impulse from gap closures
     if (snapImpulse > 0) {
@@ -312,6 +340,7 @@ function loadLevel(def) {
 
 function startGame(startLevel = 1) {
   cancelChainReactions();
+  clearAllPowerupVisuals();
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('pause-screen').style.display = 'none';
@@ -325,6 +354,7 @@ function startGame(startLevel = 1) {
   score = 0; combo = 1; chainBonus = 1; level = startLevel;
   loadLevel(LEVELS[startLevel - 1] || LEVELS[0]);
   progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
+  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20;
 
   updateHUD(); updateProgressBar();
   loadShooterBalls();
@@ -335,6 +365,7 @@ function startGame(startLevel = 1) {
 
 function jumpToLevel(n) {
   cancelChainReactions();
+  clearAllPowerupVisuals();
   chain.forEach(b => scene.remove(b.mesh)); chain = [];
   projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
   gaps = []; pushForwards = [];
@@ -343,6 +374,7 @@ function jumpToLevel(n) {
   loadLevel(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
   score = 0; combo = 1; progress = 0; levelStartScore = 0; chainBonus = 1;
   spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
+  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20;
 
   gamePaused = false;
   document.getElementById('pause-screen').style.display = 'none';
@@ -361,6 +393,7 @@ function gameOver() {
 
 function levelUp() {
   cancelChainReactions();
+  clearAllPowerupVisuals();
   chain.forEach(b => scene.remove(b.mesh)); chain = [];
   projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
   gaps = []; pushForwards = [];
@@ -370,6 +403,7 @@ function levelUp() {
   loadLevel(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
   progress = 0; levelStartScore = score; chainBonus = 1;
   spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
+  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20;
   updateProgressBar();
   showBanner('LEVEL ' + level);
   updateHUD();
@@ -406,6 +440,69 @@ function onResize() {
   const a = w / h, f = 14;
   camera.left = -f * a; camera.right = f * a; camera.top = f; camera.bottom = -f;
   camera.updateProjectionMatrix();
+}
+
+// ─── POWERUPS ───
+
+function tickBallPowerups(dt) {
+  for (const ball of chain) {
+    if (!ball.powerup) continue;
+    ball.powerupTimer -= dt;
+    if (ball.powerupTimer <= 0) {
+      removePowerupVisuals(ball);
+      ball.powerup = null;
+    } else {
+      const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 5);
+      if (ball.powerupSprite) {
+        ball.powerupSprite.visible = ball.mesh.visible;
+        ball.powerupSprite.position.copy(ball.mesh.position);
+        ball.powerupSprite.material.opacity = 0.7 + 0.3 * pulse;
+      }
+      if (ball.powerupHalo) {
+        ball.powerupHalo.material.opacity = 0.12 + 0.22 * pulse;
+        ball.powerupHalo.scale.setScalar(1 + 0.12 * pulse);
+      }
+      ball.mesh.material.emissiveIntensity = 1 + 2.5 * pulse;
+    }
+  }
+}
+
+function removePowerupVisuals(ball) {
+  if (ball.powerupSprite) { scene.remove(ball.powerupSprite); ball.powerupSprite = null; }
+  if (ball.powerupHalo)   { ball.mesh.remove(ball.powerupHalo); ball.powerupHalo = null; }
+  ball.mesh.material.emissiveIntensity = 1;
+}
+
+function tryAssignPowerup(type) {
+  if (!gameActive || chain.length < 6) return;
+  const candidates = chain.filter(
+    (b, i) => !b.powerup && b.alive && b.s >= 0 && i > 0 && i < chain.length - 1
+  );
+  if (candidates.length === 0) return;
+  const ball = candidates[Math.floor(Math.random() * candidates.length)];
+  ball.powerup = type;
+  ball.powerupTimer = POWERUP_BALL_DURATION;
+  ball.powerupSprite = createPowerupSprite(type);
+  scene.add(ball.powerupSprite);
+  ball.powerupHalo = createPowerupHalo();
+  ball.mesh.add(ball.powerupHalo);
+}
+
+function clearAllPowerupVisuals() {
+  for (const ball of chain) {
+    if (ball.powerup) removePowerupVisuals(ball);
+  }
+}
+
+function activatePowerup(type) {
+  if (type === 'pause') {
+    chainFreezeTimer = 4.0;
+    showBanner('CHAIN FROZEN');
+  } else if (type === 'backwards') {
+    powerupBackTimer = 2.5;
+    showBanner('REVERSED!');
+  }
+  playSound('powerup');
 }
 
 init();

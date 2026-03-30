@@ -16,6 +16,6 @@ LEVELS.push({
     { x:   1, y:   0 },
   ],
   colors:            3,
-  chainSpeed:        2.0,
-  progressThreshold: 400,
+  chainSpeed:        2.8,
+  progressThreshold: 1200,
 });

@@ -113,6 +113,18 @@ function checkMatches(idx, fromChainReaction = false) {
 
   const count = end - start + 1;
   if (count >= 3) {
+    // Trigger any powerup carried by a matched ball
+    for (let i = start; i <= end; i++) {
+      if (chain[i].powerup) {
+        const type = chain[i].powerup;
+        chain[i].powerup = null;
+        if (chain[i].powerupSprite) { scene.remove(chain[i].powerupSprite); chain[i].powerupSprite = null; }
+        if (chain[i].powerupHalo)   { chain[i].mesh.remove(chain[i].powerupHalo); chain[i].powerupHalo = null; }
+        chain[i].mesh.material.emissiveIntensity = 1;
+        activatePowerup(type);
+      }
+    }
+
     if (fromChainReaction) {
       combo++;
       const midPos = chain[Math.floor((start + end) / 2)].mesh.position.clone();

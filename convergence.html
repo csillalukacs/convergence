@@ -32,7 +32,8 @@
   <div class="gear-deco"></div>
   <h1>CONVERGENCE</h1>
   <div class="subtitle">Align the Crystal Chain</div>
-  <button class="btn-start" onclick="startGame()">BEGIN</button>
+  <div class="level-picker" id="title-level-picker"></div>
+  <button class="btn-start" onclick="startGame(selectedStartLevel())">BEGIN</button>
 </div>
 
 <div id="game-over">
@@ -45,6 +46,8 @@
 <div id="pause-screen">
   <h2>PAUSED</h2>
   <div class="pause-hint">Press P or ESC to resume</div>
+  <div class="level-picker-label">JUMP TO LEVEL</div>
+  <div class="level-picker" id="pause-level-picker"></div>
 </div>
 
 <div id="level-banner"></div>
@@ -64,8 +67,40 @@
 <script src="levels/level10.js"></script>
 <script src="levels/level11.js"></script>
 <script src="levels/level12.js"></script>
+<script src="levels/level13.js"></script>
 <script src="scene.js"></script>
 <script src="chain.js"></script>
 <script src="main.js"></script>
+<script>
+// ─── LEVEL PICKER ───
+let _pickerSelected = 1;
+
+function selectedStartLevel() { return _pickerSelected; }
+
+function buildLevelPickers() {
+  const count = LEVELS.length;
+  ['title-level-picker', 'pause-level-picker'].forEach(id => {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'lvl-btn' + (i === 1 ? ' lvl-btn-active' : '');
+      btn.textContent = i;
+      btn.dataset.n = i;
+      btn.onclick = () => {
+        if (id === 'pause-level-picker') {
+          jumpToLevel(i);
+        } else {
+          _pickerSelected = i;
+          el.querySelectorAll('.lvl-btn').forEach(b => b.classList.toggle('lvl-btn-active', +b.dataset.n === i));
+        }
+      };
+      el.appendChild(btn);
+    }
+  });
+}
+
+window.addEventListener('DOMContentLoaded', buildLevelPickers);
+</script>
 </body>
 </html>

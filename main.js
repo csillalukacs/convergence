@@ -132,7 +132,8 @@ function checkProjectileCollisions(dt) {
     proj.mesh.position.x += proj.vx * dt;
     proj.mesh.position.y += proj.vy * dt;
 
-    if (Math.abs(proj.mesh.position.x) > 16 || Math.abs(proj.mesh.position.y) > 16) {
+    const bound = 14 * (window.innerWidth / window.innerHeight) + 2;
+    if (Math.abs(proj.mesh.position.x) > bound || Math.abs(proj.mesh.position.y) > 16) {
       scene.remove(proj.mesh); proj.alive = false; continue;
     }
 
@@ -309,7 +310,7 @@ function loadLevel(def) {
   createTrack();
 }
 
-function startGame() {
+function startGame(startLevel = 1) {
   cancelChainReactions();
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
@@ -321,15 +322,32 @@ function startGame() {
   gaps = [];
   pushForwards = [];
 
-  score = 0; combo = 1; chainBonus = 1; level = 1;
-  loadLevel(LEVELS[0]);
+  score = 0; combo = 1; chainBonus = 1; level = startLevel;
+  loadLevel(LEVELS[startLevel - 1] || LEVELS[0]);
   progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
 
   updateHUD(); updateProgressBar();
   loadShooterBalls();
   gameActive = true;
   gamePaused = false;
-  showBanner('LEVEL 1');
+  showBanner('LEVEL ' + startLevel);
+}
+
+function jumpToLevel(n) {
+  cancelChainReactions();
+  chain.forEach(b => scene.remove(b.mesh)); chain = [];
+  projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
+  gaps = []; pushForwards = [];
+
+  level = n;
+  loadLevel(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
+  score = 0; combo = 1; progress = 0; levelStartScore = 0; chainBonus = 1;
+  spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
+
+  gamePaused = false;
+  document.getElementById('pause-screen').style.display = 'none';
+  updateProgressBar(); updateHUD(); loadShooterBalls();
+  showBanner('LEVEL ' + n);
 }
 
 function gameOver() {

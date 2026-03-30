@@ -753,14 +753,14 @@ function importLevel() {
     const wpMatch = raw.match(/waypoints\s*:\s*\[([\s\S]*?)\]/);
     if (!wpMatch) throw new Error('No waypoints array found');
     // Support optional z field
-    const cleaned = '[' + wpMatch[1]
+    const cleaned = ('[' + wpMatch[1]
       .replace(/\{[^}]+\}/g, m => {
         const xm = m.match(/x\s*:\s*(-?[\d.]+)/);
         const ym = m.match(/y\s*:\s*(-?[\d.]+)/);
         const zm = m.match(/z\s*:\s*(-?[\d.]+)/);
         if (!xm || !ym) throw new Error('Bad waypoint: ' + m);
         return `{"x":${xm[1]},"y":${ym[1]}${zm ? `,"z":${zm[1]}` : ''}}`;
-      }) + ']';
+      }) + ']').replace(/,(\s*\])/, '$1');
     const parsed = JSON.parse(cleaned);
     if (!parsed.length) throw new Error('Empty waypoints');
 

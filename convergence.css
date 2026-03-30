@@ -198,6 +198,44 @@ body {
   letter-spacing: 3px;
 }
 
+.title-btn-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+#title-level-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease, margin 0.35s ease;
+  margin-bottom: 0;
+}
+
+#title-level-wrap.open {
+  max-height: 200px;
+  margin-bottom: 24px;
+}
+
+.btn-select-level {
+  font-family: 'Cinzel Decorative', serif;
+  background: transparent;
+  color: #446688;
+  border: 1px solid #223355;
+  padding: 8px 24px;
+  font-size: 11px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  pointer-events: all;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.btn-select-level:hover {
+  color: #88ccff;
+  border-color: #336699;
+}
+
 .btn-start {
   font-family: 'Cinzel Decorative', serif;
   background: linear-gradient(135deg, #112244, #224488, #112244);

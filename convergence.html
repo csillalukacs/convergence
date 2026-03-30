@@ -32,8 +32,13 @@
   <div class="gear-deco"></div>
   <h1>CONVERGENCE</h1>
   <div class="subtitle">Align the Crystal Chain</div>
-  <div class="level-picker" id="title-level-picker"></div>
-  <button class="btn-start" onclick="startGame(selectedStartLevel())">BEGIN</button>
+  <div id="title-level-wrap">
+    <div class="level-picker" id="title-level-picker"></div>
+  </div>
+  <div class="title-btn-row">
+    <button class="btn-start" onclick="startGame(_pickerSelected)">BEGIN</button>
+    <button class="btn-select-level" onclick="toggleTitlePicker()">SELECT LEVEL</button>
+  </div>
 </div>
 
 <div id="game-over">
@@ -75,20 +80,18 @@
 // ─── LEVEL PICKER ───
 let _pickerSelected = 1;
 
-function selectedStartLevel() { return _pickerSelected; }
-
 function buildLevelPickers() {
-  const count = LEVELS.length;
   ['title-level-picker', 'pause-level-picker'].forEach(id => {
+    const isPause = id === 'pause-level-picker';
     const el = document.getElementById(id);
     el.innerHTML = '';
-    for (let i = 1; i <= count; i++) {
+    for (let i = 1; i <= LEVELS.length; i++) {
       const btn = document.createElement('button');
-      btn.className = 'lvl-btn' + (i === 1 ? ' lvl-btn-active' : '');
+      btn.className = 'lvl-btn' + (!isPause && i === 1 ? ' lvl-btn-active' : '');
       btn.textContent = i;
       btn.dataset.n = i;
       btn.onclick = () => {
-        if (id === 'pause-level-picker') {
+        if (isPause) {
           jumpToLevel(i);
         } else {
           _pickerSelected = i;
@@ -98,6 +101,11 @@ function buildLevelPickers() {
       el.appendChild(btn);
     }
   });
+}
+
+function toggleTitlePicker() {
+  const wrap = document.getElementById('title-level-wrap');
+  wrap.classList.toggle('open');
 }
 
 window.addEventListener('DOMContentLoaded', buildLevelPickers);

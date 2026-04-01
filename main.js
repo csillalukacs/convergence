@@ -201,12 +201,14 @@ function animate() {
     g.rotation.x += g.userData.spinSpeed * 0.7 * dt;
   });
 
+  const starHW = camera.right + 2;
+  const starHH = camera.top + 1;
   bgStars.forEach(s => {
     s.position.x += s.userData.vx * dt;
     s.position.y += s.userData.vy * dt;
     s.material.opacity = s.userData.baseOp * (0.5 + 0.5 * Math.sin(clock.elapsedTime * 2 + s.position.x));
-    if (s.position.y > 15) { s.position.y = -15; s.position.x = (Math.random() - 0.5) * 30; }
-    if (s.position.y < -15) { s.position.y = 15; }
+    if (s.position.y > starHH) { s.position.y = -starHH; s.position.x = (Math.random() - 0.5) * starHW * 2; }
+    if (s.position.y < -starHH) { s.position.y = starHH; }
   });
 
   if (gameActive && !gamePaused) {

@@ -97,6 +97,9 @@ function createTrack() {
 // ─── BACKGROUND ───
 
 function createBackground() {
+  const hw = camera.right + 4; // half-width with margin beyond frustum edge
+  const hh = camera.top + 3;  // half-height with margin
+
   // Floating crystal shards
   const shardColors = [0xFF2255, 0x00AAFF, 0x00FF88, 0xFFCC00, 0xCC44FF, 0xffffff, 0x88ccff];
   for (let i = 0; i < 20; i++) {
@@ -109,7 +112,7 @@ function createBackground() {
         metalness: 0.3, roughness: 0.0, transparent: true, opacity: 0.55 + Math.random() * 0.3
       })
     );
-    shard.position.set((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 28, -1.5 - Math.random() * 2);
+    shard.position.set((Math.random() - 0.5) * hw * 2, (Math.random() - 0.5) * hh * 2, -1.5 - Math.random() * 2);
     shard.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
     shard.userData.spinSpeed = (Math.random() - 0.5) * 0.5;
     scene.add(shard);
@@ -122,7 +125,7 @@ function createBackground() {
     const col = starPalette[Math.floor(Math.random() * starPalette.length)];
     const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: Math.random() * 0.5 + 0.1 });
     const s = new THREE.Mesh(new THREE.SphereGeometry(0.02 + Math.random() * 0.04, 4, 4), mat);
-    s.position.set((Math.random() - 0.5) * 32, (Math.random() - 0.5) * 30, -1 + Math.random() * 2);
+    s.position.set((Math.random() - 0.5) * hw * 2, (Math.random() - 0.5) * hh * 2, -1 + Math.random() * 2);
     s.userData = { vy: (Math.random() - 0.3) * 0.3, vx: (Math.random() - 0.5) * 0.12, baseOp: mat.opacity };
     scene.add(s); bgStars.push(s);
   }

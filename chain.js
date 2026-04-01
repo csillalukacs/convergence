@@ -125,11 +125,11 @@ function checkMatches(idx, fromChainReaction = false) {
       }
     }
 
-    if (fromChainReaction) {
-      combo++;
-      const midPos = chain[Math.floor((start + end) / 2)].mesh.position.clone();
-      spawnComboText(midPos, combo);
-    }
+    const midIdx = Math.floor((start + end) / 2);
+    const midPos = chain[midIdx] ? getPathPosFromS(chain[midIdx].s) : new THREE.Vector3();
+
+    if (fromChainReaction) combo++;
+
     playSound('match', combo);
     for (let i = start; i <= end; i++) {
       explodeBall(chain[i]);
@@ -137,13 +137,15 @@ function checkMatches(idx, fromChainReaction = false) {
     }
     chain = chain.filter(b => b.alive);
     const gapMult = (pendingGapBonus && !fromChainReaction) ? 10 : 1;
-    const matchScore = (count * 10 * combo * gapMult + chainBonus * 10);
+    const matchScore = (count * 10 * combo * gapMult + (chainBonus > 1 ? chainBonus * 10 : 0));
+
     if (pendingGapBonus && !fromChainReaction) {
       pendingGapBonus = false;
-      const midPos = chain.length > 0
-        ? chain[Math.min(Math.floor((start + end) / 2), chain.length - 1)].mesh.position.clone()
-        : new THREE.Vector3();
       spawnGapBonusText(midPos, matchScore);
+    } else if (fromChainReaction) {
+      spawnComboText(midPos, combo, matchScore);
+    } else {
+      spawnScoreText(midPos, matchScore);
     }
     score += matchScore;
     if (!fromChainReaction) chainBonus++;

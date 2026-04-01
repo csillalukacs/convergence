@@ -150,42 +150,40 @@ function onSwapAction() {
 
 // ─── COMBO TEXT ───
 
-function spawnGapBonusText(worldPos, matchScore) {
+let activeScorePopup = null;
+
+function spawnScorePopup(worldPos, className, html) {
+  if (activeScorePopup) { activeScorePopup.remove(); activeScorePopup = null; }
+
   const ndc = worldPos.clone().project(camera);
   const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;
   const y = (-ndc.y * 0.5 + 0.5) * window.innerHeight;
 
   const el = document.createElement('div');
-  el.className = 'gap-bonus-text';
-  el.textContent = 'GAP BONUS +' + matchScore;
+  el.className = className;
+  el.innerHTML = html;
   el.style.left = x + 'px';
   el.style.top  = y + 'px';
   document.body.appendChild(el);
+  activeScorePopup = el;
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    el.style.transform = 'translate(-50%, -70px)';
+    el.style.transform = 'translate(-50%, -120px)';
     el.style.opacity = '0';
   }));
-  setTimeout(() => el.remove(), 900);
+  setTimeout(() => { if (activeScorePopup === el) activeScorePopup = null; el.remove(); }, 2600);
 }
 
-function spawnComboText(worldPos, comboVal) {
-  const ndc = worldPos.clone().project(camera);
-  const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;
-  const y = (-ndc.y * 0.5 + 0.5) * window.innerHeight;
+function spawnScoreText(worldPos, points) {
+  spawnScorePopup(worldPos, 'score-text', '+' + points);
+}
 
-  const el = document.createElement('div');
-  el.className = 'combo-text';
-  el.textContent = 'COMBO ×' + comboVal;
-  el.style.left = x + 'px';
-  el.style.top  = y + 'px';
-  document.body.appendChild(el);
+function spawnGapBonusText(worldPos, matchScore) {
+  spawnScorePopup(worldPos, 'gap-bonus-text', 'GAP BONUS +' + matchScore);
+}
 
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    el.style.transform = 'translate(-50%, -70px)';
-    el.style.opacity = '0';
-  }));
-  setTimeout(() => el.remove(), 900);
+function spawnComboText(worldPos, comboVal, matchScore) {
+  spawnScorePopup(worldPos, 'combo-text', 'COMBO ×' + comboVal + '<br><span class="combo-score">+' + matchScore + '</span>');
 }
 
 // ─── BALL TEXTURES ───

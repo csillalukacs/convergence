@@ -94,6 +94,69 @@ function createTrack() {
   c2.position.copy(ep); c2.position.z = -0.15; c2.rotation.z = Math.PI / 2; scene.add(c2); trackMeshes.push(c2);
 }
 
+// ─── RESONANCE NODES (bonus pickups) ───
+
+let bonusCrystals = [];
+
+const BONUS_CRYSTAL_LIFESPAN = 9.0; // seconds before it fades out
+
+function spawnBonusCrystal() {
+  // Pick a random position along the path, slightly off-centre, z behind the chain
+  const s = pathLength * (0.15 + Math.random() * 0.70);
+  const pos = getPathPosFromS(s);
+  const tan = getPathTangentFromS(s);
+  const side = Math.random() < 0.5 ? 1 : -1;
+  // Small perpendicular offset so it's not dead-centre on the track
+  const OFFSET = 0.8 + Math.random() * 0.6;
+  const nx = -tan.y * side * OFFSET;
+  const ny =  tan.x * side * OFFSET;
+  const phase = Math.random() * Math.PI * 2;
+
+  // Core crystal — bright white-gold
+  const core = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.62, 0),
+    new THREE.MeshStandardMaterial({
+      color: 0xFFFFCC, emissive: 0xFFCC00, emissiveIntensity: 2.5,
+      metalness: 0.3, roughness: 0.0
+    })
+  );
+
+  // Mid shell — translucent amber
+  const mid = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.92, 1),
+    new THREE.MeshStandardMaterial({
+      color: 0xFFAA00, emissive: 0xFF8800, emissiveIntensity: 1.0,
+      metalness: 0.0, roughness: 0.0, transparent: true, opacity: 0.38, side: THREE.DoubleSide
+    })
+  );
+
+  // Outer wireframe cage
+  const cage = new THREE.Mesh(
+    new THREE.OctahedronGeometry(1.15, 0),
+    new THREE.MeshBasicMaterial({ color: 0xFFEE44, transparent: true, opacity: 0.55, wireframe: true })
+  );
+
+  // Large soft glow sphere
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(1.5, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xFFCC00, transparent: true, opacity: 0.07, side: THREE.BackSide, depthWrite: false })
+  );
+
+  const group = new THREE.Group();
+  group.add(core, mid, cage, glow);
+  // z=-1.8: visually behind the chain (balls sit at z~0, track at z~-0.3)
+  group.position.set(pos.x + nx, pos.y + ny, -1.8);
+  group.userData = { phase, core, cage, mid, glow };
+
+  scene.add(group);
+  bonusCrystals.push({ mesh: group, alive: true, life: BONUS_CRYSTAL_LIFESPAN });
+}
+
+function clearBonusCrystals() {
+  bonusCrystals.forEach(c => scene.remove(c.mesh));
+  bonusCrystals = [];
+}
+
 // ─── BACKGROUND ───
 
 function createBackground() {

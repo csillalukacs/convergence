@@ -41,6 +41,10 @@ let rollBackTimer = 0;
 let snapImpulse = 0;        // current backwards velocity (world units/sec), decays to 0
 const SNAP_FRICTION = 5.0;  // deceleration rate
 
+// Bonus crystal spawn timer
+let bonusCrystalSpawnTimer = 8.0; // seconds until first crystal appears
+const BONUS_CRYSTAL_INTERVAL = 14.0;
+
 // Powerup state
 let chainFreezeTimer = 0;         // pause powerup — chain doesn't advance
 let powerupBackTimer  = 0;        // backwards powerup — chain reverses
@@ -181,6 +185,35 @@ function checkProjectileCollisions(dt) {
         break;
       }
     }
+
+    // Resonance node pickup — only reachable if chain didn't intercept
+    if (proj.alive) {
+      for (let ci = bonusCrystals.length - 1; ci >= 0; ci--) {
+        const c = bonusCrystals[ci];
+        if (!c.alive) continue;
+        const dx = proj.mesh.position.x - c.mesh.position.x;
+        const dy = proj.mesh.position.y - c.mesh.position.y;
+        if (dx * dx + dy * dy < (BALL_RADIUS + 1.0) * (BALL_RADIUS + 1.0)) {
+          c.alive = false;
+          scene.remove(c.mesh);
+          bonusCrystals.splice(ci, 1);
+          bonusCrystalSpawnTimer = BONUS_CRYSTAL_INTERVAL;
+          scene.remove(proj.mesh); proj.alive = false;
+          score += 500;
+          updateHUD();
+          spawnScoreText(c.mesh.position.clone(), 500);
+          for (let k = 0; k < 14; k++) {
+            const sp = new THREE.Mesh(new THREE.OctahedronGeometry(0.07 + Math.random() * 0.07, 0),
+              new THREE.MeshBasicMaterial({ color: 0xFFDD00, transparent: true, opacity: 1 }));
+            sp.position.copy(c.mesh.position);
+            const a = Math.random() * Math.PI * 2, spd = 2 + Math.random() * 5;
+            sp.userData = { vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1, decay: 0.020 + Math.random() * 0.02 };
+            scene.add(sp); particles.push(sp);
+          }
+          break;
+        }
+      }
+    }
   }
   projectiles = projectiles.filter(p => p.alive);
 }
@@ -200,6 +233,40 @@ function animate() {
     g.rotation.z += g.userData.spinSpeed * dt;
     g.rotation.x += g.userData.spinSpeed * 0.7 * dt;
   });
+
+  for (let ci = bonusCrystals.length - 1; ci >= 0; ci--) {
+    const c = bonusCrystals[ci];
+    if (!c.alive) continue;
+    c.life -= dt;
+    if (c.life <= 0) {
+      scene.remove(c.mesh);
+      bonusCrystals.splice(ci, 1);
+      continue;
+    }
+    const phase = c.mesh.userData.phase;
+    const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 3 + phase);
+    // Fade out in last 2 seconds
+    const fadeAlpha = Math.min(1, c.life / 2.0);
+    c.mesh.userData.core.rotation.y += dt * 2.5;
+    c.mesh.userData.core.rotation.x += dt * 1.1;
+    c.mesh.userData.core.material.emissiveIntensity = (1.8 + 2.0 * pulse) * fadeAlpha;
+    c.mesh.userData.mid.rotation.y -= dt * 1.3;
+    c.mesh.userData.mid.rotation.z += dt * 0.9;
+    c.mesh.userData.mid.material.opacity = 0.38 * fadeAlpha;
+    c.mesh.userData.cage.rotation.x += dt * 0.8;
+    c.mesh.userData.cage.rotation.z -= dt * 0.6;
+    c.mesh.userData.cage.material.opacity = 0.55 * fadeAlpha;
+    c.mesh.position.z = -1.8 + Math.sin(clock.elapsedTime * 2 + phase) * 0.22;
+    c.mesh.scale.setScalar((0.92 + 0.12 * pulse) * fadeAlpha);
+  }
+
+  if (gameActive && !gamePaused) {
+    bonusCrystalSpawnTimer -= dt;
+    if (bonusCrystalSpawnTimer <= 0 && bonusCrystals.filter(c => c.alive).length === 0) {
+      spawnBonusCrystal();
+      bonusCrystalSpawnTimer = BONUS_CRYSTAL_INTERVAL;
+    }
+  }
 
   const starHW = camera.right + 2;
   const starHH = camera.top + 1;
@@ -352,6 +419,7 @@ function loadLevel(def) {
   chainSpeed     = def.chainSpeed;
   progressMax    = def.progressThreshold;
   clearTrack();
+  clearBonusCrystals();
   buildPath(MAPS[def.map].waypoints);
   createTrack();
 }
@@ -372,7 +440,7 @@ function startGame(startLevel = 1) {
   score = 0; combo = 1; chainBonus = 1; level = startLevel;
   loadLevel(LEVELS[startLevel - 1] || LEVELS[0]);
   progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
-  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20;
+  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; bonusCrystalSpawnTimer = 8.0;
 
   updateHUD(); updateProgressBar();
   loadShooterBalls();
@@ -392,7 +460,7 @@ function jumpToLevel(n) {
   loadLevel(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
   score = 0; combo = 1; progress = 0; levelStartScore = 0; chainBonus = 1;
   spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
-  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20;
+  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; bonusCrystalSpawnTimer = 8.0;
 
   gamePaused = false;
   document.getElementById('pause-screen').style.display = 'none';
@@ -421,7 +489,7 @@ function levelUp() {
   loadLevel(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
   progress = 0; levelStartScore = score; chainBonus = 1;
   spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
-  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20;
+  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; bonusCrystalSpawnTimer = 8.0;
   updateProgressBar();
   showBanner('LEVEL ' + level);
   updateHUD();

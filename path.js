@@ -62,6 +62,19 @@ function getPathPosFromS(s) {
   return new THREE.Vector3().lerpVectors(pathPoints[lo], pathPoints[hi], frac);
 }
 
+// Returns the arc-length parameter s of the closest point on the path to (px, py),
+// along with the distance. Used for gap-crossing detection.
+function getClosestPathS(px, py) {
+  let bestDist2 = Infinity, bestS = 0;
+  for (let i = 0; i < pathPoints.length; i++) {
+    const dx = pathPoints[i].x - px;
+    const dy = pathPoints[i].y - py;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestDist2) { bestDist2 = d2; bestS = arcLengths[i]; }
+  }
+  return { s: bestS, dist: Math.sqrt(bestDist2) };
+}
+
 function getPathTangentFromS(s) {
   const eps = 0.5; // small arc-length offset
   const p1 = getPathPosFromS(Math.max(0, s - eps));

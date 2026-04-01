@@ -136,7 +136,16 @@ function checkMatches(idx, fromChainReaction = false) {
       chain[i].alive = false;
     }
     chain = chain.filter(b => b.alive);
-    score += count * 10 * combo + chainBonus * 10;
+    const gapMult = (pendingGapBonus && !fromChainReaction) ? 10 : 1;
+    const matchScore = (count * 10 * combo * gapMult + chainBonus * 10);
+    if (pendingGapBonus && !fromChainReaction) {
+      pendingGapBonus = false;
+      const midPos = chain.length > 0
+        ? chain[Math.min(Math.floor((start + end) / 2), chain.length - 1)].mesh.position.clone()
+        : new THREE.Vector3();
+      spawnGapBonusText(midPos, matchScore);
+    }
+    score += matchScore;
     if (!fromChainReaction) chainBonus++;
     updateHUD();
 
@@ -146,7 +155,7 @@ function checkMatches(idx, fromChainReaction = false) {
     }
   } else {
     combo = 1; // cascade ended with no match
-    if (!fromChainReaction) chainBonus = 1;
+    if (!fromChainReaction) { chainBonus = 1; pendingGapBonus = false; }
     updateHUD();
   }
 }

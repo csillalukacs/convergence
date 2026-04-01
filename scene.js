@@ -150,6 +150,25 @@ function onSwapAction() {
 
 // ─── COMBO TEXT ───
 
+function spawnGapBonusText(worldPos, matchScore) {
+  const ndc = worldPos.clone().project(camera);
+  const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;
+  const y = (-ndc.y * 0.5 + 0.5) * window.innerHeight;
+
+  const el = document.createElement('div');
+  el.className = 'gap-bonus-text';
+  el.textContent = 'GAP BONUS +' + matchScore;
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  document.body.appendChild(el);
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.style.transform = 'translate(-50%, -70px)';
+    el.style.opacity = '0';
+  }));
+  setTimeout(() => el.remove(), 900);
+}
+
 function spawnComboText(worldPos, comboVal) {
   const ndc = worldPos.clone().project(camera);
   const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;

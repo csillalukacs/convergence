@@ -20,6 +20,7 @@ let scene, camera, renderer, clock;
 let projectiles = [];
 let particles = [];
 let score = 0, combo = 1, chainBonus = 1, level = 1;
+let pendingGapBonus = false; // set when the fired projectile passed through a gap
 let gameActive = false;
 let gamePaused = false;
 let mouseX = 0, mouseY = 0;
@@ -112,7 +113,7 @@ function onShoot(e) {
     new THREE.MeshStandardMaterial({ color: COLORS[shooterColorIdx], metalness: 0.5, roughness: 0.3, emissive: COLOR_EMISSIVE[shooterColorIdx] }));
   proj.position.set(SHOOTER_POS.x + dir.x * 2, SHOOTER_POS.y + dir.y * 2, 0);
   scene.add(proj);
-  projectiles.push({ mesh: proj, vx: dir.x * 28, vy: dir.y * 28, colorIdx: shooterColorIdx, alive: true });
+  projectiles.push({ mesh: proj, vx: dir.x * 28, vy: dir.y * 28, colorIdx: shooterColorIdx, alive: true, gapBonus: false });
 
   reloadPrimary();
 }
@@ -146,6 +147,20 @@ function checkProjectileCollisions(dt) {
       scene.remove(proj.mesh); proj.alive = false; continue;
     }
 
+    // Gap-crossing detection: mark projectile if it passes through a gap in the chain
+    if (!proj.gapBonus) {
+      const { s: closestS, dist: closestDist } = getClosestPathS(proj.mesh.position.x, proj.mesh.position.y);
+      if (closestDist < BALL_RADIUS * 1.5) {
+        for (let gi = 0; gi < chain.length - 1; gi++) {
+          if (chain[gi].s - chain[gi + 1].s > BALL_SPACING * 1.5 &&
+              closestS > chain[gi + 1].s && closestS < chain[gi].s) {
+            proj.gapBonus = true;
+            break;
+          }
+        }
+      }
+    }
+
     for (let i = 0; i < chain.length; i++) {
       const ball = chain[i];
       if (!ball.alive) continue;
@@ -159,6 +174,7 @@ function checkProjectileCollisions(dt) {
         const insertIdx = dot > 0 ? i : i + 1;
 
         scene.remove(proj.mesh); proj.alive = false;
+        pendingGapBonus = proj.gapBonus;
         playSound('hit');
         insertBallInChain(insertIdx, proj.colorIdx, i);
         checkMatches(insertIdx);

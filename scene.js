@@ -3,7 +3,7 @@
 let shooterPivot;
 let shooterBallMesh, nextBallMesh;
 let shooterColorIdx = 0, nextColorIdx = 0;
-let gears = []; // crystal shards (reuses gears array for animate loop)
+let bgShards = [];
 let bgStars = [];
 
 // ─── TRACK ───
@@ -179,7 +179,7 @@ function createBackground() {
     shard.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
     shard.userData.spinSpeed = (Math.random() - 0.5) * 0.5;
     scene.add(shard);
-    gears.push(shard);
+    bgShards.push(shard);
   }
 
   // Colorful twinkling stars
@@ -235,20 +235,11 @@ function makeBallPreview(colorIdx, size) {
     new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
 }
 
-function loadShooterBalls() {
+function loadShooterBalls(primary, next) {
   if (shooterBallMesh) shooterPivot.remove(shooterBallMesh);
   if (nextBallMesh) shooterPivot.remove(nextBallMesh);
-  shooterColorIdx = pickColor();
-  nextColorIdx = pickColor();
-  shooterBallMesh = makeBallPreview(shooterColorIdx, BALL_RADIUS);
-  shooterBallMesh.position.y = 1.7; shooterPivot.add(shooterBallMesh);
-  nextBallMesh = makeBallPreview(nextColorIdx, BALL_RADIUS * 0.6);
-  nextBallMesh.position.set(0.55, -0.1, 0.3); shooterPivot.add(nextBallMesh);
-}
-
-function rebuildShooterVisuals() {
-  if (shooterBallMesh) shooterPivot.remove(shooterBallMesh);
-  if (nextBallMesh) shooterPivot.remove(nextBallMesh);
+  shooterColorIdx = primary ?? pickColor();
+  nextColorIdx = next ?? pickColor();
   shooterBallMesh = makeBallPreview(shooterColorIdx, BALL_RADIUS);
   shooterBallMesh.position.y = 1.7; shooterPivot.add(shooterBallMesh);
   nextBallMesh = makeBallPreview(nextColorIdx, BALL_RADIUS * 0.6);
@@ -258,7 +249,7 @@ function rebuildShooterVisuals() {
 function reloadPrimary() {
   shooterColorIdx = nextColorIdx;
   nextColorIdx = pickColor();
-  rebuildShooterVisuals();
+  loadShooterBalls(shooterColorIdx, nextColorIdx);
 }
 
 function onSwapAction() {
@@ -267,15 +258,17 @@ function onSwapAction() {
   const tmp = shooterColorIdx;
   shooterColorIdx = nextColorIdx;
   nextColorIdx = tmp;
-  rebuildShooterVisuals();
+  loadShooterBalls(shooterColorIdx, nextColorIdx);
 }
 
 // ─── COMBO TEXT ───
 
-let activeScorePopup = null;
+const MAX_SCORE_POPUPS = 5;
 
 function spawnScorePopup(worldPos, className, html) {
-  if (activeScorePopup) { activeScorePopup.remove(); activeScorePopup = null; }
+  // Cap on-screen popups to avoid clutter during rapid combos
+  const existing = document.querySelectorAll('.score-text, .combo-text, .gap-bonus-text');
+  if (existing.length >= MAX_SCORE_POPUPS) existing[0].remove();
 
   const ndc = worldPos.clone().project(camera);
   const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;
@@ -287,13 +280,12 @@ function spawnScorePopup(worldPos, className, html) {
   el.style.left = x + 'px';
   el.style.top  = y + 'px';
   document.body.appendChild(el);
-  activeScorePopup = el;
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
     el.style.transform = 'translate(-50%, -120px)';
     el.style.opacity = '0';
   }));
-  setTimeout(() => { if (activeScorePopup === el) activeScorePopup = null; el.remove(); }, 2600);
+  setTimeout(() => el.remove(), 2600);
 }
 
 function spawnScoreText(worldPos, points) {
@@ -527,26 +519,25 @@ function createPowerupHalo() {
 
 // ─── EXPLOSIONS ───
 
+// Spawn a burst of particles at pos. colors can be a single hex or an array (cycled per particle).
+function spawnParticleBurst(pos, count, colors, { minSize = 0.06, maxSize = 0.14, minSpeed = 2, maxSpeed = 4, decay = 0.022, decayRand = 0.02, opacity = 1, geo = 'octa' } = {}) {
+  const colArr = Array.isArray(colors) ? colors : [colors];
+  for (let i = 0; i < count; i++) {
+    const col = colArr[i % colArr.length];
+    const size = minSize + Math.random() * (maxSize - minSize);
+    const mesh = geo === 'sphere'
+      ? new THREE.Mesh(new THREE.SphereGeometry(size, 4, 4), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity }))
+      : new THREE.Mesh(new THREE.OctahedronGeometry(size, 0), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity }));
+    mesh.position.copy(pos);
+    const a = Math.random() * Math.PI * 2, sp = minSpeed + Math.random() * (maxSpeed - minSpeed);
+    mesh.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: decay + Math.random() * decayRand };
+    scene.add(mesh); particles.push(mesh);
+  }
+}
+
 function explodeBall(ball) {
   const pos = ball.mesh.position.clone();
   scene.remove(ball.mesh);
-
-  // Colored crystal shards
-  for (let i = 0; i < 12; i++) {
-    const p = new THREE.Mesh(new THREE.OctahedronGeometry(0.06 + Math.random() * 0.08, 0),
-      new THREE.MeshBasicMaterial({ color: COLORS[ball.colorIdx], transparent: true, opacity: 1 }));
-    p.position.copy(pos);
-    const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 4;
-    p.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: 0.022 + Math.random() * 0.02 };
-    scene.add(p); particles.push(p);
-  }
-  // White prismatic flash sparks
-  for (let i = 0; i < 6; i++) {
-    const s = new THREE.Mesh(new THREE.SphereGeometry(0.06 + Math.random() * 0.07, 4, 4),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }));
-    s.position.copy(pos);
-    const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 2.5;
-    s.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: 0.03 };
-    scene.add(s); particles.push(s);
-  }
+  spawnParticleBurst(pos, 12, COLORS[ball.colorIdx]);
+  spawnParticleBurst(pos, 6, 0xffffff, { minSpeed: 1, maxSpeed: 3.5, decay: 0.03, decayRand: 0, opacity: 0.9, geo: 'sphere' });
 }

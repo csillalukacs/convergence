@@ -11,9 +11,8 @@
 //   2. Shooter rotates with mouse, click to fire
 //   3. Match 3+ same color to destroy
 //   4. Two balls held — right-click/space to swap
-//   5. Gap collapse: after match, back segment slides forward;
-//      if colors match at edges, chain reaction triggers
-//   6. Progress bar: shooting fills it; once full, spawning stops
+//   5. Gap collapse: after match, front segment slides backward if colors match at edges
+//   6. Progress bar: scoring points fills it; once full, spawning stops
 // ═══════════════════════════════════════════════
 
 let scene, camera, renderer, clock;
@@ -204,14 +203,7 @@ function checkProjectileCollisions(dt) {
           score += 500;
           updateHUD();
           spawnScoreText(c.mesh.position.clone(), 500);
-          for (let k = 0; k < 14; k++) {
-            const sp = new THREE.Mesh(new THREE.OctahedronGeometry(0.07 + Math.random() * 0.07, 0),
-              new THREE.MeshBasicMaterial({ color: 0xFFDD00, transparent: true, opacity: 1 }));
-            sp.position.copy(c.mesh.position);
-            const a = Math.random() * Math.PI * 2, spd = 2 + Math.random() * 5;
-            sp.userData = { vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1, decay: 0.020 + Math.random() * 0.02 };
-            scene.add(sp); particles.push(sp);
-          }
+          spawnParticleBurst(c.mesh.position, 14, 0xFFDD00, { minSize: 0.07, maxSize: 0.14, minSpeed: 2, maxSpeed: 7, decay: 0.020 });
           break;
         }
       }
@@ -231,7 +223,7 @@ function animate() {
     shooterPivot.rotation.z = -Math.atan2(dir.x, dir.y);
   }
 
-  gears.forEach(g => {
+  bgShards.forEach(g => {
     g.rotation.z += g.userData.spinSpeed * dt;
     g.rotation.x += g.userData.spinSpeed * 0.7 * dt;
   });
@@ -437,47 +429,44 @@ function loadLevel(def) {
   createTrack();
 }
 
-function startGame(startLevel = 1) {
+function resetGameState(levelDef) {
   cancelChainReactions();
   clearAllPowerupVisuals();
+  chain.forEach(b => scene.remove(b.mesh)); chain = [];
+  projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
+  particles.forEach(p => scene.remove(p)); particles = [];
+  gaps = []; pushForwards = []; snapImpulses = [];
+  shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
+
+  loadLevel(levelDef);
+  progress = 0; combo = 1; chainBonus = 1;
+  spawningDone = false; rollBackTimer = 0; rollInSpawned = 0;
+  chainFreezeTimer = 0; powerupBackTimer = 0;
+  pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25;
+  bonusCrystalSpawnTimer = 8.0;
+  gamePaused = false;
+
+  updateHUD(); updateProgressBar(); loadShooterBalls();
+}
+
+function startGame(startLevel = 1) {
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('pause-screen').style.display = 'none';
 
-  chain.forEach(b => scene.remove(b.mesh)); chain = [];
-  projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
-  particles.forEach(p => scene.remove(p)); particles = [];
-  gaps = [];
-  pushForwards = [];
+  score = 0; level = startLevel; levelStartScore = 0;
+  resetGameState(LEVELS[startLevel - 1] || LEVELS[0]);
 
-  score = 0; combo = 1; chainBonus = 1; level = startLevel;
-  loadLevel(LEVELS[startLevel - 1] || LEVELS[0]);
-  progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0; snapImpulses = []; rollInSpawned = 0;
-  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; bonusCrystalSpawnTimer = 8.0; shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
-
-  updateHUD(); updateProgressBar();
-  loadShooterBalls();
   gameActive = true;
-  gamePaused = false;
   showBanner('LEVEL ' + startLevel);
 }
 
 function jumpToLevel(n) {
-  cancelChainReactions();
-  clearAllPowerupVisuals();
-  chain.forEach(b => scene.remove(b.mesh)); chain = [];
-  projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
-  gaps = []; pushForwards = [];
-
-  level = n;
-  loadLevel(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
-  score = 0; combo = 1; progress = 0; levelStartScore = 0; chainBonus = 1;
-  spawningDone = false; rollBackTimer = 0; snapImpulses = []; rollInSpawned = 0;
-  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; bonusCrystalSpawnTimer = 8.0; shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
-
-  gamePaused = false;
   document.getElementById('pause-screen').style.display = 'none';
-  updateProgressBar(); updateHUD(); loadShooterBalls();
+
+  score = 0; level = n; levelStartScore = 0;
+  resetGameState(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
+
   showBanner('LEVEL ' + n);
 }
 
@@ -491,22 +480,10 @@ function gameOver() {
 }
 
 function levelUp() {
-  cancelChainReactions();
-  clearAllPowerupVisuals();
-  chain.forEach(b => scene.remove(b.mesh)); chain = [];
-  projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
-  gaps = []; pushForwards = [];
-
   level++;
   playSound('levelup');
-  loadLevel(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
-  progress = 0; levelStartScore = score; chainBonus = 1;
-  spawningDone = false; rollBackTimer = 0; snapImpulses = []; rollInSpawned = 0;
-  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; bonusCrystalSpawnTimer = 8.0; shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
-  updateProgressBar();
-  showBanner('LEVEL ' + level);
-  updateHUD();
-  loadShooterBalls();
+  levelStartScore = score;
+  resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
 }
 
 function showBanner(text) {
@@ -667,16 +644,7 @@ function activateBlast(s) {
   }
 
   // Extra spark burst at blast centre
-  for (let k = 0; k < 20; k++) {
-    const sp = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.08 + Math.random() * 0.1, 0),
-      new THREE.MeshBasicMaterial({ color: k % 2 === 0 ? 0xFF6600 : 0xFFEE44, transparent: true, opacity: 1 })
-    );
-    sp.position.copy(blastPos);
-    const a = Math.random() * Math.PI * 2, spd = 3 + Math.random() * 6;
-    sp.userData = { vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1, decay: 0.018 + Math.random() * 0.02 };
-    scene.add(sp); particles.push(sp);
-  }
+  spawnParticleBurst(blastPos, 20, [0xFF6600, 0xFFEE44], { minSize: 0.08, maxSize: 0.18, minSpeed: 3, maxSpeed: 9, decay: 0.018 });
 }
 
 init();

@@ -145,7 +145,7 @@ function playSound(name, ...args) {
     const ctx = getAudioCtx();
     if (ctx.state === 'suspended') ctx.resume();
     SOUNDS[name](...args);
-  } catch(e) {}
+  } catch(e) { console.warn('Audio error:', e); }
 }
 
 // ─── VOLUME CONTROL ───

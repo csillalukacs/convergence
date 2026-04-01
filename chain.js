@@ -117,11 +117,12 @@ function checkMatches(idx, fromChainReaction = false) {
     for (let i = start; i <= end; i++) {
       if (chain[i].powerup) {
         const type = chain[i].powerup;
+        const triggerS = chain[i].s;
         chain[i].powerup = null;
         if (chain[i].powerupSprite) { scene.remove(chain[i].powerupSprite); chain[i].powerupSprite = null; }
         if (chain[i].powerupHalo)   { chain[i].mesh.remove(chain[i].powerupHalo); chain[i].powerupHalo = null; }
         chain[i].mesh.material.emissiveIntensity = 1;
-        activatePowerup(type);
+        activatePowerup(type, triggerS);
       }
     }
 

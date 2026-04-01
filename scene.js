@@ -486,6 +486,26 @@ function createPowerupSprite(type) {
     ctx.closePath();
     ctx.fill();
     ctx.fillRect(cx - r - S * 0.10, cy - r * 0.7, S * 0.09, r * 1.4);
+  } else if (type === 'blast') {
+    // Starburst / nova icon — 8 radiating spikes
+    const cx = S / 2, cy = S / 2, spikes = 8;
+    ctx.shadowColor = '#ffaa00';
+    ctx.shadowBlur = 14;
+    for (let k = 0; k < spikes; k++) {
+      const a = (k / spikes) * Math.PI * 2;
+      const aHalf = a + Math.PI / spikes;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * S * 0.42, cy + Math.sin(a) * S * 0.42);
+      ctx.lineTo(cx + Math.cos(aHalf) * S * 0.16, cy + Math.sin(aHalf) * S * 0.16);
+      ctx.closePath();
+      ctx.fillStyle = k % 2 === 0 ? '#ffffff' : '#ffdd44';
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy, S * 0.10, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
   }
 
   const tex = new THREE.CanvasTexture(cv);

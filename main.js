@@ -50,9 +50,13 @@ let chainFreezeTimer = 0;         // pause powerup — chain doesn't advance
 let powerupBackTimer  = 0;        // backwards powerup — chain reverses
 let pauseSpawnTimer    = 15;      // countdown to next 'pause' ball assignment
 let backSpawnTimer     = 20;      // countdown to next 'backwards' ball assignment
+let blastSpawnTimer    = 25;      // countdown to next 'blast' ball assignment
 const PAUSE_SPAWN_INTERVAL = 15;  // seconds between pause powerup spawns
 const BACK_SPAWN_INTERVAL  = 18;  // seconds between backwards powerup spawns
+const BLAST_SPAWN_INTERVAL = 22;  // seconds between blast powerup spawns
 const POWERUP_BALL_DURATION = 10; // seconds a ball keeps its powerup icon
+
+let shockwaves = []; // expanding ring visuals from blast
 
 // Roll-in phase
 const ROLL_IN_SPEED = 16.0;
@@ -363,6 +367,11 @@ function animate() {
         tryAssignPowerup('backwards');
         backSpawnTimer = BACK_SPAWN_INTERVAL;
       }
+      blastSpawnTimer -= dt;
+      if (blastSpawnTimer <= 0) {
+        tryAssignPowerup('blast');
+        blastSpawnTimer = BLAST_SPAWN_INTERVAL;
+      }
     }
 
     // Apply snap-back impulse from gap closures
@@ -400,6 +409,15 @@ function animate() {
     p.material.opacity = Math.max(0, p.userData.life);
     p.scale.setScalar(Math.max(0.01, p.userData.life));
     if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
+  }
+
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    const sw = shockwaves[i];
+    sw.life -= dt;
+    if (sw.life <= 0) { scene.remove(sw.mesh); shockwaves.splice(i, 1); continue; }
+    const t = 1 - sw.life / sw.maxLife;
+    sw.mesh.scale.setScalar(1 + t * 5);
+    sw.mesh.material.opacity = (1 - t) * 0.7;
   }
 
   renderer.render(scene, camera);
@@ -440,7 +458,7 @@ function startGame(startLevel = 1) {
   score = 0; combo = 1; chainBonus = 1; level = startLevel;
   loadLevel(LEVELS[startLevel - 1] || LEVELS[0]);
   progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
-  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; bonusCrystalSpawnTimer = 8.0;
+  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; bonusCrystalSpawnTimer = 8.0; shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
 
   updateHUD(); updateProgressBar();
   loadShooterBalls();
@@ -460,7 +478,7 @@ function jumpToLevel(n) {
   loadLevel(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
   score = 0; combo = 1; progress = 0; levelStartScore = 0; chainBonus = 1;
   spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
-  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; bonusCrystalSpawnTimer = 8.0;
+  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; bonusCrystalSpawnTimer = 8.0; shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
 
   gamePaused = false;
   document.getElementById('pause-screen').style.display = 'none';
@@ -489,7 +507,7 @@ function levelUp() {
   loadLevel(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
   progress = 0; levelStartScore = score; chainBonus = 1;
   spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
-  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; bonusCrystalSpawnTimer = 8.0;
+  chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; bonusCrystalSpawnTimer = 8.0; shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
   updateProgressBar();
   showBanner('LEVEL ' + level);
   updateHUD();
@@ -580,15 +598,90 @@ function clearAllPowerupVisuals() {
   }
 }
 
-function activatePowerup(type) {
+function activatePowerup(type, s = 0) {
   if (type === 'pause') {
     chainFreezeTimer = 4.0;
     showBanner('CHAIN FROZEN');
   } else if (type === 'backwards') {
     powerupBackTimer = 2.5;
     showBanner('REVERSED!');
+  } else if (type === 'blast') {
+    activateBlast(s);
+    return; // activateBlast calls playSound itself
   }
   playSound('powerup');
+}
+
+function activateBlast(s) {
+  const BLAST_RADIUS = BALL_SPACING * 3.5;
+  const blastPos = getPathPosFromS(s);
+  showBanner('NOVA BLAST!');
+  playSound('powerup');
+
+  // Shockwave ring
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1, 0.12, 8, 32),
+    new THREE.MeshBasicMaterial({ color: 0xFF8800, transparent: true, opacity: 0.7, depthWrite: false })
+  );
+  ring.position.copy(blastPos); ring.position.z = 0.2;
+  scene.add(ring);
+  shockwaves.push({ mesh: ring, life: 0.55, maxLife: 0.55 });
+
+  // Second wider ring
+  const ring2 = new THREE.Mesh(
+    new THREE.TorusGeometry(1, 0.07, 6, 28),
+    new THREE.MeshBasicMaterial({ color: 0xFFFFAA, transparent: true, opacity: 0.5, depthWrite: false })
+  );
+  ring2.position.copy(blastPos); ring2.position.z = 0.15;
+  scene.add(ring2);
+  shockwaves.push({ mesh: ring2, life: 0.4, maxLife: 0.4 });
+
+  // Destroy balls in radius
+  let blastCount = 0;
+  for (let i = 0; i < chain.length; i++) {
+    const b = chain[i];
+    if (Math.abs(b.s - s) <= BLAST_RADIUS) {
+      if (b.powerup) {
+        const type = b.powerup;
+        const triggerS = b.s;
+        removePowerupVisuals(b);
+        b.powerup = null;
+        activatePowerup(type, triggerS);
+      }
+      explodeBall(b);
+      b.alive = false;
+      blastCount++;
+    }
+  }
+
+  if (blastCount > 0) {
+    chain = chain.filter(b => b.alive);
+    const pts = blastCount * 15;
+    score += pts;
+    updateHUD();
+    spawnScoreText(blastPos, pts);
+    // Schedule gap collapse at the new boundary
+    if (chain.length > 1) {
+      for (let i = 0; i < chain.length - 1; i++) {
+        if (chain[i].s - chain[i + 1].s > BALL_SPACING * 1.5) {
+          scheduleCollapse(i + 1);
+          break;
+        }
+      }
+    }
+  }
+
+  // Extra spark burst at blast centre
+  for (let k = 0; k < 20; k++) {
+    const sp = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.08 + Math.random() * 0.1, 0),
+      new THREE.MeshBasicMaterial({ color: k % 2 === 0 ? 0xFF6600 : 0xFFEE44, transparent: true, opacity: 1 })
+    );
+    sp.position.copy(blastPos);
+    const a = Math.random() * Math.PI * 2, spd = 3 + Math.random() * 6;
+    sp.userData = { vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1, decay: 0.018 + Math.random() * 0.02 };
+    scene.add(sp); particles.push(sp);
+  }
 }
 
 init();

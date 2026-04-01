@@ -20,6 +20,39 @@ function cancelChainReactions() {
   chainTimeouts = [];
 }
 
+// Returns { start, end } indices of the contiguous segment containing idx,
+// bounded by active gaps (and optionally pushForwards).
+function getSegmentBounds(idx, skipGap = null, checkPushForwards = false) {
+  let start = idx, end = idx;
+  for (let i = idx - 1; i >= 0; i--) {
+    const gapHere = gaps.some(cg => {
+      if (cg === skipGap) return false;
+      const fi = chain.indexOf(cg.frontBall);
+      const bi = chain.indexOf(cg.backBall);
+      return fi === i && bi === i + 1;
+    }) || (checkPushForwards && pushForwards.some(pf => {
+      const ii = chain.indexOf(pf.insertedBall);
+      return ii === i + 1;
+    }));
+    if (gapHere) break;
+    start = i;
+  }
+  for (let i = idx + 1; i < chain.length; i++) {
+    const gapHere = gaps.some(cg => {
+      if (cg === skipGap) return false;
+      const fi = chain.indexOf(cg.frontBall);
+      const bi = chain.indexOf(cg.backBall);
+      return fi === i - 1 && bi === i;
+    }) || (checkPushForwards && pushForwards.some(pf => {
+      const ii = chain.indexOf(pf.insertedBall);
+      return ii === i;
+    }));
+    if (gapHere) break;
+    end = i;
+  }
+  return { start, end };
+}
+
 function spawnChainBall() {
   const colorIdx = pickColor();
   const mesh = createBallMesh(colorIdx);
@@ -195,13 +228,8 @@ function updatePushForwards(dt) {
     if (currentOverlap <= 0.02) {
       pf.frontBall.s = targetS;
       // Propagate spacing forward within the contiguous segment only
-      for (let i = frontIdx - 1; i >= 0; i--) {
-        const gapHere = gaps.some(cg => {
-          const fi = chain.indexOf(cg.frontBall);
-          const bi = chain.indexOf(cg.backBall);
-          return fi === i && bi === i + 1;
-        });
-        if (gapHere) break;
+      const { start: propStart } = getSegmentBounds(frontIdx);
+      for (let i = frontIdx - 1; i >= propStart; i--) {
         const tgt = chain[i + 1].s + BALL_SPACING;
         if (chain[i].s < tgt) chain[i].s = tgt; else break;
       }
@@ -209,18 +237,8 @@ function updatePushForwards(dt) {
     } else {
       const pushSpeed = 15;
       const move = Math.min(pushSpeed * dt, currentOverlap);
-      // Only move the contiguous segment from frontIdx back to insertedIdx-1,
-      // but also push everything ahead of frontIdx that's contiguous (no gap)
-      let pushStart = frontIdx;
-      for (let i = frontIdx - 1; i >= 0; i--) {
-        const gapHere = gaps.some(cg => {
-          const fi = chain.indexOf(cg.frontBall);
-          const bi = chain.indexOf(cg.backBall);
-          return fi === i && bi === i + 1;
-        });
-        if (gapHere) break;
-        pushStart = i;
-      }
+      // Push everything ahead of frontIdx that's contiguous (no gap)
+      const { start: pushStart } = getSegmentBounds(frontIdx);
       for (let i = pushStart; i <= frontIdx; i++) chain[i].s += move;
     }
   }
@@ -236,7 +254,7 @@ function updateCollapses(dt) {
     const frontIdx = chain.indexOf(gap.frontBall);
     const backIdx = chain.indexOf(gap.backBall);
 
-    // Validate: frontBall should be at a lower index (higher s) than backBall
+    // Validate: frontBall (closer to skull, higher s) should precede backBall in the array
     if (frontIdx < 0 || backIdx < 0 || backIdx !== frontIdx + 1) {
       // Balls removed or no longer adjacent gap — discard
       gaps.splice(g, 1); continue;
@@ -277,21 +295,7 @@ function updateCollapses(dt) {
       }
     } else if (gap.matching) {
       // Matching colors: front segment actively slides backward to close gap.
-      // Only move the contiguous segment (stop at other gaps).
-      let moveStart = frontIdx;
-      for (let i = frontIdx - 1; i >= 0; i--) {
-        const gapHere = gaps.some(cg => {
-          if (cg === gap) return false; // skip self
-          const fi = chain.indexOf(cg.frontBall);
-          const bi = chain.indexOf(cg.backBall);
-          return fi === i && bi === i + 1;
-        }) || pushForwards.some(pf => {
-          const ii = chain.indexOf(pf.insertedBall);
-          return ii === i + 1;
-        });
-        if (gapHere) break;
-        moveStart = i;
-      }
+      const { start: moveStart } = getSegmentBounds(frontIdx, gap, true);
       const collapseSpeed = 15;
       const move = Math.min(collapseSpeed * dt, currentGap);
       for (let i = moveStart; i <= frontIdx; i++) chain[i].s -= move;
@@ -309,28 +313,7 @@ function updateSnapImpulses(dt) {
     const anchorIdx = chain.indexOf(si.frontBall);
     if (anchorIdx < 0) { snapImpulses.splice(g, 1); continue; }
 
-    // Find contiguous segment containing anchorIdx (bounded by gaps)
-    let segStart = anchorIdx;
-    let segEnd = anchorIdx;
-    for (let i = anchorIdx - 1; i >= 0; i--) {
-      const gapHere = gaps.some(cg => {
-        const fi = chain.indexOf(cg.frontBall);
-        const bi = chain.indexOf(cg.backBall);
-        return fi === i && bi === i + 1;
-      });
-      if (gapHere) break;
-      segStart = i;
-    }
-    for (let i = anchorIdx + 1; i < chain.length; i++) {
-      const gapHere = gaps.some(cg => {
-        const fi = chain.indexOf(cg.frontBall);
-        const bi = chain.indexOf(cg.backBall);
-        return fi === i - 1 && bi === i;
-      });
-      if (gapHere) break;
-      segEnd = i;
-    }
-
+    const { start: segStart, end: segEnd } = getSegmentBounds(anchorIdx);
     for (let i = segStart; i <= segEnd; i++) chain[i].s -= si.impulse * dt;
   }
 }

@@ -15,6 +15,60 @@ function clearTrack() {
   trackMeshes = [];
 }
 
+function createPipeEntrance() {
+  const startPos = getPathPosFromS(0);
+  const tangent = getPathTangentFromS(0);
+
+  const PIPE_LENGTH = 4.5;
+  const PIPE_RADIUS = BALL_RADIUS * 1.22;
+
+  // Quaternion to rotate cylinder's Y-axis to align with tangent
+  const quatCyl = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+  // Quaternion to rotate torus's Z-axis to align with tangent (torus hole faces Z)
+  const quatTorus = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+
+  // Pipe body — extends a little past s=0 and mostly behind it
+  const PIPE_OVERHANG = 0.5;
+  const pipeCenter = startPos.clone().addScaledVector(tangent, -(PIPE_LENGTH / 2) + PIPE_OVERHANG);
+  pipeCenter.z = -0.15;
+  const pipeMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(PIPE_RADIUS, PIPE_RADIUS, PIPE_LENGTH, 20, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x2a4a66, metalness: 0.95, roughness: 0.08, emissive: 0x0a1a2a, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+  );
+  pipeMesh.position.copy(pipeCenter);
+  pipeMesh.quaternion.copy(quatCyl);
+  scene.add(pipeMesh); trackMeshes.push(pipeMesh);
+
+  // Inner glow sleeve
+  const glowMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(PIPE_RADIUS * 0.78, PIPE_RADIUS * 0.78, PIPE_LENGTH, 16, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.0, roughness: 0.0, emissive: 0x224488, emissiveIntensity: 0.6, transparent: true, opacity: 0.18, side: THREE.BackSide })
+  );
+  glowMesh.position.copy(pipeCenter);
+  glowMesh.quaternion.copy(quatCyl);
+  scene.add(glowMesh); trackMeshes.push(glowMesh);
+
+  // Exit ring — glowing torus at pipe exit (slightly past s=0)
+  const ringPos = startPos.clone().addScaledVector(tangent, PIPE_OVERHANG); ringPos.z = -0.05;
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(PIPE_RADIUS, 0.09, 10, 28),
+    new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.9, roughness: 0.0, emissive: 0x4488bb, emissiveIntensity: 1.2 })
+  );
+  ring.position.copy(ringPos);
+  ring.quaternion.copy(quatTorus);
+  scene.add(ring); trackMeshes.push(ring);
+
+  // Second accent ring slightly inside the pipe
+  const ring2Pos = startPos.clone().addScaledVector(tangent, PIPE_OVERHANG - 0.6); ring2Pos.z = -0.05;
+  const ring2 = new THREE.Mesh(
+    new THREE.TorusGeometry(PIPE_RADIUS, 0.06, 8, 24),
+    new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.9, roughness: 0.0, emissive: 0x224466, emissiveIntensity: 0.8 })
+  );
+  ring2.position.copy(ring2Pos);
+  ring2.quaternion.copy(quatTorus);
+  scene.add(ring2); trackMeshes.push(ring2);
+}
+
 function createTrack() {
   const curve = new THREE.CatmullRomCurve3(pathPoints);
   // Outer glow shell — translucent crystal
@@ -25,6 +79,8 @@ function createTrack() {
   const t2 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.05, 6, false),
     new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.0, roughness: 0.0, emissive: 0x99ddff }));
   t2.position.z = -0.25; scene.add(t2); trackMeshes.push(t2);
+
+  createPipeEntrance();
 
   // Danger zone at skull end
   const ep = getPathPosFromS(pathLength);

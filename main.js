@@ -37,9 +37,7 @@ const ROLL_BACK_DURATION = 2.0;
 const ROLL_BACK_SPEED    = 3.0;
 let rollBackTimer = 0;
 
-// Snap-back impulse (triggered when a gap closes)
-let snapImpulse = 0;        // current backwards velocity (world units/sec), decays to 0
-const SNAP_FRICTION = 5.0;  // deceleration rate
+// Snap-back impulses are now per-segment — see chain.js snapImpulses
 
 // Bonus crystal spawn timer
 let bonusCrystalSpawnTimer = 8.0; // seconds until first crystal appears
@@ -374,11 +372,8 @@ function animate() {
       }
     }
 
-    // Apply snap-back impulse from gap closures
-    if (snapImpulse > 0) {
-      for (let i = 0; i < chain.length; i++) chain[i].s -= snapImpulse * dt;
-      snapImpulse = Math.max(0, snapImpulse - SNAP_FRICTION * dt);
-    }
+    // Apply per-segment snap-back impulses from match closures
+    updateSnapImpulses(dt);
 
     // Update ball positions
     for (let i = 0; i < chain.length; i++) {
@@ -457,7 +452,7 @@ function startGame(startLevel = 1) {
 
   score = 0; combo = 1; chainBonus = 1; level = startLevel;
   loadLevel(LEVELS[startLevel - 1] || LEVELS[0]);
-  progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
+  progress = 0; levelStartScore = 0; spawningDone = false; rollBackTimer = 0; snapImpulses = []; rollInSpawned = 0;
   chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; bonusCrystalSpawnTimer = 8.0; shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
 
   updateHUD(); updateProgressBar();
@@ -477,7 +472,7 @@ function jumpToLevel(n) {
   level = n;
   loadLevel(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
   score = 0; combo = 1; progress = 0; levelStartScore = 0; chainBonus = 1;
-  spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
+  spawningDone = false; rollBackTimer = 0; snapImpulses = []; rollInSpawned = 0;
   chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; bonusCrystalSpawnTimer = 8.0; shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
 
   gamePaused = false;
@@ -506,7 +501,7 @@ function levelUp() {
   playSound('levelup');
   loadLevel(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
   progress = 0; levelStartScore = score; chainBonus = 1;
-  spawningDone = false; rollBackTimer = 0; snapImpulse = 0; rollInSpawned = 0;
+  spawningDone = false; rollBackTimer = 0; snapImpulses = []; rollInSpawned = 0;
   chainFreezeTimer = 0; powerupBackTimer = 0; pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; bonusCrystalSpawnTimer = 8.0; shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
   updateProgressBar();
   showBanner('LEVEL ' + level);

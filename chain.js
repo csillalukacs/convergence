@@ -7,6 +7,11 @@ let gaps = [];
 // Tracked by ball references so indices don't go stale.
 let pushForwards = []; // { insertedBall, frontBall } — everything ahead of insertedBall pushes forward
 
+// Per-segment snap-back impulses from match closures
+// Each entry: { frontBall, impulse } — the contiguous segment containing frontBall gets the impulse
+let snapImpulses = [];
+const SNAP_FRICTION = 5.0;
+
 // setTimeout IDs for pending chain reactions — cancelled on level up / game reset
 let chainTimeouts = [];
 
@@ -249,8 +254,11 @@ function updateCollapses(dt) {
       }
       gaps.splice(g, 1);
 
-      // Apply snap-back impulse proportional to the gap that just closed
-      snapImpulse = Math.min(snapImpulse + gap.initialGapSize * 1.2, 8.0);
+      // Apply snap-back impulse only for match closures (not rear catch-up)
+      if (gap.matching) {
+        const impulse = Math.min(gap.initialGapSize * 1.2, 8.0);
+        snapImpulses.push({ frontBall: gap.frontBall, impulse });
+      }
 
       // Chain reaction check
       if (gap.frontBall.colorIdx === gap.backBall.colorIdx) {
@@ -289,5 +297,40 @@ function updateCollapses(dt) {
       for (let i = moveStart; i <= frontIdx; i++) chain[i].s -= move;
     }
     // Non-matching: do nothing — back segment's natural advance closes it
+  }
+}
+
+function updateSnapImpulses(dt) {
+  for (let g = snapImpulses.length - 1; g >= 0; g--) {
+    const si = snapImpulses[g];
+    si.impulse = Math.max(0, si.impulse - SNAP_FRICTION * dt);
+    if (si.impulse <= 0) { snapImpulses.splice(g, 1); continue; }
+
+    const anchorIdx = chain.indexOf(si.frontBall);
+    if (anchorIdx < 0) { snapImpulses.splice(g, 1); continue; }
+
+    // Find contiguous segment containing anchorIdx (bounded by gaps)
+    let segStart = anchorIdx;
+    let segEnd = anchorIdx;
+    for (let i = anchorIdx - 1; i >= 0; i--) {
+      const gapHere = gaps.some(cg => {
+        const fi = chain.indexOf(cg.frontBall);
+        const bi = chain.indexOf(cg.backBall);
+        return fi === i && bi === i + 1;
+      });
+      if (gapHere) break;
+      segStart = i;
+    }
+    for (let i = anchorIdx + 1; i < chain.length; i++) {
+      const gapHere = gaps.some(cg => {
+        const fi = chain.indexOf(cg.frontBall);
+        const bi = chain.indexOf(cg.backBall);
+        return fi === i - 1 && bi === i;
+      });
+      if (gapHere) break;
+      segEnd = i;
+    }
+
+    for (let i = segStart; i <= segEnd; i++) chain[i].s -= si.impulse * dt;
   }
 }

@@ -50,8 +50,8 @@ const BACK_SPAWN_INTERVAL  = 18;  // seconds between backwards powerup spawns
 const POWERUP_BALL_DURATION = 10; // seconds a ball keeps its powerup icon
 
 // Roll-in phase
-const ROLL_IN_SPEED = 8.0;
-const ROLL_IN_COUNT = 20;
+const ROLL_IN_SPEED = 16.0;
+const ROLL_IN_COUNT = 40;
 let rollInSpawned = 0;
 
 // ─── INIT ───

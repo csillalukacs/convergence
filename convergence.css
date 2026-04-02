@@ -392,6 +392,60 @@ body {
   transition: opacity 0.5s;
 }
 
+#debug-overlay {
+  display: none;
+  position: fixed;
+  top: 80px;
+  right: 16px;
+  background: rgba(4,8,20,0.92);
+  border: 1px solid #336699;
+  border-radius: 6px;
+  padding: 16px 20px;
+  z-index: 100;
+  pointer-events: auto;
+  color: #88ccff;
+  font-family: monospace;
+  font-size: 11px;
+  min-width: 240px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.6), 0 0 10px rgba(136,204,255,0.15);
+}
+#debug-overlay.visible { display: block; }
+#debug-overlay h3 {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #ff8844;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.debug-section { margin-bottom: 10px; }
+.debug-title {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #446688;
+  margin-bottom: 4px;
+}
+.debug-key { color: #aaccee; line-height: 1.8; }
+.debug-key kbd {
+  display: inline-block;
+  background: rgba(40,60,100,0.5);
+  border: 1px solid #335577;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 10px;
+  color: #ffffff;
+  min-width: 20px;
+  text-align: center;
+}
+#debug-overlay a {
+  display: block;
+  color: #66aaff;
+  text-decoration: none;
+  line-height: 1.8;
+}
+#debug-overlay a:hover { color: #aaddff; text-decoration: underline; }
+
 .level-picker {
   display: flex;
   flex-wrap: wrap;

@@ -43,6 +43,7 @@ let lastFrontS = 0;
 let levelClearing = false;
 
 // Debug
+let debugMode = false;
 let debugFastForward = false;
 
 // Bonus crystal spawn timer
@@ -111,8 +112,16 @@ function init() {
     if (e.code === 'Space') { e.preventDefault(); onSwapAction(); }
     if (e.code === 'KeyP' || e.code === 'Escape') { e.preventDefault(); togglePause(); }
 
-    // Debug keys (Shift + key)
-    if (e.shiftKey && gameActive) {
+    // Toggle debug mode
+    if (e.code === 'Backquote') {
+      debugMode = !debugMode;
+      document.getElementById('debug-overlay').classList.toggle('visible', debugMode);
+      if (!debugMode) debugFastForward = false;
+      return;
+    }
+
+    // Debug keys (only in debug mode)
+    if (debugMode && gameActive) {
       if (e.code === 'KeyB') tryAssignPowerup('blast');
       if (e.code === 'KeyF') tryAssignPowerup('pause');
       if (e.code === 'KeyR') tryAssignPowerup('backwards');

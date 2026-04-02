@@ -38,6 +38,10 @@ let rollBackTimer = 0;
 
 // Snap-back impulses are now per-segment — see chain.js snapImpulses
 
+// Track frontmost ball s for end-of-level bonus
+let lastFrontS = 0;
+let levelClearing = false;
+
 // Bonus crystal spawn timer
 let bonusCrystalSpawnTimer = 8.0; // seconds until first crystal appears
 const BONUS_CRYSTAL_INTERVAL = 14.0;
@@ -111,7 +115,7 @@ function init() {
 // ─── SHOOTING ───
 
 function onShoot(e) {
-  if (!gameActive || e.button !== 0) return;
+  if (!gameActive || levelClearing || e.button !== 0) return;
   playSound('shoot');
   const dir = getAimDir(e.clientX, e.clientY);
   const proj = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 16, 12),
@@ -254,7 +258,7 @@ function animate() {
     c.mesh.scale.setScalar((0.92 + 0.12 * pulse) * fadeAlpha);
   }
 
-  if (gameActive && !gamePaused) {
+  if (gameActive && !gamePaused && !levelClearing) {
     bonusCrystalSpawnTimer -= dt;
     if (bonusCrystalSpawnTimer <= 0 && bonusCrystals.filter(c => c.alive).length === 0) {
       spawnBonusCrystal();
@@ -383,8 +387,11 @@ function animate() {
 
     checkProjectileCollisions(dt);
 
+    // Track frontmost ball position for end-of-level bonus
+    if (chain.length > 0 && chain[0].s >= 0) lastFrontS = chain[0].s;
+
     // Level clear
-    if (spawningDone && !chain.some(b => b.s >= -2)) levelUp();
+    if (!levelClearing && spawningDone && !chain.some(b => b.s >= -2)) levelUp();
   }
 
   // Particles
@@ -440,7 +447,7 @@ function resetGameState(levelDef) {
 
   loadLevel(levelDef);
   progress = 0; combo = 1; chainBonus = 1;
-  spawningDone = false; rollBackTimer = 0; rollInSpawned = 0;
+  spawningDone = false; rollBackTimer = 0; rollInSpawned = 0; levelClearing = false;
   chainFreezeTimer = 0; powerupBackTimer = 0;
   pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25;
   bonusCrystalSpawnTimer = 8.0;
@@ -480,10 +487,36 @@ function gameOver() {
 }
 
 function levelUp() {
-  level++;
+  levelClearing = true;
+  clearBonusCrystals();
   playSound('levelup');
-  levelStartScore = score;
-  resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
+
+  // Calculate clearance bonus: 100 pts per ball slot of empty space to the skull
+  const emptyDistance = pathLength - lastFrontS;
+  const bonusSlots = Math.floor(emptyDistance / BALL_SPACING);
+
+  function advanceLevel() {
+    level++;
+    levelStartScore = score;
+    levelClearing = false;
+    lastFrontS = 0;
+    resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
+  }
+
+  if (bonusSlots > 0) {
+    for (let i = 0; i < bonusSlots; i++) {
+      const s = lastFrontS + (i + 0.5) * BALL_SPACING;
+      setTimeout(() => {
+        const pos = getPathPosFromS(Math.min(s, pathLength));
+        spawnScoreText(pos, 100);
+        score += 100;
+        updateHUD();
+      }, i * 80);
+    }
+    setTimeout(advanceLevel, bonusSlots * 80 + 600);
+  } else {
+    advanceLevel();
+  }
 }
 
 function showBanner(text) {

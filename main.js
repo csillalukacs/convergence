@@ -42,6 +42,9 @@ let rollBackTimer = 0;
 let lastFrontS = 0;
 let levelClearing = false;
 
+// Debug
+let debugFastForward = false;
+
 // Bonus crystal spawn timer
 let bonusCrystalSpawnTimer = 8.0; // seconds until first crystal appears
 const BONUS_CRYSTAL_INTERVAL = 14.0;
@@ -107,6 +110,20 @@ function init() {
   window.addEventListener('keydown', e => {
     if (e.code === 'Space') { e.preventDefault(); onSwapAction(); }
     if (e.code === 'KeyP' || e.code === 'Escape') { e.preventDefault(); togglePause(); }
+
+    // Debug keys (Shift + key)
+    if (e.shiftKey && gameActive) {
+      if (e.code === 'KeyB') tryAssignPowerup('blast');
+      if (e.code === 'KeyF') tryAssignPowerup('pause');
+      if (e.code === 'KeyR') tryAssignPowerup('backwards');
+      if (e.code === 'KeyS') { spawningDone = true; showBanner('SPAWNING STOPPED'); }
+      if (e.code === 'KeyN') { levelUp(); }
+      if (e.code === 'KeyA') debugFastForward = true;
+      if (e.code === 'KeyD') chainFreezeTimer = chainFreezeTimer > 0 ? 0 : 99999;
+    }
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'KeyA') debugFastForward = false;
   });
 
   animate();
@@ -296,7 +313,7 @@ function animate() {
     } else if (chainFreezeTimer > 0) {
       chainFreezeTimer = Math.max(0, chainFreezeTimer - dt);
     } else if (chain.length > 0) {
-      const activeSpeed = rollingIn ? ROLL_IN_SPEED : chainSpeed;
+      const activeSpeed = (rollingIn ? ROLL_IN_SPEED : chainSpeed) * (debugFastForward ? 5 : 1);
       // Collect all split points (indices where a gap or push-forward boundary exists)
       const splitIndices = new Set();
 
@@ -618,7 +635,7 @@ function activatePowerup(type, s = 0) {
 }
 
 function activateBlast(s) {
-  const BLAST_RADIUS = BALL_SPACING * 3.5;
+  const BLAST_RADIUS = BALL_SPACING * 3;
   const blastPos = getPathPosFromS(s);
   showBanner('NOVA BLAST!');
   playSound('powerup');
@@ -641,11 +658,13 @@ function activateBlast(s) {
   scene.add(ring2);
   shockwaves.push({ mesh: ring2, life: 0.4, maxLife: 0.4 });
 
-  // Destroy balls in radius
+  // Destroy balls within world-space radius (catches nearby track sections)
   let blastCount = 0;
   for (let i = 0; i < chain.length; i++) {
     const b = chain[i];
-    if (Math.abs(b.s - s) <= BLAST_RADIUS) {
+    const dx = b.mesh.position.x - blastPos.x;
+    const dy = b.mesh.position.y - blastPos.y;
+    if (dx * dx + dy * dy <= BLAST_RADIUS * BLAST_RADIUS) {
       if (b.powerup) {
         const type = b.powerup;
         const triggerS = b.s;

@@ -105,6 +105,9 @@ function insertBallInChain(insertIdx, colorIdx, hitBallIdx = -1) {
   }
 
   const newBall = { mesh, colorIdx, s: refS, alive: true };
+  // Sync mesh position immediately so blast radius checks work
+  const pos = getPathPosFromS(refS);
+  mesh.position.copy(pos);
 
   if (splitCase === 'A') {
     // newBall becomes the new frontBall; gap is now newBall → oldBackBall
@@ -151,30 +154,33 @@ function checkMatches(idx, fromChainReaction = false) {
 
   const count = end - start + 1;
   if (count >= 3) {
-    // Trigger any powerup carried by a matched ball
-    for (let i = start; i <= end; i++) {
-      if (chain[i].powerup) {
-        const type = chain[i].powerup;
-        const triggerS = chain[i].s;
-        chain[i].powerup = null;
-        if (chain[i].powerupSprite) { scene.remove(chain[i].powerupSprite); chain[i].powerupSprite = null; }
-        if (chain[i].powerupHalo)   { chain[i].mesh.remove(chain[i].powerupHalo); chain[i].powerupHalo = null; }
-        chain[i].mesh.material.emissiveIntensity = 1;
-        activatePowerup(type, triggerS);
-      }
-    }
-
     const midIdx = Math.floor((start + end) / 2);
     const midPos = chain[midIdx] ? getPathPosFromS(chain[midIdx].s) : new THREE.Vector3();
 
     if (fromChainReaction) combo++;
 
+    // Collect powerups before destroying matched balls
+    const triggeredPowerups = [];
+    for (let i = start; i <= end; i++) {
+      if (chain[i].powerup) {
+        triggeredPowerups.push({ type: chain[i].powerup, s: chain[i].s });
+        removePowerupVisuals(chain[i]);
+        chain[i].powerup = null;
+      }
+    }
+
+    // Destroy matched balls
     playSound('match', combo);
     for (let i = start; i <= end; i++) {
       explodeBall(chain[i]);
       chain[i].alive = false;
     }
     chain = chain.filter(b => b.alive);
+
+    // Now trigger collected powerups (blast won't double-hit removed balls)
+    for (const pw of triggeredPowerups) {
+      activatePowerup(pw.type, pw.s);
+    }
     const gapMult = (pendingGapBonus && !fromChainReaction) ? 10 : 1;
     const matchScore = (count * 10 * combo * gapMult + (chainBonus > 1 ? chainBonus * 10 : 0));
 
@@ -204,8 +210,11 @@ function checkMatches(idx, fromChainReaction = false) {
 function scheduleCollapse(gapFrontIdx) {
   const frontBall = chain[gapFrontIdx - 1];
   const backBall = chain[gapFrontIdx];
-  const matching = frontBall && backBall && frontBall.colorIdx === backBall.colorIdx;
-  const initialGapSize = backBall && frontBall ? frontBall.s - backBall.s - BALL_SPACING : 0;
+  if (!frontBall || !backBall) return;
+  // Avoid duplicate gaps for the same boundary
+  if (gaps.some(g => g.frontBall === frontBall && g.backBall === backBall)) return;
+  const matching = frontBall.colorIdx === backBall.colorIdx;
+  const initialGapSize = frontBall.s - backBall.s - BALL_SPACING;
   gaps.push({ frontBall, backBall, matching, initialGapSize });
 }
 

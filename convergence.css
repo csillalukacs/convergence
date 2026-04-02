@@ -23,7 +23,7 @@ body {
   right: 0;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   gap: 16px;
   padding: 10px 24px;
   pointer-events: none;
@@ -41,6 +41,8 @@ body {
   text-transform: uppercase;
   box-shadow: 0 0 15px rgba(136,204,255,0.2), inset 0 0 10px rgba(0,0,0,0.5);
   text-shadow: 0 0 8px rgba(136,204,255,0.5);
+  width: 200px;
+  text-align: center;
 }
 
 .hud-panel .value {
@@ -50,40 +52,44 @@ body {
   text-shadow: 0 0 12px rgba(136,204,255,0.8);
 }
 
+#progress-panel {
+  position: relative;
+  width: min(260px, 30vw);
+  background: linear-gradient(135deg, rgba(8,16,40,0.92), rgba(4,8,24,0.96));
+  border: 1px solid #336699;
+  border-radius: 4px;
+  padding: 6px 18px;
+  box-shadow: 0 0 15px rgba(136,204,255,0.2), inset 0 0 10px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+
 #progress-wrap {
-  position: fixed;
-  top: 50px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(400px, 70vw);
-  height: 14px;
-  background: rgba(4,8,24,0.9);
+  width: 100%;
+  height: 10px;
+  background: rgba(0,0,0,0.4);
   border: 1px solid #224466;
-  border-radius: 7px;
+  border-radius: 5px;
   overflow: hidden;
-  z-index: 10;
-  box-shadow: 0 0 10px rgba(0,0,0,0.6), inset 0 2px 4px rgba(0,0,0,0.5);
 }
 
 #progress-bar {
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg, #0066cc, #88ccff, #ffffff, #cc88ff);
-  border-radius: 7px;
+  border-radius: 5px;
   transition: width 0.3s ease;
   box-shadow: 0 0 12px rgba(136,204,255,0.6);
 }
 
 #progress-label {
-  position: fixed;
-  top: 66px;
-  left: 50%;
-  transform: translateX(-50%);
   color: #446688;
   font-size: 9px;
   letter-spacing: 3px;
   text-transform: uppercase;
-  z-index: 10;
   pointer-events: none;
   font-family: 'Spectral', serif;
 }

@@ -327,119 +327,174 @@ function createBallTexture(colorIdx) {
   ctx.fillStyle = cols.base;
   ctx.fillRect(0, 0, S, S);
 
-  [texBrilliant, texHexFacets, texEmeraldCut, texStarburst, texDiamondGrid][colorIdx](ctx, S, cols);
+  [texRoseWindow, texIceShards, texLeafVeins, texFacetedGem, texTriFacets, texSpiral][colorIdx](ctx, S, cols);
 
   return new THREE.CanvasTexture(cv);
 }
 
-// 0 — Ruby: brilliant-cut radial facets
-function texBrilliant(ctx, S, cols) {
-  const cx = S / 2, cy = S / 2;
-  const slices = 8;
-  for (let i = 0; i < slices; i++) {
-    const a1 = (i / slices) * Math.PI * 2;
-    const a2 = ((i + 1) / slices) * Math.PI * 2;
-    const aMid = (a1 + a2) / 2;
-    ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, S * 0.48, a1, a2); ctx.closePath();
-    ctx.fillStyle = i % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(a1) * S * 0.22, cy + Math.sin(a1) * S * 0.22);
-    ctx.lineTo(cx + Math.cos(aMid) * S * 0.22, cy + Math.sin(aMid) * S * 0.22);
-    ctx.closePath();
+// 0 — Ruby: rose window — overlapping petal circles with radial lines
+function texRoseWindow(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2, petals = 6;
+  for (let i = 0; i < petals; i++) {
+    const a = (i / petals) * Math.PI * 2;
+    const px = cx + Math.cos(a) * S * 0.22, py = cy + Math.sin(a) * S * 0.22;
+    ctx.beginPath(); ctx.arc(px, py, S * 0.22, 0, Math.PI * 2); ctx.closePath();
     ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015; ctx.stroke();
   }
-  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015;
-  for (let i = 0; i < slices; i++) {
-    const a = (i / slices) * Math.PI * 2;
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.18, 0, Math.PI * 2); ctx.closePath();
+  ctx.fillStyle = cols.mid; ctx.fill();
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015; ctx.stroke();
+  for (let i = 0; i < petals; i++) {
+    const a = (i / petals) * Math.PI * 2;
     ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(a) * S * 0.48, cy + Math.sin(a) * S * 0.48); ctx.stroke();
+    ctx.lineTo(cx + Math.cos(a) * S * 0.44, cy + Math.sin(a) * S * 0.44);
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.01; ctx.stroke();
   }
   ctx.beginPath(); ctx.arc(cx, cy, S * 0.06, 0, Math.PI * 2);
   ctx.fillStyle = cols.lite; ctx.fill();
 }
 
-// 1 — Sapphire: hexagonal facet grid
-function texHexFacets(ctx, S, cols) {
-  const r = S * 0.14, w = r * Math.sqrt(3);
-  for (let row = -1; row < 7; row++) {
-    for (let col = -1; col < 7; col++) {
-      const cx = col * w + (row % 2 === 0 ? 0 : w / 2);
-      const cy = row * r * 1.5;
-      ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-        const x = cx + Math.cos(a) * r * 0.9, y = cy + Math.sin(a) * r * 0.9;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fillStyle = (row + col) % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
-      ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.018; ctx.stroke();
-    }
-  }
-}
-
-// 2 — Emerald: diagonal step cuts
-function texEmeraldCut(ctx, S, cols) {
-  const step = S / 6;
-  for (let i = -2; i < 10; i++) {
-    ctx.beginPath();
-    ctx.moveTo(i * step, 0); ctx.lineTo((i + 1) * step, 0);
-    ctx.lineTo((i + 1) * step - S, S); ctx.lineTo(i * step - S, S);
+// 1 — Sapphire: ice shards — irregular angular shards radiating outward
+function texIceShards(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2, shards = 10;
+  for (let i = 0; i < shards; i++) {
+    const a = (i / shards) * Math.PI * 2;
+    const aNext = ((i + 1) / shards) * Math.PI * 2;
+    const aMid = (a + aNext) / 2;
+    const r1 = S * (0.30 + (i % 3) * 0.06);
+    const r2 = S * (0.20 + ((i + 1) % 3) * 0.06);
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+    ctx.lineTo(cx + Math.cos(aMid) * S * 0.46, cy + Math.sin(aMid) * S * 0.46);
+    ctx.lineTo(cx + Math.cos(aNext) * r2, cy + Math.sin(aNext) * r2);
     ctx.closePath();
-    ctx.fillStyle = i % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
   }
-  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.022;
-  for (let i = -2; i < 10; i++) {
-    ctx.beginPath(); ctx.moveTo(i * step, 0); ctx.lineTo(i * step - S, S); ctx.stroke();
-  }
-  for (let i = 0; i < 5; i++) {
-    ctx.beginPath(); ctx.moveTo(0, i * step + step * 0.5); ctx.lineTo(S, i * step + step * 0.5); ctx.stroke();
-  }
-}
-
-// 3 — Amber: starburst
-function texStarburst(ctx, S, cols) {
-  const cx = S / 2, cy = S / 2, rays = 12;
-  for (let i = 0; i < rays; i++) {
-    const a1 = (i / rays) * Math.PI * 2;
-    const a2 = ((i + 0.5) / rays) * Math.PI * 2;
-    const a3 = ((i + 1) / rays) * Math.PI * 2;
+  for (let i = 0; i < shards; i++) {
+    const a = (i / shards) * Math.PI * 2 + Math.PI / shards;
     ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, S * 0.46, a1, a3); ctx.closePath();
-    ctx.fillStyle = i % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, S * 0.22, a1, a2); ctx.closePath();
-    ctx.fillStyle = cols.lite; ctx.fill();
+    ctx.lineTo(cx + Math.cos(a) * S * 0.2, cy + Math.sin(a) * S * 0.2);
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.008; ctx.stroke();
   }
-  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015;
-  for (let i = 0; i < rays; i++) {
-    const a = (i / rays) * Math.PI * 2;
-    ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(a) * S * 0.46, cy + Math.sin(a) * S * 0.46); ctx.stroke();
-  }
-  ctx.beginPath(); ctx.arc(cx, cy, S * 0.07, 0, Math.PI * 2);
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.04, 0, Math.PI * 2);
   ctx.fillStyle = cols.lite; ctx.fill();
 }
 
-// 4 — Amethyst: rotated diamond grid
-function texDiamondGrid(ctx, S, cols) {
-  ctx.save();
-  ctx.translate(S / 2, S / 2); ctx.rotate(Math.PI / 4); ctx.translate(-S / 2, -S / 2);
-  const step = S / 5;
-  for (let row = -2; row < 8; row++) {
-    for (let col = -2; col < 8; col++) {
-      ctx.fillStyle = (row + col) % 2 === 0 ? cols.mid : cols.lite;
-      ctx.fillRect(col * step, row * step, step, step);
+// 2 — Emerald: leaf veins — central midrib with branching veins
+function texLeafVeins(ctx, S, cols) {
+  const cx = S / 2;
+  const branches = 8;
+  for (let i = 0; i < branches; i++) {
+    const y = (i + 0.5) / branches * S;
+    const side = i % 2 === 0 ? 1 : -1;
+    const tipX = cx + side * S * 0.4;
+    const tipY = y - S * 0.05;
+    const nextY = (i + 1.5) / branches * S;
+    ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(tipX, tipY);
+    ctx.lineTo(cx + side * S * 0.38, nextY - S * 0.05); ctx.lineTo(cx, nextY);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+  }
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, S);
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.03; ctx.stroke();
+  for (let i = 0; i < branches; i++) {
+    const y = (i + 0.5) / branches * S;
+    const side = i % 2 === 0 ? 1 : -1;
+    const tipX = cx + side * S * 0.4;
+    const tipY = y - S * 0.05;
+    ctx.beginPath(); ctx.moveTo(cx, y);
+    ctx.quadraticCurveTo(cx + side * S * 0.2, y - S * 0.02, tipX, tipY);
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015; ctx.stroke();
+  }
+}
+
+// 3 — Amber: faceted gem — top-down gem view with table, crown and star facets
+function texFacetedGem(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2, n = 8;
+  for (let i = 0; i < n; i++) {
+    const a1 = (i / n) * Math.PI * 2, a2 = ((i + 1) / n) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a1) * S * 0.18, cy + Math.sin(a1) * S * 0.18);
+    ctx.lineTo(cx + Math.cos(a1) * S * 0.44, cy + Math.sin(a1) * S * 0.44);
+    ctx.lineTo(cx + Math.cos(a2) * S * 0.44, cy + Math.sin(a2) * S * 0.44);
+    ctx.lineTo(cx + Math.cos(a2) * S * 0.18, cy + Math.sin(a2) * S * 0.18);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+  }
+  for (let i = 0; i < n; i++) {
+    const a1 = (i / n) * Math.PI * 2, a2 = ((i + 1) / n) * Math.PI * 2;
+    const aMid = (a1 + a2) / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a1) * S * 0.18, cy + Math.sin(a1) * S * 0.18);
+    ctx.lineTo(cx + Math.cos(aMid) * S * 0.30, cy + Math.sin(aMid) * S * 0.30);
+    ctx.lineTo(cx + Math.cos(a2) * S * 0.18, cy + Math.sin(a2) * S * 0.18);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.008; ctx.stroke();
+  }
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const x = cx + Math.cos(a) * S * 0.18, y = cy + Math.sin(a) * S * 0.18;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = cols.lite; ctx.fill();
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+}
+
+// 4 — Amethyst: triangular facet tessellation
+function texTriFacets(ctx, S, cols) {
+  const h = S * 0.12;
+  const w = h * 2 / Math.sqrt(3);
+  for (let row = -2; row < 12; row++) {
+    for (let col = -2; col < 12; col++) {
+      const cx = col * w + (row % 2 === 0 ? 0 : w / 2);
+      const cy = row * h * 0.85;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - h * 0.6);
+      ctx.lineTo(cx + w * 0.5, cy + h * 0.4);
+      ctx.lineTo(cx - w * 0.5, cy + h * 0.4);
+      ctx.closePath();
+      const shade = (row + col) % 3;
+      ctx.fillStyle = shade === 0 ? cols.lite : shade === 1 ? cols.mid : cols.base;
+      ctx.fill();
+      ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
     }
   }
-  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.022;
-  for (let i = -2; i < 9; i++) {
-    ctx.beginPath(); ctx.moveTo(i * step, -S); ctx.lineTo(i * step, S * 2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-S, i * step); ctx.lineTo(S * 2, i * step); ctx.stroke();
+}
+
+// 5 — Silver: Archimedean spiral bands
+function texSpiral(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2;
+  const turns = 3, steps = 200;
+  for (let band = 0; band < 2; band++) {
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const a = t * turns * Math.PI * 2 + band * Math.PI;
+      const r = t * S * 0.46;
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = band === 0 ? cols.lite : cols.mid;
+    ctx.lineWidth = S * 0.06; ctx.stroke();
   }
-  ctx.restore();
-  ctx.beginPath(); ctx.arc(S / 2, S / 2, S * 0.08, 0, Math.PI * 2);
+  for (let band = 0; band < 2; band++) {
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const a = t * turns * Math.PI * 2 + band * Math.PI;
+      const r = t * S * 0.46;
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.04, 0, Math.PI * 2);
   ctx.fillStyle = cols.lite; ctx.fill();
 }
 

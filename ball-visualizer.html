@@ -44,6 +44,11 @@ h2 {
 }
 .powerup-row canvas { border-radius: 4px; }
 .powerup-label { font-size: 10px; color: #88aacc; }
+
+.card.selectable { cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; }
+.card.selectable:hover { border-color: #4488aa; box-shadow: 0 0 10px rgba(68,136,170,0.3); }
+.card.selected { border: 2px solid #ff8844; box-shadow: 0 0 14px rgba(255,136,68,0.4); }
+#palette-row { position: sticky; bottom: 0; background: #06080f; padding: 16px 0; border-top: 1px solid #1a2540; z-index: 10; }
 </style>
 </head>
 <body>
@@ -61,6 +66,14 @@ h2 {
 
 <h2>Explosion Particles</h2>
 <div class="grid" id="particle-grid"></div>
+
+<h2 style="color:#ff8844; border-color:#442200; margin-top:48px;">Pattern Alternatives — Per Color</h2>
+<p style="font-size:10px; color:#556688; margin-bottom:14px; text-align:center;">Current pattern (orange border) + alternatives for each color. Silver is confirmed with Spiral.</p>
+<div id="alt-sections"></div>
+
+<div id="palette-row" style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap; align-items:flex-start;">
+  <div style="font-size:10px; color:#556688; letter-spacing:2px; text-transform:uppercase; align-self:center; margin-right:8px;">PALETTE</div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -373,6 +386,7 @@ function animate() {
   requestAnimationFrame(animate);
   const t = performance.now() * 0.001;
   for (const s of spinners) {
+    if (!s) continue;
     s.ball.rotation.y = t * 0.5;
     s.ball.rotation.x = Math.sin(t * 0.3) * 0.15;
     for (const ex of s.extras) {
@@ -490,6 +504,565 @@ for (let i = 0; i < COLORS.length; i++) {
   addText(card, 'sublabel', '12 colored + 6 white');
   particleGrid.appendChild(card);
 }
+
+// ─── ALTERNATIVE TEXTURE GENERATORS ───
+
+// Concentric rings — circles radiating from center
+function texConcentricRings(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2;
+  const rings = 6;
+  for (let i = rings; i >= 0; i--) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, (i + 1) * S * 0.08, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.mid : cols.lite;
+    ctx.fill();
+  }
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.018;
+  for (let i = 1; i <= rings; i++) {
+    ctx.beginPath(); ctx.arc(cx, cy, i * S * 0.08, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.05, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
+}
+
+// Spiral — Archimedean spiral bands
+function texSpiral(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2;
+  const turns = 3, steps = 200;
+  // Draw thick spiral bands
+  for (let band = 0; band < 2; band++) {
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const a = t * turns * Math.PI * 2 + band * Math.PI;
+      const r = t * S * 0.46;
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = band === 0 ? cols.lite : cols.mid;
+    ctx.lineWidth = S * 0.06;
+    ctx.stroke();
+  }
+  // Outline
+  for (let band = 0; band < 2; band++) {
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const a = t * turns * Math.PI * 2 + band * Math.PI;
+      const r = t * S * 0.46;
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.04, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
+}
+
+// Crescent scales — overlapping fish-scale crescents
+function texCrescentScales(ctx, S, cols) {
+  const r = S * 0.12;
+  for (let row = -1; row < 8; row++) {
+    for (let col = -1; col < 8; col++) {
+      const cx = col * r * 1.6 + (row % 2 === 0 ? 0 : r * 0.8);
+      const cy = row * r * 1.2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI, false);
+      ctx.closePath();
+      ctx.fillStyle = (row + col) % 2 === 0 ? cols.lite : cols.mid;
+      ctx.fill();
+      ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+    }
+  }
+}
+
+// Cross-hatch — intersecting diagonal lines
+function texCrossHatch(ctx, S, cols) {
+  const step = S / 8;
+  // Fill alternating diamonds
+  for (let i = -8; i < 16; i++) {
+    for (let j = -8; j < 16; j++) {
+      if ((i + j) % 2 !== 0) continue;
+      ctx.beginPath();
+      const cx = i * step * 0.5, cy = j * step * 0.5;
+      ctx.moveTo(cx, cy - step * 0.5);
+      ctx.lineTo(cx + step * 0.5, cy);
+      ctx.lineTo(cx, cy + step * 0.5);
+      ctx.lineTo(cx - step * 0.5, cy);
+      ctx.closePath();
+      ctx.fillStyle = (i + j) % 4 === 0 ? cols.lite : cols.mid;
+      ctx.fill();
+    }
+  }
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015;
+  for (let i = -10; i < 20; i++) {
+    ctx.beginPath(); ctx.moveTo(i * step, -S); ctx.lineTo(i * step + S, S * 2 - S); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i * step, -S); ctx.lineTo(i * step - S, S * 2 - S); ctx.stroke();
+  }
+}
+
+// Tri-facets — triangular tessellation
+function texTriFacets(ctx, S, cols) {
+  const h = S * 0.12;
+  const w = h * 2 / Math.sqrt(3);
+  for (let row = -2; row < 12; row++) {
+    for (let col = -2; col < 12; col++) {
+      const cx = col * w + (row % 2 === 0 ? 0 : w / 2);
+      const cy = row * h * 0.85;
+      // Up triangle
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - h * 0.6);
+      ctx.lineTo(cx + w * 0.5, cy + h * 0.4);
+      ctx.lineTo(cx - w * 0.5, cy + h * 0.4);
+      ctx.closePath();
+      ctx.fillStyle = (row + col) % 3 === 0 ? cols.lite : (row + col) % 3 === 1 ? cols.mid : cols.base;
+      ctx.fill();
+      ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+    }
+  }
+}
+
+// ─── CUSTOM BALL CREATION (arbitrary color + texture) ───
+
+function makeCustomTexture(hex, texFn) {
+  const S = 256;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const ctx = cv.getContext('2d');
+  const cols = makeColorSet(hex);
+  ctx.fillStyle = cols.base;
+  ctx.fillRect(0, 0, S, S);
+  texFn(ctx, S, cols);
+  return new THREE.CanvasTexture(cv);
+}
+
+function createCustomBallCard(hex, emissiveHex, texFn, displaySize) {
+  const sc = createLitScene();
+  const ball = new THREE.Mesh(
+    new THREE.SphereGeometry(BALL_RADIUS, 16, 12),
+    new THREE.MeshStandardMaterial({
+      map: makeCustomTexture(hex, texFn),
+      color: 0xffffff, metalness: 0.8, roughness: 0.05,
+      emissive: emissiveHex
+    })
+  );
+  sc.add(ball);
+
+  sharedRenderer.render(sc, sharedCamera);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = RENDER_SIZE;
+  cv.style.width = displaySize + 'px';
+  cv.style.height = displaySize + 'px';
+  cv.getContext('2d').drawImage(sharedRenderer.domElement, 0, 0);
+
+  spinners.push({ scene: sc, ball, extras: [], canvas2d: cv });
+  return cv;
+}
+
+// ─── ALTERNATIVE PATTERNS PER COLOR ───
+
+// Ruby alternatives — current is radial slices; try faceted rose, shield facets
+function texRoseWindow(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2, petals = 6;
+  // Outer petals
+  for (let i = 0; i < petals; i++) {
+    const a = (i / petals) * Math.PI * 2;
+    const px = cx + Math.cos(a) * S * 0.22, py = cy + Math.sin(a) * S * 0.22;
+    ctx.beginPath(); ctx.arc(px, py, S * 0.22, 0, Math.PI * 2); ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015; ctx.stroke();
+  }
+  // Inner ring
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.18, 0, Math.PI * 2); ctx.closePath();
+  ctx.fillStyle = cols.mid; ctx.fill();
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015; ctx.stroke();
+  // Radial lines
+  for (let i = 0; i < petals; i++) {
+    const a = (i / petals) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * S * 0.44, cy + Math.sin(a) * S * 0.44);
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.01; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.06, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
+}
+
+function texShieldFacets(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2, slices = 10;
+  // Two concentric rings of kite-shaped facets
+  for (let ring = 0; ring < 2; ring++) {
+    const rInner = ring * S * 0.18, rOuter = (ring + 1) * S * 0.22;
+    for (let i = 0; i < slices; i++) {
+      const a1 = (i / slices) * Math.PI * 2;
+      const a2 = ((i + 1) / slices) * Math.PI * 2;
+      const aMid = (a1 + a2) / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a1) * rInner, cy + Math.sin(a1) * rInner);
+      ctx.lineTo(cx + Math.cos(aMid) * rOuter, cy + Math.sin(aMid) * rOuter);
+      ctx.lineTo(cx + Math.cos(a2) * rInner, cy + Math.sin(a2) * rInner);
+      ctx.lineTo(cx + Math.cos(aMid) * (rInner + rOuter) * 0.35, cy + Math.sin(aMid) * (rInner + rOuter) * 0.35);
+      ctx.closePath();
+      ctx.fillStyle = (i + ring) % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+      ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.01; ctx.stroke();
+    }
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.05, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
+}
+
+// Sapphire alternatives — current is hex grid; try ice shards, bubble
+function texIceShards(ctx, S, cols) {
+  // Irregular angular shards radiating outward
+  const cx = S / 2, cy = S / 2, shards = 10;
+  for (let i = 0; i < shards; i++) {
+    const a = (i / shards) * Math.PI * 2;
+    const aNext = ((i + 1) / shards) * Math.PI * 2;
+    const aMid = (a + aNext) / 2;
+    const r1 = S * (0.30 + (i % 3) * 0.06);
+    const r2 = S * (0.20 + ((i + 1) % 3) * 0.06);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+    ctx.lineTo(cx + Math.cos(aMid) * S * 0.46, cy + Math.sin(aMid) * S * 0.46);
+    ctx.lineTo(cx + Math.cos(aNext) * r2, cy + Math.sin(aNext) * r2);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+  }
+  // Inner fracture lines
+  for (let i = 0; i < shards; i++) {
+    const a = (i / shards) * Math.PI * 2 + Math.PI / shards;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * S * 0.2, cy + Math.sin(a) * S * 0.2);
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.008; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.04, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
+}
+
+function texBubble(ctx, S, cols) {
+  // Packed circles of varying sizes
+  const circles = [];
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * S, y = Math.random() * S;
+    const r = S * 0.04 + Math.random() * S * 0.06;
+    circles.push({ x, y, r });
+  }
+  for (const c of circles) {
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2); ctx.closePath();
+    ctx.fillStyle = Math.random() > 0.5 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.01; ctx.stroke();
+    // Highlight
+    ctx.beginPath(); ctx.arc(c.x - c.r * 0.25, c.y - c.r * 0.3, c.r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = cols.lite; ctx.globalAlpha = 0.4; ctx.fill(); ctx.globalAlpha = 1;
+  }
+}
+
+// Emerald alternatives — current is diagonal stripes; try leaf veins, chevron
+function texLeafVeins(ctx, S, cols) {
+  // Central midrib with branching veins
+  const cx = S / 2;
+  // Midrib
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, S);
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.03; ctx.stroke();
+  // Branching veins
+  const branches = 8;
+  for (let i = 0; i < branches; i++) {
+    const y = (i + 0.5) / branches * S;
+    const side = i % 2 === 0 ? 1 : -1;
+    const tipX = cx + side * S * 0.4;
+    const tipY = y - S * 0.05;
+    ctx.beginPath(); ctx.moveTo(cx, y);
+    ctx.quadraticCurveTo(cx + side * S * 0.2, y - S * 0.02, tipX, tipY);
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015; ctx.stroke();
+    // Fill areas between veins
+    const nextY = (i + 1.5) / branches * S;
+    ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(tipX, tipY);
+    ctx.lineTo(cx + side * S * 0.38, nextY - S * 0.05); ctx.lineTo(cx, nextY);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+  }
+}
+
+function texChevron(ctx, S, cols) {
+  const rowH = S / 7;
+  for (let row = -2; row < 10; row++) {
+    const y = row * rowH;
+    ctx.beginPath();
+    ctx.moveTo(0, y); ctx.lineTo(S / 2, y + rowH * 0.6); ctx.lineTo(S, y);
+    ctx.lineTo(S, y + rowH); ctx.lineTo(S / 2, y + rowH * 1.6); ctx.lineTo(0, y + rowH);
+    ctx.closePath();
+    ctx.fillStyle = row % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015; ctx.stroke();
+  }
+}
+
+// Amber alternatives — current is starburst; try concentric rings (already defined), sunburst, faceted gem
+function texSunburst(ctx, S, cols) {
+  const cx = S / 2, cy = S / 2, rays = 16;
+  for (let i = 0; i < rays; i++) {
+    const a1 = (i / rays) * Math.PI * 2;
+    const a2 = ((i + 0.5) / rays) * Math.PI * 2;
+    const a3 = ((i + 1) / rays) * Math.PI * 2;
+    // Tapered ray
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a1) * S * 0.46, cy + Math.sin(a1) * S * 0.46);
+    ctx.lineTo(cx + Math.cos(a2) * S * 0.32, cy + Math.sin(a2) * S * 0.32);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.008; ctx.stroke();
+  }
+  // Central disc
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.1, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+}
+
+function texFacetedGem(ctx, S, cols) {
+  // Table + crown facets like a top-down gem view
+  const cx = S / 2, cy = S / 2;
+  // Outer crown facets (8 trapezoids)
+  const n = 8;
+  for (let i = 0; i < n; i++) {
+    const a1 = (i / n) * Math.PI * 2, a2 = ((i + 1) / n) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a1) * S * 0.18, cy + Math.sin(a1) * S * 0.18);
+    ctx.lineTo(cx + Math.cos(a1) * S * 0.44, cy + Math.sin(a1) * S * 0.44);
+    ctx.lineTo(cx + Math.cos(a2) * S * 0.44, cy + Math.sin(a2) * S * 0.44);
+    ctx.lineTo(cx + Math.cos(a2) * S * 0.18, cy + Math.sin(a2) * S * 0.18);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.mid : cols.lite; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+  }
+  // Star facets (8 triangles between crown)
+  for (let i = 0; i < n; i++) {
+    const a1 = (i / n) * Math.PI * 2, a2 = ((i + 1) / n) * Math.PI * 2;
+    const aMid = (a1 + a2) / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a1) * S * 0.18, cy + Math.sin(a1) * S * 0.18);
+    ctx.lineTo(cx + Math.cos(aMid) * S * 0.30, cy + Math.sin(aMid) * S * 0.30);
+    ctx.lineTo(cx + Math.cos(a2) * S * 0.18, cy + Math.sin(a2) * S * 0.18);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.008; ctx.stroke();
+  }
+  // Table
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const x = cx + Math.cos(a) * S * 0.18, y = cy + Math.sin(a) * S * 0.18;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = cols.lite; ctx.fill();
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+}
+
+// Amethyst alternatives — current is rotated checkerboard; try mosaic, cathedral
+function texMosaic(ctx, S, cols) {
+  // Irregular-ish polygonal mosaic via offset grid with triangulation
+  const step = S / 6;
+  for (let row = -1; row < 8; row++) {
+    for (let col = -1; col < 8; col++) {
+      const ox = (row % 2 === 0 ? 0 : step * 0.5);
+      const cx = col * step + ox, cy = row * step * 0.88;
+      // Irregular quad
+      ctx.beginPath();
+      ctx.moveTo(cx + step * 0.1, cy + step * 0.05);
+      ctx.lineTo(cx + step * 0.85, cy + step * 0.12);
+      ctx.lineTo(cx + step * 0.92, cy + step * 0.88);
+      ctx.lineTo(cx + step * 0.08, cy + step * 0.82);
+      ctx.closePath();
+      const shade = (row * 7 + col * 3) % 3;
+      ctx.fillStyle = shade === 0 ? cols.lite : shade === 1 ? cols.mid : cols.base;
+      ctx.fill();
+      ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.018; ctx.stroke();
+    }
+  }
+}
+
+function texCathedral(ctx, S, cols) {
+  // Gothic pointed arch grid
+  const cx = S / 2, cy = S / 2;
+  // Radiating pointed arches
+  const arches = 8;
+  for (let i = 0; i < arches; i++) {
+    const a1 = (i / arches) * Math.PI * 2;
+    const a2 = ((i + 1) / arches) * Math.PI * 2;
+    const aMid = (a1 + a2) / 2;
+    // Pointed arch shape
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a1) * S * 0.42, cy + Math.sin(a1) * S * 0.42);
+    ctx.quadraticCurveTo(
+      cx + Math.cos(aMid) * S * 0.55, cy + Math.sin(aMid) * S * 0.55,
+      cx + Math.cos(a2) * S * 0.42, cy + Math.sin(a2) * S * 0.42
+    );
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? cols.lite : cols.mid; ctx.fill();
+    ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.015; ctx.stroke();
+  }
+  // Inner rosette
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.12, 0, Math.PI * 2);
+  ctx.fillStyle = cols.lite; ctx.fill();
+  ctx.strokeStyle = cols.dark; ctx.lineWidth = S * 0.012; ctx.stroke();
+  // Dot
+  ctx.beginPath(); ctx.arc(cx, cy, S * 0.04, 0, Math.PI * 2);
+  ctx.fillStyle = cols.dark; ctx.fill();
+}
+
+// ─── BUILD COMPARISON SECTIONS (selectable) ───
+
+const altSections = document.getElementById('alt-sections');
+const paletteRow = document.getElementById('palette-row');
+
+const colorAlts = [
+  {
+    name: 'Ruby', hex: 0xFF2255, emissive: 0x880020,
+    patterns: [
+      { name: 'Brilliant Cut (current)', fn: texBrilliant, current: true },
+      { name: 'Rose Window', fn: texRoseWindow },
+      { name: 'Shield Facets', fn: texShieldFacets },
+    ]
+  },
+  {
+    name: 'Sapphire', hex: 0x00AAFF, emissive: 0x004488,
+    patterns: [
+      { name: 'Hex Facets (current)', fn: texHexFacets, current: true },
+      { name: 'Ice Shards', fn: texIceShards },
+      { name: 'Bubble', fn: texBubble },
+    ]
+  },
+  {
+    name: 'Emerald', hex: 0x00FF88, emissive: 0x007744,
+    patterns: [
+      { name: 'Emerald Cut (current)', fn: texEmeraldCut, current: true },
+      { name: 'Leaf Veins', fn: texLeafVeins },
+      { name: 'Chevron', fn: texChevron },
+    ]
+  },
+  {
+    name: 'Amber', hex: 0xFFCC00, emissive: 0x886600,
+    patterns: [
+      { name: 'Starburst (current)', fn: texStarburst, current: true },
+      { name: 'Concentric Rings', fn: texConcentricRings },
+      { name: 'Sunburst', fn: texSunburst },
+      { name: 'Faceted Gem', fn: texFacetedGem },
+    ]
+  },
+  {
+    name: 'Amethyst', hex: 0xCC44FF, emissive: 0x661188,
+    patterns: [
+      { name: 'Diamond Grid (current)', fn: texDiamondGrid, current: true },
+      { name: 'Mosaic', fn: texMosaic },
+      { name: 'Cathedral', fn: texCathedral },
+      { name: 'Tri-Facets', fn: texTriFacets },
+    ]
+  },
+  {
+    name: 'Silver', hex: 0xAABBCC, emissive: 0x445566,
+    patterns: [
+      { name: 'Spiral (chosen)', fn: texSpiral, current: true },
+      { name: 'Cross-Hatch', fn: texCrossHatch },
+      { name: 'Crescent Scales', fn: texCrescentScales },
+    ]
+  },
+];
+
+// Track selected pattern per color for the palette row
+const selectedPatterns = colorAlts.map(c => c.patterns.find(p => p.current));
+// Track palette spinner indices so we can swap them
+const paletteSpinnerIndices = [];
+
+function rebuildPaletteSlot(colorIdx) {
+  const c = colorAlts[colorIdx];
+  const pat = selectedPatterns[colorIdx];
+  const wrap = paletteRow.children[colorIdx];
+
+  // Remove old spinner from animation loop
+  const oldIdx = paletteSpinnerIndices[colorIdx];
+  if (oldIdx !== null) {
+    // Null out the old spinner (don't splice — would shift other indices)
+    spinners[oldIdx] = null;
+  }
+
+  // Remove old canvas + label
+  wrap.innerHTML = '';
+
+  // Create new ball
+  const newSpinnerIdx = spinners.length;
+  wrap.appendChild(createCustomBallCard(c.hex, c.emissive, pat.fn, 72));
+  paletteSpinnerIndices[colorIdx] = newSpinnerIdx;
+
+  addText(wrap, 'sublabel', c.name);
+  const patLabel = document.createElement('div');
+  patLabel.className = 'sublabel';
+  patLabel.style.color = '#ff8844';
+  patLabel.textContent = pat.name.replace(/ \(current\)| \(chosen\)/, '');
+  wrap.appendChild(patLabel);
+}
+
+// Build palette row first (so slots exist before selection logic)
+for (let ci = 0; ci < colorAlts.length; ci++) {
+  const c = colorAlts[ci];
+  const pat = selectedPatterns[ci];
+  const wrap = document.createElement('div');
+  wrap.style.textAlign = 'center';
+
+  const spinnerIdx = spinners.length;
+  wrap.appendChild(createCustomBallCard(c.hex, c.emissive, pat.fn, 72));
+  paletteSpinnerIndices.push(spinnerIdx);
+
+  addText(wrap, 'sublabel', c.name);
+  const patLabel = document.createElement('div');
+  patLabel.className = 'sublabel';
+  patLabel.style.color = '#ff8844';
+  patLabel.textContent = pat.name.replace(/ \(current\)| \(chosen\)/, '');
+  wrap.appendChild(patLabel);
+
+  paletteRow.appendChild(wrap);
+}
+
+// Build selectable cards per color
+for (let ci = 0; ci < colorAlts.length; ci++) {
+  const color = colorAlts[ci];
+
+  const label = document.createElement('div');
+  label.style.cssText = 'font-size:11px; color:#88aacc; letter-spacing:2px; text-transform:uppercase; margin:20px 0 10px; text-align:center;';
+  label.textContent = color.name;
+  altSections.appendChild(label);
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-bottom:8px;';
+
+  const cards = [];
+  for (let pi = 0; pi < color.patterns.length; pi++) {
+    const pat = color.patterns[pi];
+    const card = document.createElement('div');
+    card.className = 'card selectable' + (pat.current ? ' selected' : '');
+    card.appendChild(createCustomBallCard(color.hex, color.emissive, pat.fn, 100));
+    addText(card, 'label', color.name);
+    addText(card, 'sublabel', pat.name);
+    cards.push(card);
+
+    card.addEventListener('click', () => {
+      // Deselect siblings
+      for (const c of cards) c.classList.remove('selected');
+      card.classList.add('selected');
+      // Update palette
+      selectedPatterns[ci] = pat;
+      rebuildPaletteSlot(ci);
+    });
+
+    row.appendChild(card);
+  }
+  altSections.appendChild(row);
+}
+
+// Clean up nulled spinners in animation loop
+const origAnimate = animate;
+// Patch animate to skip nulls (already handled by the null check below)
 </script>
 </body>
 </html>

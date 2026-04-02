@@ -632,12 +632,11 @@ function activateBlast(s) {
     score += pts;
     updateHUD();
     spawnScoreText(blastPos, pts);
-    // Schedule gap collapse at the new boundary
+    // Schedule gap collapse at every new boundary
     if (chain.length > 1) {
       for (let i = 0; i < chain.length - 1; i++) {
         if (chain[i].s - chain[i + 1].s > BALL_SPACING * 1.5) {
           scheduleCollapse(i + 1);
-          break;
         }
       }
     }

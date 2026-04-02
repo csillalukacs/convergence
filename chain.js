@@ -244,7 +244,7 @@ function updatePushForwards(dt) {
       }
       pushForwards.splice(g, 1);
     } else {
-      const pushSpeed = 15;
+      const pushSpeed = 30;
       const move = Math.min(pushSpeed * dt, currentOverlap);
       // Push everything ahead of frontIdx that's contiguous (no gap)
       const { start: pushStart } = getSegmentBounds(frontIdx);
@@ -305,7 +305,7 @@ function updateCollapses(dt) {
     } else if (gap.matching) {
       // Matching colors: front segment actively slides backward to close gap.
       const { start: moveStart } = getSegmentBounds(frontIdx, gap, true);
-      const collapseSpeed = 15;
+      const collapseSpeed = 25;
       const move = Math.min(collapseSpeed * dt, currentGap);
       for (let i = moveStart; i <= frontIdx; i++) chain[i].s -= move;
     }

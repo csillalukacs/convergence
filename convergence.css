@@ -23,7 +23,7 @@ body {
   right: 0;
   display: flex;
   justify-content: center;
-  align-items: stretch;
+  align-items: center;
   gap: 16px;
   padding: 10px 24px;
   pointer-events: none;
@@ -42,6 +42,10 @@ body {
   box-shadow: 0 0 15px rgba(136,204,255,0.2), inset 0 0 10px rgba(0,0,0,0.5);
   text-shadow: 0 0 8px rgba(136,204,255,0.5);
   width: 200px;
+  height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   text-align: center;
 }
 
@@ -53,8 +57,8 @@ body {
 }
 
 #progress-panel {
-  position: relative;
   width: min(260px, 30vw);
+  height: 48px;
   background: linear-gradient(135deg, rgba(8,16,40,0.92), rgba(4,8,24,0.96));
   border: 1px solid #336699;
   border-radius: 4px;

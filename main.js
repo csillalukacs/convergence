@@ -528,9 +528,9 @@ function levelUp() {
         spawnScoreText(pos, 100);
         score += 100;
         updateHUD();
-      }, i * 80);
+      }, i * 30);
     }
-    setTimeout(advanceLevel, bonusSlots * 80 + 600);
+    setTimeout(advanceLevel, bonusSlots * 30 + 400);
   } else {
     advanceLevel();
   }

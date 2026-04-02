@@ -300,6 +300,10 @@ function spawnComboText(worldPos, comboVal, matchScore) {
   spawnScorePopup(worldPos, 'combo-text', 'COMBO ×' + comboVal + '<br><span class="combo-score">+' + matchScore + '</span>');
 }
 
+function spawnChainText(worldPos, chainVal, matchScore) {
+  spawnScorePopup(worldPos, 'combo-text', 'CHAIN ×' + chainVal + '<br><span class="combo-score">+' + matchScore + '</span>');
+}
+
 // ─── BALL TEXTURES ───
 
 const ballTextures = [];

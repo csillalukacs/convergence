@@ -19,6 +19,8 @@ let scene, camera, renderer, clock;
 let projectiles = [];
 let particles = [];
 let score = 0, combo = 1, chainBonus = 1, level = 1;
+let lives = 3;
+let nextExtraLife = 50000;
 let pendingGapBonus = false; // set when the fired projectile passed through a gap
 let gameActive = false;
 let gamePaused = false;
@@ -488,6 +490,7 @@ function startGame(startLevel = 1) {
   document.getElementById('pause-screen').style.display = 'none';
 
   score = 0; level = startLevel; levelStartScore = 0;
+  lives = 3; nextExtraLife = 50000;
   resetGameState(LEVELS[startLevel - 1] || LEVELS[0]);
 
   gameActive = true;
@@ -498,18 +501,28 @@ function jumpToLevel(n) {
   document.getElementById('pause-screen').style.display = 'none';
 
   score = 0; level = n; levelStartScore = 0;
+  lives = 3; nextExtraLife = 50000;
   resetGameState(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
 
   showBanner('LEVEL ' + n);
 }
 
 function gameOver() {
-  gameActive = false;
-  playSound('gameover');
-  document.getElementById('game-over').style.display = 'flex';
-  document.getElementById('final-score').textContent = 'Score: ' + score;
-  document.getElementById('final-level').textContent = 'Level: ' + level;
-  document.getElementById('go-title').textContent = 'CONVERGENCE LOST';
+  lives--;
+  updateHUD();
+  if (lives <= 0) {
+    gameActive = false;
+    playSound('gameover');
+    document.getElementById('game-over').style.display = 'flex';
+    document.getElementById('final-score').textContent = 'Score: ' + score;
+    document.getElementById('final-level').textContent = 'Level: ' + level;
+    document.getElementById('go-title').textContent = 'CONVERGENCE LOST';
+  } else {
+    score = levelStartScore;
+    playSound('gameover');
+    showBanner('LIFE LOST');
+    resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
+  }
 }
 
 function levelUp() {
@@ -554,7 +567,13 @@ function showBanner(text) {
 function updateHUD() {
   document.getElementById('score-val').textContent = score;
   document.getElementById('level-val').textContent = level;
-  document.getElementById('chain-bonus-val').textContent = 'x' + chainBonus;
+  document.getElementById('lives-val').textContent = '♥'.repeat(Math.max(0, lives));
+  while (score >= nextExtraLife) {
+    lives++;
+    nextExtraLife += 50000;
+    document.getElementById('lives-val').textContent = '♥'.repeat(Math.max(0, lives));
+    showBanner('EXTRA LIFE!');
+  }
   progress = Math.min(1, (score - levelStartScore) / progressMax);
   updateProgressBar();
   if (progress >= 1 && !spawningDone) {

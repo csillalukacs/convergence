@@ -189,6 +189,8 @@ function checkMatches(idx, fromChainReaction = false) {
       spawnGapBonusText(midPos, matchScore);
     } else if (fromChainReaction) {
       spawnComboText(midPos, combo, matchScore);
+    } else if (chainBonus > 1) {
+      spawnChainText(midPos, chainBonus, matchScore);
     } else {
       spawnScoreText(midPos, matchScore);
     }

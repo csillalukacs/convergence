@@ -66,7 +66,8 @@ button.danger:hover { background: #1e0a10; }
 
 #stats { font-size: 11px; color: #667; line-height: 1.8; }
 #stats b { color: #88bbdd; }
-#output { resize: vertical; font-size: 10px; height: 110px; color: #7fcc88; }
+#output-map { resize: vertical; font-size: 10px; height: 110px; color: #7fcc88; }
+#output-level { resize: vertical; font-size: 10px; height: 44px; color: #88bbdd; }
 
 /* depth slider track colors */
 #wp-z-slider { accent-color: #aa7733; }
@@ -134,16 +135,20 @@ canvas { display: block; width: 100%; height: 100%; }
   </div>
 
   <div class="sec">
+    <h3>Map Settings</h3>
+    <div><label>Map Name</label>
+      <input type="text" id="mapName" placeholder="e.g. Inward Spiral" oninput="updateOutput()">
+    </div>
+  </div>
+
+  <div class="sec">
     <h3>Level Settings</h3>
     <div class="row">
       <div><label>Colors (3–5)</label><input type="number" id="colors" min="3" max="5" value="3" oninput="updateOutput()"></div>
-      <div><label>Chain Speed</label><input type="number" id="chainSpeed" min="0.5" max="10" step="0.1" value="1.6" oninput="updateOutput()"></div>
+      <div><label>Chain Speed</label><input type="number" id="chainSpeed" min="0.5" max="10" step="0.1" value="2.4" oninput="updateOutput()"></div>
     </div>
     <div class="row">
-      <div style="flex:none"><label>Progress Threshold</label><input type="number" id="threshold" min="50" max="2000" step="50" value="250" oninput="updateOutput()"></div>
-    </div>
-    <div><label>Comment (optional)</label>
-      <input type="text" id="comment" placeholder="e.g. Figure-8 crossing" oninput="updateOutput()">
+      <div style="flex:none"><label>Progress Threshold</label><input type="number" id="threshold" min="50" max="5000" step="50" value="750" oninput="updateOutput()"></div>
     </div>
   </div>
 
@@ -153,16 +158,24 @@ canvas { display: block; width: 100%; height: 100%; }
   </div>
 
   <div class="sec">
-    <h3>Export</h3>
-    <textarea id="output" readonly></textarea>
+    <h3>Export — Map</h3>
+    <textarea id="output-map" readonly></textarea>
     <div class="btn-row">
-      <button class="primary" onclick="copyOutput()" id="copy-btn">⎘ Copy JS</button>
+      <button class="primary" onclick="copyField('output-map','copy-map-btn')" id="copy-map-btn">⎘ Copy Map</button>
     </div>
   </div>
 
   <div class="sec">
-    <h3>Import (paste existing level)</h3>
-    <textarea id="import-area" style="height:64px;resize:vertical" placeholder="Paste LEVELS.push({...}) here"></textarea>
+    <h3>Export — Level</h3>
+    <textarea id="output-level" readonly></textarea>
+    <div class="btn-row">
+      <button class="primary" onclick="copyField('output-level','copy-level-btn')" id="copy-level-btn">⎘ Copy Level</button>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3>Import (paste existing map)</h3>
+    <textarea id="import-area" style="height:64px;resize:vertical" placeholder="Paste a MAPS entry { name: '...', waypoints: [...] } here"></textarea>
     <div class="btn-row"><button onclick="importLevel()">Import</button></div>
   </div>
 
@@ -170,11 +183,11 @@ canvas { display: block; width: 100%; height: 100%; }
     <h3>Load Example</h3>
     <select id="example-sel" style="margin-bottom:6px">
       <option value="">— select —</option>
-      <option value="spiral">Spiral inward (Level 1)</option>
-      <option value="tightspiral">Tight spiral (Level 2)</option>
-      <option value="figure8">Figure-8 with z crossing</option>
-      <option value="snake">Wide snake</option>
-      <option value="zigzag">Zigzag</option>
+      <option value="inwardSpiral">Inward Spiral</option>
+      <option value="tightSpiral">Tight Spiral</option>
+      <option value="figure8">Figure of Eight</option>
+      <option value="paisley">Paisley Scroll</option>
+      <option value="wideSweep">Wide Sweep</option>
     </select>
     <button onclick="loadExample()">Load</button>
   </div>
@@ -717,31 +730,33 @@ function selectWP(i) {
 
 // ─── OUTPUT GENERATION ───
 function updateOutput() {
+  const mapName   = document.getElementById('mapName').value.trim() || 'Untitled';
   const colors    = parseInt(document.getElementById('colors').value) || 3;
-  const speed     = parseFloat(document.getElementById('chainSpeed').value) || 1.6;
-  const threshold = parseInt(document.getElementById('threshold').value) || 250;
-  const comment   = document.getElementById('comment').value.trim();
+  const speed     = parseFloat(document.getElementById('chainSpeed').value) || 2.4;
+  const threshold = parseInt(document.getElementById('threshold').value) || 750;
 
-  let js = comment ? `// ${comment}\n` : '';
-  js += `LEVELS.push({\n  waypoints: [\n`;
+  // MAPS entry
+  let map = `{\n  name: '${mapName.replace(/'/g, "\\'")}',\n  waypoints: [\n`;
   for (const wp of waypoints) {
     const z     = wz(wp);
     const zPart = z !== 0 ? `, z: ${String(z.toFixed(1)).padStart(4)}` : '';
-    js += `    { x: ${String(wp.x.toFixed(2)).padStart(6)}, y: ${String(wp.y.toFixed(2)).padStart(6)}${zPart} },\n`;
+    map += `    { x: ${String(wp.x.toFixed(2)).padStart(6)}, y: ${String(wp.y.toFixed(2)).padStart(6)}${zPart} },\n`;
   }
-  js += `  ],\n`;
-  js += `  colors:            ${colors},\n`;
-  js += `  chainSpeed:        ${speed.toFixed(1)},\n`;
-  js += `  progressThreshold: ${threshold},\n`;
-  js += `});\n`;
-  document.getElementById('output').value = js;
+  map += `  ],\n},`;
+
+  // LEVELS entry
+  const level = `{ map: ???, colors: ${colors}, chainSpeed: ${speed.toFixed(1)}, progressThreshold: ${threshold} },`;
+
+  document.getElementById('output-map').value = map;
+  document.getElementById('output-level').value = level;
 }
 
-function copyOutput() {
-  navigator.clipboard.writeText(document.getElementById('output').value).then(() => {
-    const btn = document.getElementById('copy-btn');
+function copyField(fieldId, btnId) {
+  navigator.clipboard.writeText(document.getElementById(fieldId).value).then(() => {
+    const btn = document.getElementById(btnId);
+    const orig = btn.textContent;
     btn.textContent = '✓ Copied!';
-    setTimeout(() => btn.textContent = '⎘ Copy JS', 1600);
+    setTimeout(() => btn.textContent = orig, 1600);
   });
 }
 
@@ -767,12 +782,9 @@ function importLevel() {
     saveHistory();
     waypoints = parsed.map(p => ({ x: +p.x, y: +p.y, z: +(p.z ?? 0) }));
 
-    const cm = raw.match(/colors\s*:\s*(\d+)/);
-    const sm = raw.match(/chainSpeed\s*:\s*([\d.]+)/);
-    const tm = raw.match(/progressThreshold\s*:\s*(\d+)/);
-    if (cm) document.getElementById('colors').value = cm[1];
-    if (sm) document.getElementById('chainSpeed').value = sm[1];
-    if (tm) document.getElementById('threshold').value = tm[1];
+    // Parse map name
+    const nm = raw.match(/name\s*:\s*['"]([^'"]+)['"]/);
+    if (nm) document.getElementById('mapName').value = nm[1];
 
     selectedIdx = -1;
     document.getElementById('import-area').value = '';
@@ -782,47 +794,67 @@ function importLevel() {
   }
 }
 
-// ─── EXAMPLES ───
+// ─── EXAMPLES (mirrors MAPS from levels.js) ───
 const EXAMPLES = {
-  spiral: [
-    {x:-11.00,y: 0.00},{x:-7.44,y:-7.44},{x: 0.00,y:-10.06},
-    {x: 6.78,y:-6.78},{x: 9.11,y: 0.00},{x: 6.11,y: 6.11},
-    {x: 0.00,y: 8.17},{x:-5.44,y: 5.44},{x:-7.22,y: 0.00},
-    {x:-4.77,y:-4.77},{x: 0.00,y:-6.28},{x: 4.10,y:-4.10},
-    {x: 5.33,y: 0.00},{x: 3.44,y: 3.44},{x: 0.00,y: 4.39},
-    {x:-2.77,y: 2.77},{x:-3.44,y: 0.00},{x:-2.10,y:-2.10},
-    {x: 0.00,y:-2.50},
-  ],
-  tightspiral: [
-    {x:-11,y:0},{x:0,y:-10},{x:10,y:0},{x:0,y:9},
-    {x:-8,y:0},{x:0,y:-7},{x:6,y:0},{x:0,y:5},
-    {x:-4,y:0},{x:0,y:-3},{x:2,y:0},{x:1,y:0},
-  ],
-  // Figure-8: top loop in front (+z), bottom loop behind (−z), crosses at z=0
-  figure8: [
-    {x:-11,y:0,z:0},{x:-7,y:8,z:1.5},{x:0,y:5,z:1.5},{x:7,y:8,z:1.5},{x:11,y:0,z:0},
-    {x:7,y:-8,z:-1.5},{x:0,y:-5,z:-1.5},{x:-7,y:-8,z:-1.5},{x:-11,y:0,z:0},
-    {x:-5,y:3,z:0.5},{x:0,y:0,z:0},
-  ],
-  snake: [
-    {x:-12,y: 9},{x: 0,y: 9},{x: 10,y: 7},
-    {x: 12,y: 3},{x: 10,y:-1},{x: 0,y:-3},
-    {x:-10,y:-5},{x:-12,y:-9},{x:-4,y:-9},
-    {x: 4,y:-7},{x: 4,y:-3},{x: 0,y: 0},
-  ],
-  zigzag: [
-    {x:-12,y:0},{x:-8,y:10},{x:-4,y:0},{x:0,y:10},
-    {x:4,y:0},{x:8,y:10},{x:12,y:0},{x:8,y:-10},
-    {x:4,y:0},{x:0,y:-10},{x:-4,y:0},{x:-6,y:-5},
-    {x:-4,y:-2},{x:0,y:0},
-  ],
+  inwardSpiral: {
+    name: 'Inward Spiral',
+    waypoints: [
+      {x:-11.00,y:  0.00},{x: -7.83,y: -7.91},{x:  0.00,y:-10.06},
+      {x:  6.78,y: -6.78},{x:  9.11,y:  0.00},{x:  6.11,y:  6.11},
+      {x:  0.00,y:  8.17},{x: -5.87,y:  6.42},{x: -9.26,y:  0.90},
+      {x: -6.38,y: -6.69},{x:  0.12,y: -8.44},{x:  5.95,y: -5.20},
+      {x:  7.37,y:  0.90},{x:  3.95,y:  5.52},{x: -0.71,y:  6.43},
+      {x: -5.01,y:  5.01},{x: -7.48,y:  0.59},{x: -5.01,y: -5.24},
+      {x: -0.16,y: -6.86},{x:  4.75,y: -4.30},{x:  5.54,y:  0.65},
+      {x:  3.02,y:  4.10},{x: -0.55,y:  4.73},{x: -3.97,y:  3.67},
+      {x: -5.77,y:  0.73},{x: -3.93,y: -3.99},{x:  0.51,y: -4.85},
+      {x:  3.81,y: -2.34},{x:  3.53,y:  1.51},{x:  0.51,y:  3.00},
+      {x: -2.79,y:  2.53},{x: -3.77,y: -0.18},{x: -2.40,y: -2.57},
+      {x:  0.27,y: -2.96},
+    ],
+  },
+  tightSpiral: {
+    name: 'Tight Spiral',
+    waypoints: [
+      {x:-11,y:  0},{x:  0,y:-10},{x: 10,y:  0},{x:  0,y:  9},
+      {x: -8,y:  0},{x:  0,y: -7},{x:  6,y:  0},{x:  0,y:  5},
+      {x: -4,y:  0},{x:  0,y: -3},{x:  2,y:  0},{x:  1,y:  0},
+    ],
+  },
+  figure8: {
+    name: 'Figure of Eight',
+    waypoints: [
+      {x:  0,y:-12},{x: 10,y: -6},{x:  9,y:  4},{x:  0,y:  7},
+      {x: -9,y:  4},{x:-10,y: -6},{x:  0,y: -3},{x:  5,y:  1},
+      {x:  0,y:  3},{x: -5,y:  1},{x:  0,y:  0},
+    ],
+  },
+  paisley: {
+    name: 'Paisley Scroll',
+    waypoints: [
+      {x:-10,y: -2},{x: -5,y: -9},{x:  3,y: -8},{x:  9,y: -3},
+      {x:  9,y:  4},{x:  3,y:  9},{x: -4,y:  8},{x: -8,y:  3},
+      {x: -6,y: -2},{x:  0,y: -5},{x:  4,y:  0},{x:  1,y:  4},
+      {x: -2,y:  2},{x:  0,y:  0},
+    ],
+  },
+  wideSweep: {
+    name: 'Wide Sweep',
+    waypoints: [
+      {x:-20.70,y:  2.18},{x:-10.05,y:  8.71},{x: 12.05,y:  6.34},
+      {x: 21.31,y: -4.09},{x:  6.00,y:-11.21},{x:-11.90,y:-10.39},
+      {x:-17.99,y: -1.24},
+    ],
+  },
 };
 
 function loadExample() {
   const key = document.getElementById('example-sel').value;
   if (!key || !EXAMPLES[key]) return;
   saveHistory();
-  waypoints = EXAMPLES[key].map(p => ({x: p.x, y: p.y, z: p.z ?? 0}));
+  const ex = EXAMPLES[key];
+  waypoints = ex.waypoints.map(p => ({x: p.x, y: p.y, z: p.z ?? 0}));
+  document.getElementById('mapName').value = ex.name;
   selectedIdx = -1;
   updateAll();
 }

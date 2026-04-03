@@ -55,6 +55,7 @@ const BONUS_CRYSTAL_INTERVAL = 14.0;
 // Powerup state
 let chainFreezeTimer = 0;         // pause powerup — chain doesn't advance
 let powerupBackTimer  = 0;        // backwards powerup — chain reverses
+let rearSegmentPauseTimer = 0;    // brief freeze when the advancing rear segment is wiped out
 let pauseSpawnTimer    = 15;      // countdown to next 'pause' ball assignment
 let backSpawnTimer     = 20;      // countdown to next 'backwards' ball assignment
 let blastSpawnTimer    = 25;      // countdown to next 'blast' ball assignment
@@ -329,6 +330,8 @@ function animate() {
       for (let i = 0; i < chain.length; i++) chain[i].s -= ROLL_BACK_SPEED * dt;
     } else if (chainFreezeTimer > 0) {
       chainFreezeTimer = Math.max(0, chainFreezeTimer - dt);
+    } else if (rearSegmentPauseTimer > 0) {
+      rearSegmentPauseTimer = Math.max(0, rearSegmentPauseTimer - dt);
     } else if (chain.length > 0) {
       const activeSpeed = (rollingIn ? ROLL_IN_SPEED : chainSpeed) * (debugFastForward ? 5 : 1);
       // Collect all split points (indices where a gap or push-forward boundary exists)
@@ -600,7 +603,7 @@ function resetGameState(levelDef) {
   loadLevel(levelDef);
   progress = 0; combo = 1; chainBonus = 1;
   spawningDone = false; rollBackTimer = 0; rollInSpawned = 0; levelClearing = false;
-  chainFreezeTimer = 0; powerupBackTimer = 0;
+  chainFreezeTimer = 0; powerupBackTimer = 0; rearSegmentPauseTimer = 0;
   pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; chromaticSpawnTimer = 30;
   bonusCrystalSpawnTimer = 8.0;
   gamePaused = false;

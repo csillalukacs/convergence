@@ -169,6 +169,15 @@ function checkMatches(idx, fromChainReaction = false) {
       }
     }
 
+    // Capture rearmost segment before destruction (for pause detection)
+    let preLastSplit = -1;
+    for (const g of gaps) {
+      const bi = chain.indexOf(g.backBall);
+      if (bi > preLastSplit) preLastSplit = bi;
+    }
+    const rearmostSegmentBalls = preLastSplit >= 0 ? chain.slice(preLastSplit) : [];
+    const ballAheadOfRearmost = preLastSplit > 0 ? chain[preLastSplit - 1] : null;
+
     // Destroy matched balls
     playSound('match', combo);
     for (let i = start; i <= end; i++) {
@@ -176,6 +185,16 @@ function checkMatches(idx, fromChainReaction = false) {
       chain[i].alive = false;
     }
     chain = chain.filter(b => b.alive);
+
+    // If the entire rearmost advancing segment was just wiped, pause briefly.
+    // Duration scales with the gap between the destroyed segment's front ball
+    // and the new rearmost ball — larger gap = longer hesitation.
+    if (rearmostSegmentBalls.length > 0 && rearmostSegmentBalls.every(b => !b.alive)) {
+      const gapSize = ballAheadOfRearmost
+        ? ballAheadOfRearmost.s - rearmostSegmentBalls[0].s
+        : 0;
+      rearSegmentPauseTimer = Math.min(gapSize * 0.04, 1.2);
+    }
 
     // Now trigger collected powerups (blast won't double-hit removed balls)
     for (const pw of triggeredPowerups) {

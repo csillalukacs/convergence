@@ -65,6 +65,11 @@ const POWERUP_BALL_DURATION = 10; // seconds a ball keeps its powerup icon
 
 let shockwaves = []; // expanding ring visuals from blast
 
+// Chromatic (color purge) powerup
+let chromaticSpawnTimer = 30;
+const CHROMATIC_SPAWN_INTERVAL = 28;
+let chromaticAnimations = []; // active ray animations
+
 // Roll-in phase
 const ROLL_IN_SPEED = 16.0;
 const ROLL_IN_COUNT = 40;
@@ -127,6 +132,7 @@ function init() {
       if (e.code === 'KeyB') tryAssignPowerup('blast');
       if (e.code === 'KeyF') tryAssignPowerup('pause');
       if (e.code === 'KeyR') tryAssignPowerup('backwards');
+      if (e.code === 'KeyC') tryAssignPowerup('chromatic');
       if (e.code === 'KeyS') { spawningDone = true; showBanner('SPAWNING STOPPED'); }
       if (e.code === 'KeyN') { levelUp(); }
       if (e.code === 'KeyA') debugFastForward = true;
@@ -394,6 +400,11 @@ function animate() {
         tryAssignPowerup('blast');
         blastSpawnTimer = BLAST_SPAWN_INTERVAL;
       }
+      chromaticSpawnTimer -= dt;
+      if (chromaticSpawnTimer <= 0) {
+        tryAssignPowerup('chromatic');
+        chromaticSpawnTimer = CHROMATIC_SPAWN_INTERVAL;
+      }
     }
 
     // Apply per-segment snap-back impulses from match closures
@@ -408,6 +419,117 @@ function animate() {
       ball.mesh.position.copy(pos);
       ball.mesh.rotation.z += dt * 1.5;
       ball.mesh.rotation.x += dt * 0.8;
+    }
+
+    // Update chromatic ray animations
+    for (let ci = chromaticAnimations.length - 1; ci >= 0; ci--) {
+      const ca = chromaticAnimations[ci];
+      ca.timer += dt;
+      const t = ca.timer / ca.duration;
+
+      // Make target balls pulse during build-up
+      if (!ca.exploded) {
+        const pulse = 0.5 + 0.5 * Math.sin(ca.timer * 12);
+        for (const ball of ca.targets) {
+          if (ball.alive) ball.mesh.material.emissiveIntensity = 1 + 3 * pulse * Math.min(1, t / 0.4);
+        }
+      }
+
+      // Update ray positions and opacity
+      for (const ray of ca.rays) {
+        if (!ray.ballA.alive || !ray.ballB.alive) {
+          ray.mesh.visible = false;
+          ray.glow.visible = false;
+          continue;
+        }
+        const posA = ray.ballA.mesh.position;
+        const posB = ray.ballB.mesh.position;
+        const dir = new THREE.Vector3().subVectors(posB, posA);
+        const length = dir.length();
+        if (length < 0.01) continue;
+
+        const mid = new THREE.Vector3().addVectors(posA, posB).multiplyScalar(0.5);
+        mid.z = 0.3;
+        const dirNorm = dir.clone().normalize();
+        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirNorm);
+
+        for (const m of [ray.mesh, ray.glow]) {
+          m.position.copy(mid);
+          m.scale.set(1, length, 1);
+          m.quaternion.copy(quat);
+        }
+
+        // Animate opacity
+        if (t < 0.4) {
+          const fadeIn = t / 0.4;
+          ray.mesh.material.opacity = fadeIn * 0.9;
+          ray.glow.material.opacity = fadeIn * 0.25;
+        } else if (t < 0.7) {
+          const pulse = 0.5 + 0.5 * Math.sin((t - 0.4) / 0.3 * Math.PI * 6);
+          ray.mesh.material.opacity = 0.7 + 0.3 * pulse;
+          ray.glow.material.opacity = 0.15 + 0.15 * pulse;
+        }
+      }
+
+      // Explode target balls at 70%
+      if (t >= 0.7 && !ca.exploded) {
+        ca.exploded = true;
+        let count = 0;
+        let sumX = 0, sumY = 0, sumZ = 0;
+        for (const ball of ca.targets) {
+          if (!ball.alive) continue;
+          sumX += ball.mesh.position.x;
+          sumY += ball.mesh.position.y;
+          sumZ += ball.mesh.position.z;
+          if (ball.powerup) {
+            const ptype = ball.powerup, ps = ball.s, pc = ball.colorIdx;
+            removePowerupVisuals(ball);
+            ball.powerup = null;
+            activatePowerup(ptype, ps, pc);
+          }
+          explodeBall(ball);
+          ball.alive = false;
+          count++;
+        }
+        if (count > 0) {
+          chain = chain.filter(b => b.alive);
+          const pts = count * 15;
+          score += pts;
+          updateHUD();
+          const centroid = new THREE.Vector3(sumX / count, sumY / count, sumZ / count);
+          spawnScoreText(centroid, pts);
+          // Schedule gap collapses at new boundaries
+          if (chain.length > 1) {
+            for (let i = 0; i < chain.length - 1; i++) {
+              if (chain[i].s - chain[i + 1].s > BALL_SPACING * 1.5) {
+                scheduleCollapse(i + 1);
+              }
+            }
+          }
+        }
+      }
+
+      // Fade out rays after explosion
+      if (t >= 0.7 && t < 1.0) {
+        const fadeOut = 1 - (t - 0.7) / 0.3;
+        for (const ray of ca.rays) {
+          ray.mesh.material.opacity = Math.max(0, fadeOut * 0.9);
+          ray.glow.material.opacity = Math.max(0, fadeOut * 0.25);
+        }
+      }
+
+      // Clean up when done
+      if (t >= 1.0) {
+        for (const ray of ca.rays) {
+          scene.remove(ray.mesh);
+          scene.remove(ray.glow);
+        }
+        // Reset emissive on any surviving targets
+        for (const ball of ca.targets) {
+          if (ball.alive) ball.mesh.material.emissiveIntensity = 1;
+        }
+        chromaticAnimations.splice(ci, 1);
+      }
     }
 
     // Game over
@@ -472,12 +594,14 @@ function resetGameState(levelDef) {
   particles.forEach(p => scene.remove(p)); particles = [];
   gaps = []; pushForwards = []; snapImpulses = [];
   shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
+  chromaticAnimations.forEach(ca => ca.rays.forEach(r => { scene.remove(r.mesh); scene.remove(r.glow); }));
+  chromaticAnimations = [];
 
   loadLevel(levelDef);
   progress = 0; combo = 1; chainBonus = 1;
   spawningDone = false; rollBackTimer = 0; rollInSpawned = 0; levelClearing = false;
   chainFreezeTimer = 0; powerupBackTimer = 0;
-  pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25;
+  pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; chromaticSpawnTimer = 30;
   bonusCrystalSpawnTimer = 8.0;
   gamePaused = false;
 
@@ -510,7 +634,7 @@ function jumpToLevel(n) {
 function gameOver() {
   lives--;
   updateHUD();
-  if (lives <= 0) {
+  if (lives < 0) {
     gameActive = false;
     playSound('gameover');
     document.getElementById('game-over').style.display = 'flex';
@@ -648,7 +772,7 @@ function clearAllPowerupVisuals() {
   }
 }
 
-function activatePowerup(type, s = 0) {
+function activatePowerup(type, s = 0, colorIdx = -1) {
   if (type === 'pause') {
     chainFreezeTimer = 4.0;
     showBanner('CHAIN FROZEN');
@@ -657,9 +781,66 @@ function activatePowerup(type, s = 0) {
     showBanner('REVERSED!');
   } else if (type === 'blast') {
     activateBlast(s);
-    return; // activateBlast calls playSound itself
+    return;
+  } else if (type === 'chromatic') {
+    activateChromatic(colorIdx);
+    return;
   }
   playSound('powerup');
+}
+
+function activateChromatic(colorIdx) {
+  if (colorIdx < 0 || colorIdx >= COLORS.length) return;
+  showBanner('COLOR PURGE!');
+  playSound('powerup');
+
+  // Target all visible balls of this color
+  const targets = chain.filter(b => b.colorIdx === colorIdx && b.alive && b.s >= 0);
+  if (targets.length === 0) return;
+
+  // Create rays: each ball should have 2-3 rays total (not 2-3 outgoing)
+  const rays = [];
+  const color = COLORS[colorIdx];
+  const rayCounts = new Map(); // track how many rays each ball participates in
+
+  for (const ball of targets) rayCounts.set(ball, 0);
+
+  // Build candidate pairs, then assign greedily
+  const shuffledTargets = [...targets].sort(() => Math.random() - 0.5);
+  for (const ball of shuffledTargets) {
+    const desired = 2 + Math.floor(Math.random() * 2); // 2-3
+    const need = desired - rayCounts.get(ball);
+    if (need <= 0) continue;
+    // Pick partners that also need more rays, sorted by fewest rays first
+    const partners = targets
+      .filter(b => b !== ball && rayCounts.get(b) < 3)
+      .sort(() => Math.random() - 0.5)
+      .sort((a, b) => rayCounts.get(a) - rayCounts.get(b))
+      .slice(0, need);
+    for (const other of partners) {
+      const mesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.035, 0.035, 1, 4),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false })
+      );
+      mesh.position.z = 0.3;
+      scene.add(mesh);
+
+      const glow = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.09, 1, 4),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })
+      );
+      glow.position.z = 0.3;
+      scene.add(glow);
+
+      rays.push({ mesh, glow, ballA: ball, ballB: other });
+      rayCounts.set(ball, rayCounts.get(ball) + 1);
+      rayCounts.set(other, rayCounts.get(other) + 1);
+    }
+  }
+
+  chromaticAnimations.push({
+    targets, rays, timer: 0, duration: 1.0, colorIdx, exploded: false
+  });
 }
 
 function activateBlast(s) {
@@ -696,9 +877,10 @@ function activateBlast(s) {
       if (b.powerup) {
         const type = b.powerup;
         const triggerS = b.s;
+        const triggerColor = b.colorIdx;
         removePowerupVisuals(b);
         b.powerup = null;
-        activatePowerup(type, triggerS);
+        activatePowerup(type, triggerS, triggerColor);
       }
       explodeBall(b);
       b.alive = false;

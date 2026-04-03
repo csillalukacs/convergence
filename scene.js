@@ -557,6 +557,34 @@ function createPowerupSprite(type) {
     ctx.arc(cx, cy, S * 0.10, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
+  } else if (type === 'chromatic') {
+    // Connected-dots icon — three circles linked by lines
+    const cx = S / 2, cy = S / 2;
+    ctx.shadowColor = '#ff66ff';
+    ctx.shadowBlur = 10;
+    const pts = [];
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI * 2 - Math.PI / 2;
+      pts.push({ x: cx + Math.cos(a) * S * 0.25, y: cy + Math.sin(a) * S * 0.25 });
+    }
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath();
+      ctx.moveTo(pts[k].x, pts[k].y);
+      ctx.lineTo(pts[(k + 1) % 3].x, pts[(k + 1) % 3].y);
+      ctx.stroke();
+    }
+    for (const p of pts) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, S * 0.06, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy, S * 0.04, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff88ff';
+    ctx.fill();
   }
 
   const tex = new THREE.CanvasTexture(cv);

@@ -163,7 +163,7 @@ function checkMatches(idx, fromChainReaction = false) {
     const triggeredPowerups = [];
     for (let i = start; i <= end; i++) {
       if (chain[i].powerup) {
-        triggeredPowerups.push({ type: chain[i].powerup, s: chain[i].s });
+        triggeredPowerups.push({ type: chain[i].powerup, s: chain[i].s, colorIdx: col });
         removePowerupVisuals(chain[i]);
         chain[i].powerup = null;
       }
@@ -179,7 +179,7 @@ function checkMatches(idx, fromChainReaction = false) {
 
     // Now trigger collected powerups (blast won't double-hit removed balls)
     for (const pw of triggeredPowerups) {
-      activatePowerup(pw.type, pw.s);
+      activatePowerup(pw.type, pw.s, pw.colorIdx);
     }
     const gapMult = (pendingGapBonus && !fromChainReaction) ? 10 : 1;
     const matchScore = (count * 10 * combo * gapMult + (chainBonus > 1 ? chainBonus * 10 : 0));

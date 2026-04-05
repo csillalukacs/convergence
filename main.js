@@ -695,10 +695,12 @@ function updateHUD() {
   document.getElementById('score-val').textContent = score;
   document.getElementById('level-val').textContent = level;
   document.getElementById('lives-val').textContent = '♥'.repeat(Math.max(0, lives));
+  document.getElementById('lives-label').textContent = lives === 0 ? 'Last life!' : 'Lives:';
   while (score >= nextExtraLife) {
     lives++;
     nextExtraLife += 50000;
     document.getElementById('lives-val').textContent = '♥'.repeat(Math.max(0, lives));
+    document.getElementById('lives-label').textContent = lives === 0 ? 'Last life!' : 'Lives:';
     showBanner('EXTRA LIFE!');
   }
   progress = Math.min(1, (score - levelStartScore) / progressMax);

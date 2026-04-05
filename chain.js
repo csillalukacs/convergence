@@ -140,7 +140,7 @@ function insertBallInChain(insertIdx, colorIdx, hitBallIdx = -1) {
 
 function hasGapBetween(frontIdx, backIdx) {
   // frontIdx has higher s (closer to skull), backIdx = frontIdx + 1
-  return chain[frontIdx].s - chain[backIdx].s > BALL_SPACING * 1.5;
+  return chain[frontIdx].s - chain[backIdx].s > BALL_SPACING * 1.1;
 }
 
 function checkMatches(idx, fromChainReaction = false) {

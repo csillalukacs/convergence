@@ -192,7 +192,11 @@ class Track {
   }
 
   clearTrackVisuals() {
-    this.trackMeshes.forEach(m => scene.remove(m));
+    this.trackMeshes.forEach(m => {
+      scene.remove(m);
+      if (m.geometry) m.geometry.dispose();
+      if (m.material) m.material.dispose();
+    });
     this.trackMeshes = [];
   }
 
@@ -241,7 +245,14 @@ class Track {
   }
 
   clearBonusCrystals() {
-    this.bonusCrystals.forEach(c => scene.remove(c.mesh));
+    this.bonusCrystals.forEach(c => {
+      scene.remove(c.mesh);
+      // Dispose children (core, mid, cage, glow) inside the Group
+      c.mesh.traverse(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      });
+    });
     this.bonusCrystals = [];
   }
 
@@ -543,6 +554,32 @@ class Track {
     }
   }
 
+  // Scan for physical gaps that aren't tracked by any gap or pushForward entry.
+  // These "orphan gaps" can arise when a gap entry is invalidated (e.g., a ball
+  // inserted between frontBall/backBall) but the physical distance persists.
+  healOrphanGaps() {
+    if (this.chain.length < 2) return;
+    for (let i = 0; i < this.chain.length - 1; i++) {
+      const dist = this.chain[i].s - this.chain[i + 1].s;
+      if (dist <= BALL_SPACING * 1.1) continue; // no physical gap here
+
+      // Check if already tracked by a gap entry
+      const front = this.chain[i], back = this.chain[i + 1];
+      const tracked = this.gaps.some(g => g.frontBall === front && g.backBall === back);
+      if (tracked) continue;
+
+      // Check if a pushForward covers this boundary (ball still being pushed in)
+      const pushing = this.pushForwards.some(pf => {
+        const ii = this.chain.indexOf(pf.insertedBall);
+        return ii === i + 1;
+      });
+      if (pushing) continue;
+
+      // Orphan gap found — schedule a collapse so it closes properly
+      this.scheduleCollapse(i + 1);
+    }
+  }
+
   // ─── POWERUP METHODS (from main.js) ───
 
   tickBallPowerups(dt) {
@@ -656,7 +693,7 @@ class Track {
       spawnScoreText(blastPos, pts);
       if (this.chain.length > 1) {
         for (let i = 0; i < this.chain.length - 1; i++) {
-          if (this.chain[i].s - this.chain[i + 1].s > BALL_SPACING * 1.5) {
+          if (this.chain[i].s - this.chain[i + 1].s > BALL_SPACING * 1.1) {
             this.scheduleCollapse(i + 1);
           }
         }
@@ -726,7 +763,7 @@ class Track {
 
       const bound = 14 * (window.innerWidth / window.innerHeight) + 2;
       if (Math.abs(proj.mesh.position.x) > bound || Math.abs(proj.mesh.position.y) > 16) {
-        scene.remove(proj.mesh); proj.alive = false; continue;
+        scene.remove(proj.mesh); disposeMesh(proj.mesh); proj.alive = false; continue;
       }
 
       // Gap-crossing detection
@@ -755,7 +792,7 @@ class Track {
           const dot = tangent.x * dx / dist + tangent.y * dy / dist;
           const insertIdx = dot > 0 ? i : i + 1;
 
-          scene.remove(proj.mesh); proj.alive = false;
+          scene.remove(proj.mesh); disposeMesh(proj.mesh); proj.alive = false;
           this.pendingGapBonus = proj.gapBonus;
           playSound('hit');
           this.insertBallInChain(insertIdx, proj.colorIdx, i);
@@ -774,9 +811,10 @@ class Track {
           if (dx * dx + dy * dy < (BALL_RADIUS + 1.0) * (BALL_RADIUS + 1.0)) {
             c.alive = false;
             scene.remove(c.mesh);
+            c.mesh.traverse(child => { if (child.geometry) child.geometry.dispose(); if (child.material) child.material.dispose(); });
             this.bonusCrystals.splice(ci, 1);
             this.bonusCrystalSpawnTimer = 14.0; // BONUS_CRYSTAL_INTERVAL
-            scene.remove(proj.mesh); proj.alive = false;
+            scene.remove(proj.mesh); disposeMesh(proj.mesh); proj.alive = false;
             playSound('crystal');
             score += 500;
             updateHUD();
@@ -802,6 +840,10 @@ class Track {
       c.life -= dt;
       if (c.life <= 0) {
         scene.remove(c.mesh);
+        c.mesh.traverse(child => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
         this.bonusCrystals.splice(ci, 1);
         continue;
       }
@@ -897,6 +939,7 @@ class Track {
 
       this.updateCollapses(dt);
       this.updatePushForwards(dt);
+      this.healOrphanGaps();
       this.tickBallPowerups(dt);
 
       if (!this.spawningDone) {
@@ -1011,7 +1054,7 @@ class Track {
           spawnScoreText(centroid, pts);
           if (this.chain.length > 1) {
             for (let i = 0; i < this.chain.length - 1; i++) {
-              if (this.chain[i].s - this.chain[i + 1].s > BALL_SPACING * 1.5) {
+              if (this.chain[i].s - this.chain[i + 1].s > BALL_SPACING * 1.1) {
                 this.scheduleCollapse(i + 1);
               }
             }
@@ -1029,8 +1072,8 @@ class Track {
 
       if (t >= 1.0) {
         for (const ray of ca.rays) {
-          scene.remove(ray.mesh);
-          scene.remove(ray.glow);
+          scene.remove(ray.mesh); disposeMesh(ray.mesh);
+          scene.remove(ray.glow); disposeMesh(ray.glow);
         }
         for (const ball of ca.targets) {
           if (ball.alive) ball.mesh.material.emissiveIntensity = 1;
@@ -1058,12 +1101,15 @@ class Track {
   reset(levelDef) {
     this.cancelChainReactions();
     this.clearAllPowerupVisuals();
-    this.chain.forEach(b => scene.remove(b.mesh));
+    this.chain.forEach(b => { scene.remove(b.mesh); disposeMesh(b.mesh); });
     this.chain = [];
     this.gaps = [];
     this.pushForwards = [];
     this.snapImpulses = [];
-    this.chromaticAnimations.forEach(ca => ca.rays.forEach(r => { scene.remove(r.mesh); scene.remove(r.glow); }));
+    this.chromaticAnimations.forEach(ca => ca.rays.forEach(r => {
+      scene.remove(r.mesh); disposeMesh(r.mesh);
+      scene.remove(r.glow); disposeMesh(r.glow);
+    }));
     this.chromaticAnimations = [];
 
     this.loadLevel(levelDef);

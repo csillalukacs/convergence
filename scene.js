@@ -355,16 +355,44 @@ function texSpiral(ctx, S, cols) {
 
 // ─── CHAIN BALL MESH ───
 
+// Shared geometry for chain balls — avoids allocating hundreds of identical SphereGeometry objects
+let _sharedBallGeom = null;
+function getSharedBallGeom() {
+  if (!_sharedBallGeom) _sharedBallGeom = new THREE.SphereGeometry(BALL_RADIUS, 16, 12);
+  return _sharedBallGeom;
+}
+
 function createBallMesh(colorIdx) {
-  return new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 16, 12),
+  return new THREE.Mesh(getSharedBallGeom(),
     new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
+}
+
+// Dispose a mesh's material (and owned textures). Does NOT dispose shared geometry.
+function disposeMesh(mesh) {
+  if (!mesh) return;
+  if (mesh.material) {
+    // Don't dispose the shared ball textures (getBallTexture cache)
+    mesh.material.dispose();
+  }
 }
 
 // ─── POWERUP VISUALS ───
 
 function removePowerupVisuals(ball) {
-  if (ball.powerupSprite) { scene.remove(ball.powerupSprite); ball.powerupSprite = null; }
-  if (ball.powerupHalo)   { ball.mesh.remove(ball.powerupHalo); ball.powerupHalo = null; }
+  if (ball.powerupSprite) {
+    scene.remove(ball.powerupSprite);
+    if (ball.powerupSprite.material) {
+      if (ball.powerupSprite.material.map) ball.powerupSprite.material.map.dispose();
+      ball.powerupSprite.material.dispose();
+    }
+    ball.powerupSprite = null;
+  }
+  if (ball.powerupHalo) {
+    ball.mesh.remove(ball.powerupHalo);
+    if (ball.powerupHalo.material) ball.powerupHalo.material.dispose();
+    if (ball.powerupHalo.geometry) ball.powerupHalo.geometry.dispose();
+    ball.powerupHalo = null;
+  }
   ball.mesh.material.emissiveIntensity = 1;
 }
 
@@ -482,6 +510,7 @@ function spawnParticleBurst(pos, count, colors, { minSize = 0.06, maxSize = 0.14
 function explodeBall(ball) {
   const pos = ball.mesh.position.clone();
   scene.remove(ball.mesh);
+  disposeMesh(ball.mesh);
   spawnParticleBurst(pos, 12, COLORS[ball.colorIdx]);
   spawnParticleBurst(pos, 6, 0xffffff, { minSpeed: 1, maxSpeed: 3.5, decay: 0.03, decayRand: 0, opacity: 0.9, geo: 'sphere' });
 }

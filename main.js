@@ -31,6 +31,8 @@ let track; // Track instance — holds all per-track state
 let debugMode = false;
 let debugFastForward = false;
 let debugUsedThisRun = false;
+let debugShowGaps = false;
+let debugGapMarkers = [];
 
 let shockwaves = []; // expanding ring visuals from blast
 
@@ -85,7 +87,7 @@ function init() {
     if (e.code === 'Backquote') {
       debugMode = !debugMode;
       document.getElementById('debug-overlay').classList.toggle('visible', debugMode);
-      if (!debugMode) debugFastForward = false;
+      if (!debugMode) { debugFastForward = false; debugShowGaps = false; clearDebugGapMarkers(); }
       return;
     }
 
@@ -99,6 +101,7 @@ function init() {
       if (e.code === 'KeyC') track.tryAssignPowerup('chromatic');
       if (e.code === 'KeyS') { track.spawningDone = true; showBanner('SPAWNING STOPPED'); }
       if (e.code === 'KeyN') { levelUp(); }
+      if (e.code === 'KeyG') { debugShowGaps = !debugShowGaps; if (!debugShowGaps) clearDebugGapMarkers(); }
       if (e.code === 'KeyA') debugFastForward = true;
       if (e.code === 'KeyD') track.chainFreezeTimer = track.chainFreezeTimer > 0 ? 0 : 99999;
     }
@@ -116,7 +119,7 @@ function onShoot(e) {
   if (!gameActive || track.levelClearing || e.button !== 0) return;
   playSound('shoot');
   const dir = getAimDir(e.clientX, e.clientY);
-  const proj = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 16, 12),
+  const proj = new THREE.Mesh(getSharedBallGeom(),
     new THREE.MeshStandardMaterial({ color: COLORS[shooterColorIdx], metalness: 0.5, roughness: 0.3, emissive: COLOR_EMISSIVE[shooterColorIdx] }));
   proj.position.set(SHOOTER_POS.x + dir.x * 2, SHOOTER_POS.y + dir.y * 2, 0);
   scene.add(proj);
@@ -187,19 +190,94 @@ function animate() {
     p.userData.life -= p.userData.decay;
     p.material.opacity = Math.max(0, p.userData.life);
     p.scale.setScalar(Math.max(0.01, p.userData.life));
-    if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
+    if (p.userData.life <= 0) { scene.remove(p); p.geometry.dispose(); p.material.dispose(); particles.splice(i, 1); }
   }
 
   for (let i = shockwaves.length - 1; i >= 0; i--) {
     const sw = shockwaves[i];
     sw.life -= dt;
-    if (sw.life <= 0) { scene.remove(sw.mesh); shockwaves.splice(i, 1); continue; }
+    if (sw.life <= 0) { scene.remove(sw.mesh); sw.mesh.geometry.dispose(); sw.mesh.material.dispose(); shockwaves.splice(i, 1); continue; }
     const t = 1 - sw.life / sw.maxLife;
     sw.mesh.scale.setScalar(1 + t * 5);
     sw.mesh.material.opacity = (1 - t) * 0.7;
   }
 
+  if (debugMode && debugShowGaps && gameActive) updateDebugGapMarkers();
+
   renderer.render(scene, camera);
+}
+
+function clearDebugGapMarkers() {
+  for (const m of debugGapMarkers) {
+    scene.remove(m);
+    if (m.geometry) m.geometry.dispose();
+    if (m.material) {
+      if (m.material.map) m.material.map.dispose();
+      m.material.dispose();
+    }
+  }
+  debugGapMarkers = [];
+}
+
+// Shared geometry for diamond markers — created once, reused
+let _debugRingGeom = null;
+function getDebugRingGeom() {
+  if (!_debugRingGeom) _debugRingGeom = new THREE.RingGeometry(0.3, 0.5, 4);
+  return _debugRingGeom;
+}
+
+function updateDebugGapMarkers() {
+  clearDebugGapMarkers();
+  const chain = track.chain;
+  if (chain.length < 2) return;
+
+  for (let i = 0; i < chain.length - 1; i++) {
+    const dist = chain[i].s - chain[i + 1].s;
+    if (dist <= BALL_SPACING * 1.05) continue;
+
+    const tracked = track.gaps.some(g => g.frontBall === chain[i] && g.backBall === chain[i + 1]);
+    const pushing = track.pushForwards.some(pf => {
+      const ii = chain.indexOf(pf.insertedBall);
+      return ii === i + 1;
+    });
+    const blocksMatch = dist > BALL_SPACING * 1.1;
+
+    let color;
+    if (tracked || pushing) {
+      color = 0x00ff00;
+    } else if (blocksMatch) {
+      color = 0xff0000;
+    } else {
+      color = 0xffff00;
+    }
+
+    const midS = (chain[i].s + chain[i + 1].s) / 2;
+    const pos = track.getPathPosFromS(midS);
+
+    // Diamond marker — shared geometry, per-marker material
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false });
+    const marker = new THREE.Mesh(getDebugRingGeom(), mat);
+    marker.position.set(pos.x, pos.y, 1);
+    marker.rotation.z = Math.PI / 4;
+    scene.add(marker);
+    debugGapMarkers.push(marker);
+
+    // Distance label
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 40;
+    const ctx = canvas.getContext('2d');
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = color === 0xff0000 ? '#ff4444' : color === 0x00ff00 ? '#44ff44' : '#ffff44';
+    const label = (dist / BALL_SPACING).toFixed(2) + 'x' + (tracked ? ' T' : pushing ? ' P' : ' !!');
+    ctx.fillText(label, 2, 28);
+    const tex = new THREE.CanvasTexture(canvas);
+    const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.position.set(pos.x, pos.y + 0.9, 1);
+    sprite.scale.set(2.5, 0.8, 1);
+    scene.add(sprite);
+    debugGapMarkers.push(sprite);
+  }
 }
 
 // ─── GAME STATE ───
@@ -214,9 +292,10 @@ function togglePause() {
 }
 
 function resetGameState(levelDef) {
-  projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
-  particles.forEach(p => scene.remove(p)); particles = [];
-  shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
+  projectiles.forEach(p => { scene.remove(p.mesh); disposeMesh(p.mesh); }); projectiles = [];
+  particles.forEach(p => { scene.remove(p); p.geometry.dispose(); p.material.dispose(); }); particles = [];
+  shockwaves.forEach(sw => { scene.remove(sw.mesh); sw.mesh.geometry.dispose(); sw.mesh.material.dispose(); }); shockwaves = [];
+  clearDebugGapMarkers();
 
   track.reset(levelDef);
   track.levelStartScore = score;

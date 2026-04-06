@@ -311,7 +311,7 @@ function animate() {
     if (s.position.y < -starHH) { s.position.y = starHH; }
   });
 
-  if (gameActive && !gamePaused) {
+  if (gameActive && !gamePaused && !levelClearing) {
     // Spawn at back of chain — keep it filled
     const rollingIn = rollInSpawned < ROLL_IN_COUNT;
     if (!spawningDone) {

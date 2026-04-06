@@ -91,7 +91,8 @@ function init() {
 
     // Debug keys (only in debug mode)
     if (debugMode && gameActive) {
-      debugUsedThisRun = true;
+      const debugKeys = ['KeyB','KeyF','KeyR','KeyC','KeyS','KeyN','KeyA','KeyD'];
+      if (debugKeys.includes(e.code)) debugUsedThisRun = true;
       if (e.code === 'KeyB') track.tryAssignPowerup('blast');
       if (e.code === 'KeyF') track.tryAssignPowerup('pause');
       if (e.code === 'KeyR') track.tryAssignPowerup('backwards');
@@ -172,6 +173,7 @@ function animate() {
     if (track.isGameOver()) gameOver();
 
     track.checkProjectileCollisions(dt);
+    updateTimer();
 
     // Level clear
     if (track.isCleared()) levelUp();
@@ -204,6 +206,7 @@ function animate() {
 
 function togglePause() {
   if (!gameActive) return;
+  if (document.getElementById('level-summary').style.display === 'flex') return;
   gamePaused = !gamePaused;
   playSound(gamePaused ? 'pause' : 'unpause');
   document.getElementById('pause-screen').style.display = gamePaused ? 'flex' : 'none';
@@ -235,7 +238,8 @@ function startGame(startLevel = 1) {
   resetGameState(LEVELS[startLevel - 1] || LEVELS[0]);
 
   gameActive = true;
-  showBanner('LEVEL ' + startLevel);
+  const startDef = LEVELS[startLevel - 1] || LEVELS[0];
+  showBanner('LEVEL ' + startLevel + '\n' + MAPS[startDef.map].name);
 }
 
 function jumpToLevel(n) {
@@ -244,9 +248,10 @@ function jumpToLevel(n) {
   debugUsedThisRun = true;
   score = 0; level = n;
   lives = 3; nextExtraLife = 50000;
-  resetGameState(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
+  const jumpDef = LEVELS[n - 1] || LEVELS[LEVELS.length - 1];
+  resetGameState(jumpDef);
 
-  showBanner('LEVEL ' + n);
+  showBanner('LEVEL ' + n + '\n' + MAPS[jumpDef.map].name);
 }
 
 function gameOver() {
@@ -255,11 +260,13 @@ function gameOver() {
   if (lives < 0) {
     gameActive = false;
     playSound('gameover');
-    saveHighScore(false);
+    const isNewHigh = saveHighScore(false);
     document.getElementById('game-over').style.display = 'flex';
-    document.getElementById('final-score').textContent = 'Score: ' + score;
+    document.getElementById('final-score').textContent = 'Score: ' + score.toLocaleString();
     document.getElementById('final-level').textContent = 'Level: ' + level;
-    document.getElementById('go-title').textContent = 'CONVERGENCE LOST';
+    const goTitle = document.getElementById('go-title');
+    goTitle.textContent = isNewHigh ? 'NEW HIGH SCORE!' : 'CONVERGENCE LOST';
+    goTitle.classList.toggle('go-highscore', isNewHigh);
     renderHighScores('go-highscores');
   } else {
     score = track.levelStartScore;
@@ -270,6 +277,7 @@ function gameOver() {
 }
 
 function levelUp() {
+  if (track.levelClearing) return; // guard against double-call
   track.levelClearing = true;
   track.clearBonusCrystals();
   playSound('levelup');
@@ -293,12 +301,15 @@ function levelUp() {
   function showLevelSummary() {
     score += timeBonus;
     updateHUD();
+    gamePaused = true; // freeze game loop while summary is showing
 
     const elapsed = track.levelElapsedTime;
     const mins = Math.floor(elapsed / 60);
     const secs = Math.floor(elapsed % 60);
 
+    const mapName = MAPS[levelDef.map].name;
     document.getElementById('ls-title').textContent = 'LEVEL ' + level + ' CLEAR';
+    document.getElementById('ls-track').textContent = mapName;
     document.getElementById('ls-score').textContent = levelScore.toLocaleString();
     document.getElementById('ls-clearance').textContent = clearanceTotal > 0 ? '+' + clearanceTotal.toLocaleString() : '—';
     document.getElementById('ls-time-row').style.display = timeBonus > 0 ? 'flex' : 'none';
@@ -311,6 +322,8 @@ function levelUp() {
     btn.textContent = isVictory ? 'ONWARD' : 'CONTINUE';
     btn.onclick = () => {
       document.getElementById('level-summary').style.display = 'none';
+      gamePaused = false;
+      clock.getDelta(); // discard accumulated time
       if (isVictory) {
         victory();
       } else {
@@ -318,7 +331,8 @@ function levelUp() {
         track.levelClearing = false;
         track.lastFrontS = 0;
         resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
-        showBanner('LEVEL ' + level);
+        const nextDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
+        showBanner('LEVEL ' + level + '\n' + MAPS[nextDef.map].name);
       }
     };
 
@@ -345,12 +359,14 @@ function levelUp() {
 
 function victory() {
   gameActive = false;
+  gamePaused = false;
   track.levelClearing = false;
   playSound('victory');
-  saveHighScore(true);
+  const isNewHigh = saveHighScore(true);
   spawnVictoryParticles();
   document.getElementById('victory-screen').style.display = 'flex';
-  document.getElementById('victory-score').textContent = 'Final Score: ' + score.toLocaleString();
+  document.getElementById('victory-score').textContent =
+    (isNewHigh ? 'NEW HIGH SCORE! ' : 'Final Score: ') + score.toLocaleString();
   renderHighScores('victory-highscores');
 }
 
@@ -388,6 +404,23 @@ function updateProgressBar() {
   document.getElementById('progress-label').textContent = track.spawningDone ? 'RESONANCE PEAKED — CLEAR THE CHAIN!' : 'RESONANCE';
 }
 
+function updateTimer() {
+  const elapsed = track.levelElapsedTime;
+  const mins = Math.floor(elapsed / 60);
+  const secs = Math.floor(elapsed % 60);
+  document.getElementById('timer-val').textContent = mins + ':' + String(secs).padStart(2, '0');
+
+  const levelDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
+  const par = levelDef.parTime || 0;
+  const parMins = Math.floor(par / 60);
+  const parSecs = par % 60;
+  document.getElementById('timer-par').textContent = parMins + ':' + String(parSecs).padStart(2, '0');
+
+  const panel = document.getElementById('timer-panel');
+  panel.classList.toggle('under-par', elapsed < par);
+  panel.classList.toggle('over-par', elapsed >= par);
+}
+
 // ─── HIGH SCORES ───
 
 function loadHighScores() {
@@ -397,12 +430,15 @@ function loadHighScores() {
 }
 
 function saveHighScore(won) {
-  if (debugUsedThisRun || score === 0) return;
+  if (debugUsedThisRun || score === 0) return false;
   const scores = loadHighScores();
+  const wouldPlace = scores.length < 5 || score > scores[scores.length - 1].score;
+  if (!wouldPlace) return false;
   scores.push({ score, level, date: new Date().toISOString().slice(0, 10), won });
   scores.sort((a, b) => b.score - a.score);
   if (scores.length > 5) scores.length = 5;
   localStorage.setItem('convergence-highscores', JSON.stringify(scores));
+  return true;
 }
 
 function renderHighScores(containerId) {

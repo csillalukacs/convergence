@@ -48,6 +48,7 @@ class Track {
     this.spawningDone = false;
     this.progress = 0;
     this.levelStartScore = 0;
+    this.levelElapsedTime = 0;
 
     // ─── Scoring context ───
     this.combo = 1;
@@ -792,6 +793,8 @@ class Track {
   // ─── MAIN UPDATE (extracted from animate()) ───
 
   update(dt) {
+    this.levelElapsedTime += dt;
+
     // Animate bonus crystals
     for (let ci = this.bonusCrystals.length - 1; ci >= 0; ci--) {
       const c = this.bonusCrystals[ci];
@@ -1081,6 +1084,7 @@ class Track {
     this.bonusCrystalSpawnTimer = 8.0;
     this.lastFrontS = 0;
     this.pendingGapBonus = false;
+    this.levelElapsedTime = 0;
   }
 
   // Returns true if chain reached the skull

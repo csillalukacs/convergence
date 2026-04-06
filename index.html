@@ -33,6 +33,7 @@
   <div class="gear-deco"></div>
   <h1>CONVERGENCE</h1>
   <div class="subtitle">Align the Crystal Chain</div>
+  <div id="title-highscores" class="highscores-table"></div>
   <div id="title-level-wrap">
     <div class="level-picker" id="title-level-picker"></div>
   </div>
@@ -46,7 +47,15 @@
   <h2 id="go-title">CONVERGENCE LOST</h2>
   <div class="final-score" id="final-score">Score: 0</div>
   <div class="final-score" id="final-level">Level: 1</div>
+  <div id="go-highscores" class="highscores-table"></div>
   <button class="btn-start" onclick="startGame()">TRY AGAIN</button>
+</div>
+
+<div id="victory-screen">
+  <h2 class="victory-title">CONVERGENCE ACHIEVED</h2>
+  <div class="final-score" id="victory-score">Final Score: 0</div>
+  <div id="victory-highscores" class="highscores-table"></div>
+  <button class="btn-start" onclick="startGame()">PLAY AGAIN</button>
 </div>
 
 <div id="pause-screen">
@@ -122,7 +131,10 @@ function toggleTitlePicker() {
   wrap.classList.toggle('open');
 }
 
-window.addEventListener('DOMContentLoaded', buildLevelPickers);
+window.addEventListener('DOMContentLoaded', () => {
+  buildLevelPickers();
+  renderHighScores('title-highscores');
+});
 </script>
 </body>
 </html>

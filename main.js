@@ -30,6 +30,7 @@ let track; // Track instance — holds all per-track state
 // Debug
 let debugMode = false;
 let debugFastForward = false;
+let debugUsedThisRun = false;
 
 let shockwaves = []; // expanding ring visuals from blast
 
@@ -63,6 +64,8 @@ function init() {
   const pl2 = new THREE.PointLight(0xffffff, 1.0, 25);
   pl2.position.set(-6, 6, 10); scene.add(pl2);
 
+  loadAudioSettings();
+
   track = new Track();
   track.loadLevel(LEVELS[0]);
   createBackground();
@@ -88,6 +91,7 @@ function init() {
 
     // Debug keys (only in debug mode)
     if (debugMode && gameActive) {
+      debugUsedThisRun = true;
       if (e.code === 'KeyB') track.tryAssignPowerup('blast');
       if (e.code === 'KeyF') track.tryAssignPowerup('pause');
       if (e.code === 'KeyR') track.tryAssignPowerup('backwards');
@@ -221,10 +225,12 @@ function resetGameState(levelDef) {
 function startGame(startLevel = 1) {
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
+  document.getElementById('victory-screen').style.display = 'none';
   document.getElementById('pause-screen').style.display = 'none';
 
   score = 0; level = startLevel;
   lives = 3; nextExtraLife = 50000;
+  debugUsedThisRun = startLevel !== 1;
   resetGameState(LEVELS[startLevel - 1] || LEVELS[0]);
 
   gameActive = true;
@@ -234,6 +240,7 @@ function startGame(startLevel = 1) {
 function jumpToLevel(n) {
   document.getElementById('pause-screen').style.display = 'none';
 
+  debugUsedThisRun = true;
   score = 0; level = n;
   lives = 3; nextExtraLife = 50000;
   resetGameState(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
@@ -247,10 +254,12 @@ function gameOver() {
   if (lives < 0) {
     gameActive = false;
     playSound('gameover');
+    saveHighScore(false);
     document.getElementById('game-over').style.display = 'flex';
     document.getElementById('final-score').textContent = 'Score: ' + score;
     document.getElementById('final-level').textContent = 'Level: ' + level;
     document.getElementById('go-title').textContent = 'CONVERGENCE LOST';
+    renderHighScores('go-highscores');
   } else {
     score = track.levelStartScore;
     playSound('lifelost');
@@ -264,15 +273,41 @@ function levelUp() {
   track.clearBonusCrystals();
   playSound('levelup');
 
+  // Per-level score
+  const levelScore = score - track.levelStartScore;
+
+  // Time bonus: 50 pts per second under par
+  const levelDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
+  let timeBonus = 0;
+  if (levelDef.parTime && track.levelElapsedTime < levelDef.parTime) {
+    timeBonus = Math.floor(levelDef.parTime - track.levelElapsedTime) * 50;
+  }
+
   // Calculate clearance bonus: 100 pts per ball slot of empty space to the skull
   const emptyDistance = track.pathLength - track.lastFrontS;
   const bonusSlots = Math.floor(emptyDistance / BALL_SPACING);
 
-  function advanceLevel() {
-    level++;
-    track.levelClearing = false;
-    track.lastFrontS = 0;
-    resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
+  function showLevelBannerAndAdvance() {
+    score += timeBonus;
+    updateHUD();
+
+    // Build banner text
+    let bannerText = 'LEVEL ' + level + ' CLEAR — ' + levelScore.toLocaleString() + ' pts';
+    if (timeBonus > 0) bannerText += '\n+' + timeBonus.toLocaleString() + ' TIME BONUS';
+    showBanner(bannerText);
+
+    setTimeout(() => {
+      // Victory check
+      if (level >= LEVELS.length) {
+        victory();
+        return;
+      }
+      level++;
+      track.levelClearing = false;
+      track.lastFrontS = 0;
+      resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
+      showBanner('LEVEL ' + level);
+    }, 1500);
   }
 
   if (bonusSlots > 0) {
@@ -286,10 +321,21 @@ function levelUp() {
         updateHUD();
       }, i * 30);
     }
-    setTimeout(advanceLevel, bonusSlots * 30 + 400);
+    setTimeout(showLevelBannerAndAdvance, bonusSlots * 30 + 400);
   } else {
-    advanceLevel();
+    showLevelBannerAndAdvance();
   }
+}
+
+function victory() {
+  gameActive = false;
+  track.levelClearing = false;
+  playSound('victory');
+  saveHighScore(true);
+  spawnVictoryParticles();
+  document.getElementById('victory-screen').style.display = 'flex';
+  document.getElementById('victory-score').textContent = 'Final Score: ' + score.toLocaleString();
+  renderHighScores('victory-highscores');
 }
 
 function showBanner(text) {
@@ -324,6 +370,41 @@ function updateHUD() {
 function updateProgressBar() {
   document.getElementById('progress-bar').style.width = (track.progress * 100) + '%';
   document.getElementById('progress-label').textContent = track.spawningDone ? 'RESONANCE PEAKED — CLEAR THE CHAIN!' : 'RESONANCE';
+}
+
+// ─── HIGH SCORES ───
+
+function loadHighScores() {
+  try {
+    return JSON.parse(localStorage.getItem('convergence-highscores')) || [];
+  } catch { return []; }
+}
+
+function saveHighScore(won) {
+  if (debugUsedThisRun || score === 0) return;
+  const scores = loadHighScores();
+  scores.push({ score, level, date: new Date().toISOString().slice(0, 10), won });
+  scores.sort((a, b) => b.score - a.score);
+  if (scores.length > 5) scores.length = 5;
+  localStorage.setItem('convergence-highscores', JSON.stringify(scores));
+}
+
+function renderHighScores(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const scores = loadHighScores();
+  if (scores.length === 0) {
+    el.innerHTML = '<div class="hs-empty">No high scores yet</div>';
+    return;
+  }
+  el.innerHTML = scores.map((s, i) =>
+    `<div class="hs-row">` +
+      `<span class="hs-rank">${i + 1}.</span>` +
+      `<span class="hs-score">${s.score.toLocaleString()}</span>` +
+      `<span class="hs-level">Lv ${s.level}${s.won ? ' \u2605' : ''}</span>` +
+      `<span class="hs-date">${s.date}</span>` +
+    `</div>`
+  ).join('');
 }
 
 function onResize() {

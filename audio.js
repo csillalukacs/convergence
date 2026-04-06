@@ -209,6 +209,17 @@ const SOUNDS = {
     });
   },
 
+  // Grand ascending fanfare — victory
+  victory: () => {
+    const ctx = getAudioCtx();
+    const t = ctx.currentTime;
+    // Two-octave ascending arpeggio with harmony
+    [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568, 2093].forEach((f, i) => {
+      crystalBellAt(f, t + i * 0.15, 1.2, 0.45);
+      crystalBellAt(f * 1.5, t + i * 0.15 + 0.06, 0.8, 0.28);
+    });
+  },
+
   // Descending A minor — game over
   gameover: () => {
     const ctx = getAudioCtx();
@@ -296,6 +307,7 @@ function toggleMute() {
   if (masterGain) masterGain.gain.value = isMuted ? 0 : currentVolume;
   document.getElementById('mute-btn').classList.toggle('muted', isMuted);
   document.getElementById('mute-btn').textContent = isMuted ? 'MUTED' : 'SOUND';
+  try { localStorage.setItem('convergence-muted', isMuted); } catch {}
 }
 
 function setVolume(val) {
@@ -304,4 +316,25 @@ function setVolume(val) {
   if (masterGain) masterGain.gain.value = currentVolume;
   document.getElementById('mute-btn').classList.toggle('muted', isMuted);
   document.getElementById('mute-btn').textContent = isMuted ? 'MUTED' : 'SOUND';
+  try {
+    localStorage.setItem('convergence-volume', val);
+    localStorage.setItem('convergence-muted', isMuted);
+  } catch {}
+}
+
+function loadAudioSettings() {
+  try {
+    const vol = localStorage.getItem('convergence-volume');
+    const muted = localStorage.getItem('convergence-muted');
+    if (vol !== null) {
+      currentVolume = Number(vol) / 100;
+      document.getElementById('volume-slider').value = vol;
+    }
+    if (muted !== null) {
+      isMuted = muted === 'true';
+    }
+    if (masterGain) masterGain.gain.value = isMuted ? 0 : currentVolume;
+    document.getElementById('mute-btn').classList.toggle('muted', isMuted);
+    document.getElementById('mute-btn').textContent = isMuted ? 'MUTED' : 'SOUND';
+  } catch {}
 }

@@ -485,3 +485,31 @@ function explodeBall(ball) {
   spawnParticleBurst(pos, 12, COLORS[ball.colorIdx]);
   spawnParticleBurst(pos, 6, 0xffffff, { minSpeed: 1, maxSpeed: 3.5, decay: 0.03, decayRand: 0, opacity: 0.9, geo: 'sphere' });
 }
+
+function spawnVictoryParticles() {
+  // Cascade of crystal bursts from multiple points
+  const allColors = COLORS.slice(0, 6);
+  for (let wave = 0; wave < 5; wave++) {
+    setTimeout(() => {
+      for (let i = 0; i < 4; i++) {
+        const pos = new THREE.Vector3(
+          (Math.random() - 0.5) * 20,
+          (Math.random() - 0.5) * 16,
+          0
+        );
+        spawnParticleBurst(pos, 20, allColors, {
+          minSize: 0.08, maxSize: 0.25,
+          minSpeed: 2, maxSpeed: 6,
+          decay: 0.008, decayRand: 0.005,
+          opacity: 1
+        });
+        spawnParticleBurst(pos, 10, 0xffffff, {
+          minSize: 0.04, maxSize: 0.12,
+          minSpeed: 1, maxSpeed: 4,
+          decay: 0.01, decayRand: 0.005,
+          opacity: 0.9, geo: 'sphere'
+        });
+      }
+    }, wave * 300);
+  }
+}

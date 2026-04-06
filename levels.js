@@ -1,5 +1,6 @@
 // ─── MAPS ───
 // Each map defines a path shape. Levels reference maps by index.
+// Adding a new map here automatically adds 4 new levels (one per color tier).
 
 const MAPS = [
   {
@@ -109,31 +110,35 @@ const MAPS = [
 ];
 
 
-// ─── LEVELS ───
-// map: index into MAPS
-// colors: number of ball colors in play
-// chainSpeed: world units per second
-// progressThreshold: score needed to fill the resonance gauge
+// ─── LEVEL GENERATION ───
+// Levels = MAPS x COLOR_TIERS. Each tier plays all maps in order
+// with increasing speed. Colors increase monotonously across tiers.
 
-const LEVELS = [
-  // ── 3 colors ──
-  { map: 0, colors: 3, chainSpeed: 2.4, progressThreshold:  750 },
-  { map: 1, colors: 3, chainSpeed: 2.8, progressThreshold: 1200 },
-  { map: 2, colors: 3, chainSpeed: 3.0, progressThreshold: 1800 },
-  { map: 3, colors: 3, chainSpeed: 3.4, progressThreshold: 2250 },
+const COLOR_TIERS = [3, 4, 5, 6];
 
-  // ── 4 colors ──
-  { map: 0, colors: 4, chainSpeed: 2.6, progressThreshold: 1050 },
-  { map: 1, colors: 4, chainSpeed: 2.8, progressThreshold: 1500 },
-  { map: 2, colors: 4, chainSpeed: 2.7, progressThreshold: 2100 },
-  { map: 3, colors: 4, chainSpeed: 3.1, progressThreshold: 3000 },
-
-  // ── 5 colors ──
-  { map: 0, colors: 5, chainSpeed: 2.2, progressThreshold: 1500 },
-  { map: 1, colors: 5, chainSpeed: 2.6, progressThreshold: 1950 },
-  { map: 2, colors: 5, chainSpeed: 3.0, progressThreshold: 2700 },
-  { map: 3, colors: 5, chainSpeed: 3.4, progressThreshold: 3750 },
-
-  // ── Wide ──
-  { map: 4, colors: 4, chainSpeed: 2.0, progressThreshold: 1200 },
+const TIER_CONFIG = [
+  { speeds: [2.2, 2.5, 2.8, 3.1, 3.4], thresholds: [ 750,  900, 1100, 1300, 1500], parTime:  70 },
+  { speeds: [2.4, 2.7, 3.0, 3.3, 3.6], thresholds: [1000, 1200, 1500, 1800, 2100], parTime:  80 },
+  { speeds: [2.5, 2.8, 3.1, 3.4, 3.7], thresholds: [1200, 1500, 1800, 2200, 2600], parTime: 100 },
+  { speeds: [2.6, 2.9, 3.2, 3.5, 3.8], thresholds: [1400, 1700, 2100, 2500, 3000], parTime: 110 },
 ];
+
+function generateLevels() {
+  const levels = [];
+  for (let ti = 0; ti < COLOR_TIERS.length; ti++) {
+    const colors = COLOR_TIERS[ti];
+    const cfg = TIER_CONFIG[ti];
+    for (let mi = 0; mi < MAPS.length; mi++) {
+      levels.push({
+        map:                mi,
+        colors:             colors,
+        chainSpeed:         cfg.speeds[mi] || cfg.speeds[cfg.speeds.length - 1],
+        progressThreshold:  cfg.thresholds[mi] || cfg.thresholds[cfg.thresholds.length - 1],
+        parTime:            cfg.parTime,
+      });
+    }
+  }
+  return levels;
+}
+
+const LEVELS = generateLevels();

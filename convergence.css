@@ -315,12 +315,98 @@ body {
   margin-bottom: 16px;
 }
 
-#game-over .final-score {
+#game-over .final-score,
+#victory-screen .final-score {
   color: #aaddff;
   font-size: 28px;
   margin-bottom: 20px;
   letter-spacing: 3px;
   text-shadow: 0 0 12px rgba(136,204,255,0.5);
+}
+
+#victory-screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: rgba(0,0,8,0.92);
+}
+
+.victory-title {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 48px;
+  color: #88ffcc;
+  text-shadow: 0 0 30px rgba(136,255,204,0.6), 0 0 60px rgba(136,255,204,0.3);
+  margin-bottom: 16px;
+  letter-spacing: 4px;
+  animation: victoryPulse 2s ease-in-out infinite;
+}
+
+@keyframes victoryPulse {
+  0%, 100% { text-shadow: 0 0 30px rgba(136,255,204,0.6), 0 0 60px rgba(136,255,204,0.3); }
+  50% { text-shadow: 0 0 50px rgba(136,255,204,0.9), 0 0 100px rgba(136,255,204,0.5), 0 0 150px rgba(204,136,255,0.3); }
+}
+
+.highscores-table {
+  margin: 16px 0;
+  min-width: 280px;
+}
+
+.hs-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 8px;
+  color: #88ccff;
+  font-family: 'Spectral', serif;
+  font-size: 14px;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(51,102,153,0.2);
+}
+
+.hs-row:first-child {
+  color: #ffdd88;
+  font-size: 16px;
+}
+
+.hs-rank {
+  width: 24px;
+  text-align: right;
+  color: #446688;
+}
+
+.hs-row:first-child .hs-rank { color: #ffdd88; }
+
+.hs-score {
+  flex: 1;
+  text-align: right;
+  font-weight: bold;
+}
+
+.hs-level {
+  width: 60px;
+  text-align: center;
+  font-size: 12px;
+  color: #668899;
+}
+
+.hs-date {
+  width: 80px;
+  text-align: right;
+  font-size: 11px;
+  color: #334466;
+}
+
+.hs-empty {
+  color: #334466;
+  font-family: 'Spectral', serif;
+  font-style: italic;
+  font-size: 13px;
+  text-align: center;
+  letter-spacing: 2px;
 }
 
 .combo-text {
@@ -390,6 +476,9 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.5s;
+  white-space: pre-line;
+  text-align: center;
+  line-height: 1.4;
 }
 
 #debug-overlay {

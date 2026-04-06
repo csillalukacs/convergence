@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════
 //  CONVERGENCE — Crystal Chain Puzzle
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════��═══════════════
 //
 // Chain convention:
 //   chain[0] = FRONT ball (highest t, closest to skull)
@@ -13,68 +13,25 @@
 //   4. Two balls held — right-click/space to swap
 //   5. Gap collapse: after match, front segment slides backward if colors match at edges
 //   6. Progress bar: scoring points fills it; once full, spawning stops
-// ═══════════════════════════════════════════════
+// ════════════════════════════════════════���══════
 
 let scene, camera, renderer, clock;
 let projectiles = [];
 let particles = [];
-let score = 0, combo = 1, chainBonus = 1, level = 1;
+let score = 0, level = 1;
 let lives = 3;
 let nextExtraLife = 50000;
-let pendingGapBonus = false; // set when the fired projectile passed through a gap
 let gameActive = false;
 let gamePaused = false;
 let mouseX = 0, mouseY = 0;
-let chainSpeed = 1.6; // world units per second (arc-length)
 
-// Progress / spawning
-let progress = 0;
-let progressMax = 250; // score points needed to fill gauge
-let levelStartScore = 0;
-let spawningDone = false;
-
-// Roll-back (triggered when gauge fills)
-const ROLL_BACK_DURATION = 2.0;
-const ROLL_BACK_SPEED    = 3.0;
-let rollBackTimer = 0;
-
-// Snap-back impulses are now per-segment — see chain.js snapImpulses
-
-// Track frontmost ball s for end-of-level bonus
-let lastFrontS = 0;
-let levelClearing = false;
+let track; // Track instance — holds all per-track state
 
 // Debug
 let debugMode = false;
 let debugFastForward = false;
 
-// Bonus crystal spawn timer
-let bonusCrystalSpawnTimer = 8.0; // seconds until first crystal appears
-const BONUS_CRYSTAL_INTERVAL = 14.0;
-
-// Powerup state
-let chainFreezeTimer = 0;         // pause powerup — chain doesn't advance
-let powerupBackTimer  = 0;        // backwards powerup — chain reverses
-let rearSegmentPauseTimer = 0;    // brief freeze when the advancing rear segment is wiped out
-let pauseSpawnTimer    = 15;      // countdown to next 'pause' ball assignment
-let backSpawnTimer     = 20;      // countdown to next 'backwards' ball assignment
-let blastSpawnTimer    = 25;      // countdown to next 'blast' ball assignment
-const PAUSE_SPAWN_INTERVAL = 15;  // seconds between pause powerup spawns
-const BACK_SPAWN_INTERVAL  = 18;  // seconds between backwards powerup spawns
-const BLAST_SPAWN_INTERVAL = 22;  // seconds between blast powerup spawns
-const POWERUP_BALL_DURATION = 10; // seconds a ball keeps its powerup icon
-
 let shockwaves = []; // expanding ring visuals from blast
-
-// Chromatic (color purge) powerup
-let chromaticSpawnTimer = 30;
-const CHROMATIC_SPAWN_INTERVAL = 28;
-let chromaticAnimations = []; // active ray animations
-
-// Roll-in phase
-const ROLL_IN_SPEED = 16.0;
-const ROLL_IN_COUNT = 40;
-let rollInSpawned = 0;
 
 // ─── INIT ───
 
@@ -106,7 +63,8 @@ function init() {
   const pl2 = new THREE.PointLight(0xffffff, 1.0, 25);
   pl2.position.set(-6, 6, 10); scene.add(pl2);
 
-  loadLevel(LEVELS[0]);
+  track = new Track();
+  track.loadLevel(LEVELS[0]);
   createBackground();
   createShooter();
 
@@ -130,14 +88,14 @@ function init() {
 
     // Debug keys (only in debug mode)
     if (debugMode && gameActive) {
-      if (e.code === 'KeyB') tryAssignPowerup('blast');
-      if (e.code === 'KeyF') tryAssignPowerup('pause');
-      if (e.code === 'KeyR') tryAssignPowerup('backwards');
-      if (e.code === 'KeyC') tryAssignPowerup('chromatic');
-      if (e.code === 'KeyS') { spawningDone = true; showBanner('SPAWNING STOPPED'); }
+      if (e.code === 'KeyB') track.tryAssignPowerup('blast');
+      if (e.code === 'KeyF') track.tryAssignPowerup('pause');
+      if (e.code === 'KeyR') track.tryAssignPowerup('backwards');
+      if (e.code === 'KeyC') track.tryAssignPowerup('chromatic');
+      if (e.code === 'KeyS') { track.spawningDone = true; showBanner('SPAWNING STOPPED'); }
       if (e.code === 'KeyN') { levelUp(); }
       if (e.code === 'KeyA') debugFastForward = true;
-      if (e.code === 'KeyD') chainFreezeTimer = chainFreezeTimer > 0 ? 0 : 99999;
+      if (e.code === 'KeyD') track.chainFreezeTimer = track.chainFreezeTimer > 0 ? 0 : 99999;
     }
   });
   window.addEventListener('keyup', e => {
@@ -150,7 +108,7 @@ function init() {
 // ─── SHOOTING ───
 
 function onShoot(e) {
-  if (!gameActive || levelClearing || e.button !== 0) return;
+  if (!gameActive || track.levelClearing || e.button !== 0) return;
   playSound('shoot');
   const dir = getAimDir(e.clientX, e.clientY);
   const proj = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 16, 12),
@@ -177,80 +135,6 @@ function getAimDir(cx, cy) {
   return new THREE.Vector2(wp.x - SHOOTER_POS.x, wp.y - SHOOTER_POS.y).normalize();
 }
 
-// ─── COLLISION ───
-
-function checkProjectileCollisions(dt) {
-  for (let p = projectiles.length - 1; p >= 0; p--) {
-    const proj = projectiles[p];
-    if (!proj.alive) continue;
-    proj.mesh.position.x += proj.vx * dt;
-    proj.mesh.position.y += proj.vy * dt;
-
-    const bound = 14 * (window.innerWidth / window.innerHeight) + 2;
-    if (Math.abs(proj.mesh.position.x) > bound || Math.abs(proj.mesh.position.y) > 16) {
-      scene.remove(proj.mesh); proj.alive = false; continue;
-    }
-
-    // Gap-crossing detection: mark projectile if it passes through a gap in the chain
-    if (!proj.gapBonus) {
-      const { s: closestS, dist: closestDist } = getClosestPathS(proj.mesh.position.x, proj.mesh.position.y);
-      if (closestDist < BALL_RADIUS * 1.5) {
-        for (let gi = 0; gi < chain.length - 1; gi++) {
-          if (chain[gi].s - chain[gi + 1].s > BALL_SPACING * 1.5 &&
-              closestS > chain[gi + 1].s && closestS < chain[gi].s) {
-            proj.gapBonus = true;
-            break;
-          }
-        }
-      }
-    }
-
-    for (let i = 0; i < chain.length; i++) {
-      const ball = chain[i];
-      if (!ball.alive) continue;
-      const dx = proj.mesh.position.x - ball.mesh.position.x;
-      const dy = proj.mesh.position.y - ball.mesh.position.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist < BALL_RADIUS * 2.1) {
-        const tangent = getPathTangentFromS(ball.s);
-        const dot = tangent.x * dx / dist + tangent.y * dy / dist;
-        const insertIdx = dot > 0 ? i : i + 1;
-
-        scene.remove(proj.mesh); proj.alive = false;
-        pendingGapBonus = proj.gapBonus;
-        playSound('hit');
-        insertBallInChain(insertIdx, proj.colorIdx, i);
-        checkMatches(insertIdx);
-        break;
-      }
-    }
-
-    // Resonance node pickup — only reachable if chain didn't intercept
-    if (proj.alive) {
-      for (let ci = bonusCrystals.length - 1; ci >= 0; ci--) {
-        const c = bonusCrystals[ci];
-        if (!c.alive) continue;
-        const dx = proj.mesh.position.x - c.mesh.position.x;
-        const dy = proj.mesh.position.y - c.mesh.position.y;
-        if (dx * dx + dy * dy < (BALL_RADIUS + 1.0) * (BALL_RADIUS + 1.0)) {
-          c.alive = false;
-          scene.remove(c.mesh);
-          bonusCrystals.splice(ci, 1);
-          bonusCrystalSpawnTimer = BONUS_CRYSTAL_INTERVAL;
-          scene.remove(proj.mesh); proj.alive = false;
-          score += 500;
-          updateHUD();
-          spawnScoreText(c.mesh.position.clone(), 500);
-          spawnParticleBurst(c.mesh.position, 14, 0xFFDD00, { minSize: 0.07, maxSize: 0.14, minSpeed: 2, maxSpeed: 7, decay: 0.020 });
-          break;
-        }
-      }
-    }
-  }
-  projectiles = projectiles.filter(p => p.alive);
-}
-
 // ─── GAME LOOP ───
 
 function animate() {
@@ -267,40 +151,6 @@ function animate() {
     g.rotation.x += g.userData.spinSpeed * 0.7 * dt;
   });
 
-  for (let ci = bonusCrystals.length - 1; ci >= 0; ci--) {
-    const c = bonusCrystals[ci];
-    if (!c.alive) continue;
-    c.life -= dt;
-    if (c.life <= 0) {
-      scene.remove(c.mesh);
-      bonusCrystals.splice(ci, 1);
-      continue;
-    }
-    const phase = c.mesh.userData.phase;
-    const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 3 + phase);
-    // Fade out in last 2 seconds
-    const fadeAlpha = Math.min(1, c.life / 2.0);
-    c.mesh.userData.core.rotation.y += dt * 2.5;
-    c.mesh.userData.core.rotation.x += dt * 1.1;
-    c.mesh.userData.core.material.emissiveIntensity = (1.8 + 2.0 * pulse) * fadeAlpha;
-    c.mesh.userData.mid.rotation.y -= dt * 1.3;
-    c.mesh.userData.mid.rotation.z += dt * 0.9;
-    c.mesh.userData.mid.material.opacity = 0.38 * fadeAlpha;
-    c.mesh.userData.cage.rotation.x += dt * 0.8;
-    c.mesh.userData.cage.rotation.z -= dt * 0.6;
-    c.mesh.userData.cage.material.opacity = 0.55 * fadeAlpha;
-    c.mesh.position.z = -1.8 + Math.sin(clock.elapsedTime * 2 + phase) * 0.22;
-    c.mesh.scale.setScalar((0.92 + 0.12 * pulse) * fadeAlpha);
-  }
-
-  if (gameActive && !gamePaused && !levelClearing) {
-    bonusCrystalSpawnTimer -= dt;
-    if (bonusCrystalSpawnTimer <= 0 && bonusCrystals.filter(c => c.alive).length === 0) {
-      spawnBonusCrystal();
-      bonusCrystalSpawnTimer = BONUS_CRYSTAL_INTERVAL;
-    }
-  }
-
   const starHW = camera.right + 2;
   const starHH = camera.top + 1;
   bgStars.forEach(s => {
@@ -311,240 +161,16 @@ function animate() {
     if (s.position.y < -starHH) { s.position.y = starHH; }
   });
 
-  if (gameActive && !gamePaused && !levelClearing) {
-    // Spawn at back of chain — keep it filled
-    const rollingIn = rollInSpawned < ROLL_IN_COUNT;
-    if (!spawningDone) {
-      while (chain.length === 0 || chain[chain.length - 1].s > -BALL_SPACING) {
-        spawnChainBall();
-        rollInSpawned++;
-      }
-    }
-
-    // Advance chain
-    if (rollBackTimer > 0) {
-      rollBackTimer = Math.max(0, rollBackTimer - dt);
-      for (let i = 0; i < chain.length; i++) chain[i].s -= ROLL_BACK_SPEED * dt;
-    } else if (powerupBackTimer > 0) {
-      powerupBackTimer = Math.max(0, powerupBackTimer - dt);
-      for (let i = 0; i < chain.length; i++) chain[i].s -= ROLL_BACK_SPEED * dt;
-    } else if (chainFreezeTimer > 0) {
-      chainFreezeTimer = Math.max(0, chainFreezeTimer - dt);
-    } else if (rearSegmentPauseTimer > 0) {
-      rearSegmentPauseTimer = Math.max(0, rearSegmentPauseTimer - dt);
-    } else if (chain.length > 0) {
-      const activeSpeed = (rollingIn ? ROLL_IN_SPEED : chainSpeed) * (debugFastForward ? 5 : 1);
-      // Collect all split points (indices where a gap or push-forward boundary exists)
-      const splitIndices = new Set();
-
-      for (const g of gaps) {
-        const bi = chain.indexOf(g.backBall);
-        if (bi > 0) splitIndices.add(bi);
-      }
-      for (const p of pushForwards) {
-        const ii = chain.indexOf(p.insertedBall);
-        if (ii > 0) splitIndices.add(ii);
-      }
-
-      if (splitIndices.size === 0) {
-        // No gaps — advance all balls uniformly
-        for (let i = 0; i < chain.length; i++) {
-          chain[i].s += activeSpeed * dt;
-        }
-        // Enforce spacing (front to back)
-        for (let i = 1; i < chain.length; i++) {
-          const tgt = chain[i - 1].s - BALL_SPACING;
-          if (chain[i].s > tgt) chain[i].s = tgt;
-        }
-      } else {
-        // Only the rearmost segment advances
-        const sorted = [...splitIndices].sort((a, b) => a - b);
-        const lastSplit = sorted[sorted.length - 1];
-
-        for (let i = lastSplit; i < chain.length; i++) {
-          chain[i].s += activeSpeed * dt;
-        }
-        // Enforce spacing only within the back segment
-        for (let i = lastSplit + 1; i < chain.length; i++) {
-          const tgt = chain[i - 1].s - BALL_SPACING;
-          if (chain[i].s > tgt) chain[i].s = tgt;
-        }
-
-        // Also enforce spacing within each other segment (but don't cross gaps)
-        // Segments: [0..sorted[0]-1], [sorted[0]..sorted[1]-1], etc.
-        let segStart = 0;
-        for (const split of sorted) {
-          for (let i = segStart + 1; i < split; i++) {
-            const tgt = chain[i - 1].s - BALL_SPACING;
-            if (chain[i].s > tgt) chain[i].s = tgt;
-          }
-          segStart = split;
-        }
-      }
-    }
-
-    updateCollapses(dt);
-    updatePushForwards(dt);
-    tickBallPowerups(dt);
-
-    if (!spawningDone) {
-      pauseSpawnTimer -= dt;
-      if (pauseSpawnTimer <= 0) {
-        tryAssignPowerup('pause');
-        pauseSpawnTimer = PAUSE_SPAWN_INTERVAL;
-      }
-      backSpawnTimer -= dt;
-      if (backSpawnTimer <= 0) {
-        tryAssignPowerup('backwards');
-        backSpawnTimer = BACK_SPAWN_INTERVAL;
-      }
-      blastSpawnTimer -= dt;
-      if (blastSpawnTimer <= 0) {
-        tryAssignPowerup('blast');
-        blastSpawnTimer = BLAST_SPAWN_INTERVAL;
-      }
-      chromaticSpawnTimer -= dt;
-      if (chromaticSpawnTimer <= 0) {
-        tryAssignPowerup('chromatic');
-        chromaticSpawnTimer = CHROMATIC_SPAWN_INTERVAL;
-      }
-    }
-
-    // Apply per-segment snap-back impulses from match closures
-    updateSnapImpulses(dt);
-
-    // Update ball positions
-    for (let i = 0; i < chain.length; i++) {
-      const ball = chain[i];
-      ball.mesh.visible = ball.s >= 0;
-      if (!ball.mesh.visible) continue;
-      const pos = getPathPosFromS(ball.s);
-      ball.mesh.position.copy(pos);
-      ball.mesh.rotation.z += dt * 1.5;
-      ball.mesh.rotation.x += dt * 0.8;
-    }
-
-    // Update chromatic ray animations
-    for (let ci = chromaticAnimations.length - 1; ci >= 0; ci--) {
-      const ca = chromaticAnimations[ci];
-      ca.timer += dt;
-      const t = ca.timer / ca.duration;
-
-      // Make target balls pulse during build-up
-      if (!ca.exploded) {
-        const pulse = 0.5 + 0.5 * Math.sin(ca.timer * 12);
-        for (const ball of ca.targets) {
-          if (ball.alive) ball.mesh.material.emissiveIntensity = 1 + 3 * pulse * Math.min(1, t / 0.4);
-        }
-      }
-
-      // Update ray positions and opacity
-      for (const ray of ca.rays) {
-        if (!ray.ballA.alive || !ray.ballB.alive) {
-          ray.mesh.visible = false;
-          ray.glow.visible = false;
-          continue;
-        }
-        const posA = ray.ballA.mesh.position;
-        const posB = ray.ballB.mesh.position;
-        const dir = new THREE.Vector3().subVectors(posB, posA);
-        const length = dir.length();
-        if (length < 0.01) continue;
-
-        const mid = new THREE.Vector3().addVectors(posA, posB).multiplyScalar(0.5);
-        mid.z = 0.3;
-        const dirNorm = dir.clone().normalize();
-        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirNorm);
-
-        for (const m of [ray.mesh, ray.glow]) {
-          m.position.copy(mid);
-          m.scale.set(1, length, 1);
-          m.quaternion.copy(quat);
-        }
-
-        // Animate opacity
-        if (t < 0.4) {
-          const fadeIn = t / 0.4;
-          ray.mesh.material.opacity = fadeIn * 0.9;
-          ray.glow.material.opacity = fadeIn * 0.25;
-        } else if (t < 0.7) {
-          const pulse = 0.5 + 0.5 * Math.sin((t - 0.4) / 0.3 * Math.PI * 6);
-          ray.mesh.material.opacity = 0.7 + 0.3 * pulse;
-          ray.glow.material.opacity = 0.15 + 0.15 * pulse;
-        }
-      }
-
-      // Explode target balls at 70%
-      if (t >= 0.7 && !ca.exploded) {
-        ca.exploded = true;
-        let count = 0;
-        let sumX = 0, sumY = 0, sumZ = 0;
-        for (const ball of ca.targets) {
-          if (!ball.alive) continue;
-          sumX += ball.mesh.position.x;
-          sumY += ball.mesh.position.y;
-          sumZ += ball.mesh.position.z;
-          if (ball.powerup) {
-            const ptype = ball.powerup, ps = ball.s, pc = ball.colorIdx;
-            removePowerupVisuals(ball);
-            ball.powerup = null;
-            activatePowerup(ptype, ps, pc);
-          }
-          explodeBall(ball);
-          ball.alive = false;
-          count++;
-        }
-        if (count > 0) {
-          chain = chain.filter(b => b.alive);
-          const pts = count * 15;
-          score += pts;
-          updateHUD();
-          const centroid = new THREE.Vector3(sumX / count, sumY / count, sumZ / count);
-          spawnScoreText(centroid, pts);
-          // Schedule gap collapses at new boundaries
-          if (chain.length > 1) {
-            for (let i = 0; i < chain.length - 1; i++) {
-              if (chain[i].s - chain[i + 1].s > BALL_SPACING * 1.5) {
-                scheduleCollapse(i + 1);
-              }
-            }
-          }
-        }
-      }
-
-      // Fade out rays after explosion
-      if (t >= 0.7 && t < 1.0) {
-        const fadeOut = 1 - (t - 0.7) / 0.3;
-        for (const ray of ca.rays) {
-          ray.mesh.material.opacity = Math.max(0, fadeOut * 0.9);
-          ray.glow.material.opacity = Math.max(0, fadeOut * 0.25);
-        }
-      }
-
-      // Clean up when done
-      if (t >= 1.0) {
-        for (const ray of ca.rays) {
-          scene.remove(ray.mesh);
-          scene.remove(ray.glow);
-        }
-        // Reset emissive on any surviving targets
-        for (const ball of ca.targets) {
-          if (ball.alive) ball.mesh.material.emissiveIntensity = 1;
-        }
-        chromaticAnimations.splice(ci, 1);
-      }
-    }
+  if (gameActive && !gamePaused) {
+    track.update(dt);
 
     // Game over
-    if (chain.length > 0 && chain[0].s >= pathLength * 0.98) gameOver();
+    if (track.isGameOver()) gameOver();
 
-    checkProjectileCollisions(dt);
-
-    // Track frontmost ball position for end-of-level bonus
-    if (chain.length > 0 && chain[0].s >= 0) lastFrontS = chain[0].s;
+    track.checkProjectileCollisions(dt);
 
     // Level clear
-    if (!levelClearing && spawningDone && !chain.some(b => b.s >= -2)) levelUp();
+    if (track.isCleared()) levelUp();
   }
 
   // Particles
@@ -579,33 +205,13 @@ function togglePause() {
   if (!gamePaused) clock.getDelta(); // discard time accumulated while paused
 }
 
-function loadLevel(def) {
-  levelColors    = def.colors;
-  chainSpeed     = def.chainSpeed;
-  progressMax    = def.progressThreshold;
-  clearTrack();
-  clearBonusCrystals();
-  buildPath(MAPS[def.map].waypoints);
-  createTrack();
-}
-
 function resetGameState(levelDef) {
-  cancelChainReactions();
-  clearAllPowerupVisuals();
-  chain.forEach(b => scene.remove(b.mesh)); chain = [];
   projectiles.forEach(p => scene.remove(p.mesh)); projectiles = [];
   particles.forEach(p => scene.remove(p)); particles = [];
-  gaps = []; pushForwards = []; snapImpulses = [];
   shockwaves.forEach(sw => scene.remove(sw.mesh)); shockwaves = [];
-  chromaticAnimations.forEach(ca => ca.rays.forEach(r => { scene.remove(r.mesh); scene.remove(r.glow); }));
-  chromaticAnimations = [];
 
-  loadLevel(levelDef);
-  progress = 0; combo = 1; chainBonus = 1;
-  spawningDone = false; rollBackTimer = 0; rollInSpawned = 0; levelClearing = false;
-  chainFreezeTimer = 0; powerupBackTimer = 0; rearSegmentPauseTimer = 0;
-  pauseSpawnTimer = 15; backSpawnTimer = 20; blastSpawnTimer = 25; chromaticSpawnTimer = 30;
-  bonusCrystalSpawnTimer = 8.0;
+  track.reset(levelDef);
+  track.levelStartScore = score;
   gamePaused = false;
 
   updateHUD(); updateProgressBar(); loadShooterBalls();
@@ -616,7 +222,7 @@ function startGame(startLevel = 1) {
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('pause-screen').style.display = 'none';
 
-  score = 0; level = startLevel; levelStartScore = 0;
+  score = 0; level = startLevel;
   lives = 3; nextExtraLife = 50000;
   resetGameState(LEVELS[startLevel - 1] || LEVELS[0]);
 
@@ -627,7 +233,7 @@ function startGame(startLevel = 1) {
 function jumpToLevel(n) {
   document.getElementById('pause-screen').style.display = 'none';
 
-  score = 0; level = n; levelStartScore = 0;
+  score = 0; level = n;
   lives = 3; nextExtraLife = 50000;
   resetGameState(LEVELS[n - 1] || LEVELS[LEVELS.length - 1]);
 
@@ -645,7 +251,7 @@ function gameOver() {
     document.getElementById('final-level').textContent = 'Level: ' + level;
     document.getElementById('go-title').textContent = 'CONVERGENCE LOST';
   } else {
-    score = levelStartScore;
+    score = track.levelStartScore;
     playSound('gameover');
     showBanner('LIFE LOST');
     resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
@@ -653,27 +259,26 @@ function gameOver() {
 }
 
 function levelUp() {
-  levelClearing = true;
-  clearBonusCrystals();
+  track.levelClearing = true;
+  track.clearBonusCrystals();
   playSound('levelup');
 
   // Calculate clearance bonus: 100 pts per ball slot of empty space to the skull
-  const emptyDistance = pathLength - lastFrontS;
+  const emptyDistance = track.pathLength - track.lastFrontS;
   const bonusSlots = Math.floor(emptyDistance / BALL_SPACING);
 
   function advanceLevel() {
     level++;
-    levelStartScore = score;
-    levelClearing = false;
-    lastFrontS = 0;
+    track.levelClearing = false;
+    track.lastFrontS = 0;
     resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
   }
 
   if (bonusSlots > 0) {
     for (let i = 0; i < bonusSlots; i++) {
-      const s = lastFrontS + (i + 0.5) * BALL_SPACING;
+      const s = track.lastFrontS + (i + 0.5) * BALL_SPACING;
       setTimeout(() => {
-        const pos = getPathPosFromS(Math.min(s, pathLength));
+        const pos = track.getPathPosFromS(Math.min(s, track.pathLength));
         spawnScoreText(pos, 100);
         score += 100;
         updateHUD();
@@ -703,18 +308,18 @@ function updateHUD() {
     document.getElementById('lives-label').textContent = lives === 0 ? 'Last life!' : 'Lives:';
     showBanner('EXTRA LIFE!');
   }
-  progress = Math.min(1, (score - levelStartScore) / progressMax);
+  track.progress = Math.min(1, (score - track.levelStartScore) / track.progressMax);
   updateProgressBar();
-  if (progress >= 1 && !spawningDone) {
-    spawningDone = true;
-    rollBackTimer = ROLL_BACK_DURATION;
+  if (track.progress >= 1 && !track.spawningDone) {
+    track.spawningDone = true;
+    track.rollBackTimer = 2.0; // ROLL_BACK_DURATION
     showBanner('NO MORE BALLS!');
   }
 }
 
 function updateProgressBar() {
-  document.getElementById('progress-bar').style.width = (progress * 100) + '%';
-  document.getElementById('progress-label').textContent = spawningDone ? 'RESONANCE PEAKED — CLEAR THE CHAIN!' : 'RESONANCE';
+  document.getElementById('progress-bar').style.width = (track.progress * 100) + '%';
+  document.getElementById('progress-label').textContent = track.spawningDone ? 'RESONANCE PEAKED — CLEAR THE CHAIN!' : 'RESONANCE';
 }
 
 function onResize() {
@@ -723,194 +328,6 @@ function onResize() {
   const a = w / h, f = 14;
   camera.left = -f * a; camera.right = f * a; camera.top = f; camera.bottom = -f;
   camera.updateProjectionMatrix();
-}
-
-// ─── POWERUPS ───
-
-function tickBallPowerups(dt) {
-  for (const ball of chain) {
-    if (!ball.powerup) continue;
-    ball.powerupTimer -= dt;
-    if (ball.powerupTimer <= 0) {
-      removePowerupVisuals(ball);
-      ball.powerup = null;
-    } else {
-      const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 5);
-      if (ball.powerupSprite) {
-        ball.powerupSprite.visible = ball.mesh.visible;
-        ball.powerupSprite.position.copy(ball.mesh.position);
-        ball.powerupSprite.material.opacity = 0.7 + 0.3 * pulse;
-      }
-      if (ball.powerupHalo) {
-        ball.powerupHalo.material.opacity = 0.12 + 0.22 * pulse;
-        ball.powerupHalo.scale.setScalar(1 + 0.12 * pulse);
-      }
-      ball.mesh.material.emissiveIntensity = 1 + 2.5 * pulse;
-    }
-  }
-}
-
-function removePowerupVisuals(ball) {
-  if (ball.powerupSprite) { scene.remove(ball.powerupSprite); ball.powerupSprite = null; }
-  if (ball.powerupHalo)   { ball.mesh.remove(ball.powerupHalo); ball.powerupHalo = null; }
-  ball.mesh.material.emissiveIntensity = 1;
-}
-
-function tryAssignPowerup(type) {
-  if (!gameActive || chain.length < 6) return;
-  const candidates = chain.filter(
-    (b, i) => !b.powerup && b.alive && b.s >= 0 && i > 0 && i < chain.length - 1
-  );
-  if (candidates.length === 0) return;
-  const ball = candidates[Math.floor(Math.random() * candidates.length)];
-  ball.powerup = type;
-  ball.powerupTimer = POWERUP_BALL_DURATION;
-  ball.powerupSprite = createPowerupSprite(type);
-  scene.add(ball.powerupSprite);
-  ball.powerupHalo = createPowerupHalo();
-  ball.mesh.add(ball.powerupHalo);
-}
-
-function clearAllPowerupVisuals() {
-  for (const ball of chain) {
-    if (ball.powerup) removePowerupVisuals(ball);
-  }
-}
-
-function activatePowerup(type, s = 0, colorIdx = -1) {
-  if (type === 'pause') {
-    chainFreezeTimer = 4.0;
-    showBanner('CHAIN FROZEN');
-  } else if (type === 'backwards') {
-    powerupBackTimer = 2.5;
-    showBanner('REVERSED!');
-  } else if (type === 'blast') {
-    activateBlast(s);
-    return;
-  } else if (type === 'chromatic') {
-    activateChromatic(colorIdx);
-    return;
-  }
-  playSound('powerup');
-}
-
-function activateChromatic(colorIdx) {
-  if (colorIdx < 0 || colorIdx >= COLORS.length) return;
-  showBanner('COLOR PURGE!');
-  playSound('powerup');
-
-  // Target all visible balls of this color
-  const targets = chain.filter(b => b.colorIdx === colorIdx && b.alive && b.s >= 0);
-  if (targets.length === 0) return;
-
-  // Create rays: each ball should have 2-3 rays total (not 2-3 outgoing)
-  const rays = [];
-  const color = COLORS[colorIdx];
-  const rayCounts = new Map(); // track how many rays each ball participates in
-
-  for (const ball of targets) rayCounts.set(ball, 0);
-
-  // Build candidate pairs, then assign greedily
-  const shuffledTargets = [...targets].sort(() => Math.random() - 0.5);
-  for (const ball of shuffledTargets) {
-    const desired = 2 + Math.floor(Math.random() * 2); // 2-3
-    const need = desired - rayCounts.get(ball);
-    if (need <= 0) continue;
-    // Pick partners that also need more rays, sorted by fewest rays first
-    const partners = targets
-      .filter(b => b !== ball && rayCounts.get(b) < 3)
-      .sort(() => Math.random() - 0.5)
-      .sort((a, b) => rayCounts.get(a) - rayCounts.get(b))
-      .slice(0, need);
-    for (const other of partners) {
-      const mesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.035, 0.035, 1, 4),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false })
-      );
-      mesh.position.z = 0.3;
-      scene.add(mesh);
-
-      const glow = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.09, 0.09, 1, 4),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })
-      );
-      glow.position.z = 0.3;
-      scene.add(glow);
-
-      rays.push({ mesh, glow, ballA: ball, ballB: other });
-      rayCounts.set(ball, rayCounts.get(ball) + 1);
-      rayCounts.set(other, rayCounts.get(other) + 1);
-    }
-  }
-
-  chromaticAnimations.push({
-    targets, rays, timer: 0, duration: 1.0, colorIdx, exploded: false
-  });
-}
-
-function activateBlast(s) {
-  const BLAST_RADIUS = BALL_SPACING * 3;
-  const blastPos = getPathPosFromS(s);
-  showBanner('NOVA BLAST!');
-  playSound('powerup');
-
-  // Shockwave ring
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(1, 0.12, 8, 32),
-    new THREE.MeshBasicMaterial({ color: 0xFF8800, transparent: true, opacity: 0.7, depthWrite: false })
-  );
-  ring.position.copy(blastPos); ring.position.z = 0.2;
-  scene.add(ring);
-  shockwaves.push({ mesh: ring, life: 0.55, maxLife: 0.55 });
-
-  // Second wider ring
-  const ring2 = new THREE.Mesh(
-    new THREE.TorusGeometry(1, 0.07, 6, 28),
-    new THREE.MeshBasicMaterial({ color: 0xFFFFAA, transparent: true, opacity: 0.5, depthWrite: false })
-  );
-  ring2.position.copy(blastPos); ring2.position.z = 0.15;
-  scene.add(ring2);
-  shockwaves.push({ mesh: ring2, life: 0.4, maxLife: 0.4 });
-
-  // Destroy balls within world-space radius (catches nearby track sections)
-  let blastCount = 0;
-  for (let i = 0; i < chain.length; i++) {
-    const b = chain[i];
-    const dx = b.mesh.position.x - blastPos.x;
-    const dy = b.mesh.position.y - blastPos.y;
-    if (dx * dx + dy * dy <= BLAST_RADIUS * BLAST_RADIUS) {
-      if (b.powerup) {
-        const type = b.powerup;
-        const triggerS = b.s;
-        const triggerColor = b.colorIdx;
-        removePowerupVisuals(b);
-        b.powerup = null;
-        activatePowerup(type, triggerS, triggerColor);
-      }
-      explodeBall(b);
-      b.alive = false;
-      blastCount++;
-    }
-  }
-
-  if (blastCount > 0) {
-    chain = chain.filter(b => b.alive);
-    const pts = blastCount * 15;
-    score += pts;
-    updateHUD();
-    spawnScoreText(blastPos, pts);
-    // Schedule gap collapse at every new boundary
-    if (chain.length > 1) {
-      for (let i = 0; i < chain.length - 1; i++) {
-        if (chain[i].s - chain[i + 1].s > BALL_SPACING * 1.5) {
-          scheduleCollapse(i + 1);
-        }
-      }
-    }
-  }
-
-  // Extra spark burst at blast centre
-  spawnParticleBurst(blastPos, 20, [0xFF6600, 0xFFEE44], { minSize: 0.08, maxSize: 0.18, minSpeed: 3, maxSpeed: 9, decay: 0.018 });
 }
 
 init();

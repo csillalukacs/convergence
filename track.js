@@ -1,0 +1,1093 @@
+// ═══════════════════════════════════════════════
+//  Track — encapsulates all per-track state and logic
+// ═══════════════════════════════════════════════
+//
+// Globals still used from outside:
+//   scene, camera, clock          (Three.js core — from main.js)
+//   score, updateHUD, showBanner  (scoring / HUD — from main.js)
+//   playSound                     (audio.js)
+//   COLORS, COLOR_EMISSIVE        (path.js constants)
+//   BALL_RADIUS, BALL_SPACING     (path.js constants)
+//   createBallMesh, explodeBall, spawnParticleBurst  (scene.js)
+//   createPowerupSprite, createPowerupHalo, removePowerupVisuals (scene.js)
+//   particles, shockwaves         (visual arrays — from main.js)
+//   debugFastForward              (debug flag — from main.js)
+//
+// Score popup helpers referenced directly:
+//   spawnScoreText, spawnGapBonusText, spawnComboText, spawnChainText
+
+class Track {
+  constructor() {
+    // ─── Path state ───
+    this.pathPoints = [];
+    this.pathLength = 0;
+    this.arcLengths = null;
+
+    // ─── Chain state ───
+    this.chain = [];
+    this.gaps = [];
+    this.pushForwards = [];
+    this.snapImpulses = [];
+    this.chainTimeouts = [];
+
+    // ─── Level config ───
+    this.levelColors = 3;
+    this.chainSpeed = 2.0;
+    this.progressMax = 250;
+
+    // ─── Dynamics / timers ───
+    this.chainFreezeTimer = 0;
+    this.powerupBackTimer = 0;
+    this.rearSegmentPauseTimer = 0;
+    this.rollBackTimer = 0;
+    this.rollInSpawned = 0;
+    this.lastFrontS = 0;
+    this.levelClearing = false;
+
+    // ─── Spawning / progress ───
+    this.spawningDone = false;
+    this.progress = 0;
+    this.levelStartScore = 0;
+
+    // ─── Scoring context ───
+    this.combo = 1;
+    this.chainBonus = 1;
+    this.pendingGapBonus = false;
+
+    // ─── Powerup timers ───
+    this.pauseSpawnTimer = 15;
+    this.backSpawnTimer = 20;
+    this.blastSpawnTimer = 25;
+    this.chromaticSpawnTimer = 30;
+
+    // ─── Visuals owned by track ───
+    this.chromaticAnimations = [];
+    this.trackMeshes = [];
+    this.bonusCrystals = [];
+    this.bonusCrystalSpawnTimer = 8.0;
+  }
+
+  // ─── PATH METHODS (from path.js) ───
+
+  buildPath(waypoints) {
+    const curve = new THREE.CatmullRomCurve3(
+      waypoints.map(p => new THREE.Vector3(p.x, p.y, p.z ?? 0)),
+      false, 'catmullrom', 0.5
+    );
+    this.pathPoints = [];
+    const steps = 600;
+    for (let i = 0; i <= steps; i++) {
+      this.pathPoints.push(curve.getPoint(i / steps));
+    }
+    this.arcLengths = new Float64Array(this.pathPoints.length);
+    this.arcLengths[0] = 0;
+    for (let i = 1; i < this.pathPoints.length; i++) {
+      this.arcLengths[i] = this.arcLengths[i - 1] + this.pathPoints[i].distanceTo(this.pathPoints[i - 1]);
+    }
+    this.pathLength = this.arcLengths[this.arcLengths.length - 1];
+  }
+
+  getPathPosFromS(s) {
+    s = Math.max(0, Math.min(s, this.pathLength));
+    let lo = 0, hi = this.arcLengths.length - 1;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (this.arcLengths[mid] <= s) lo = mid; else hi = mid;
+    }
+    const segLen = this.arcLengths[hi] - this.arcLengths[lo];
+    const frac = segLen > 0 ? (s - this.arcLengths[lo]) / segLen : 0;
+    return new THREE.Vector3().lerpVectors(this.pathPoints[lo], this.pathPoints[hi], frac);
+  }
+
+  getClosestPathS(px, py) {
+    let bestDist2 = Infinity, bestS = 0;
+    for (let i = 0; i < this.pathPoints.length; i++) {
+      const dx = this.pathPoints[i].x - px;
+      const dy = this.pathPoints[i].y - py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestDist2) { bestDist2 = d2; bestS = this.arcLengths[i]; }
+    }
+    return { s: bestS, dist: Math.sqrt(bestDist2) };
+  }
+
+  getPathTangentFromS(s) {
+    const eps = 0.5;
+    const p1 = this.getPathPosFromS(Math.max(0, s - eps));
+    const p2 = this.getPathPosFromS(Math.min(this.pathLength, s + eps));
+    return new THREE.Vector3().subVectors(p2, p1).normalize();
+  }
+
+  // ─── TRACK VISUALS (from scene.js) ───
+
+  createTrackVisuals() {
+    const curve = new THREE.CatmullRomCurve3(this.pathPoints);
+    const t1 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.15, 8, false),
+      new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.1, roughness: 0.0, emissive: 0x224466, transparent: true, opacity: 0.30 }));
+    t1.position.z = -0.3; scene.add(t1); this.trackMeshes.push(t1);
+    const t2 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.05, 6, false),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.0, roughness: 0.0, emissive: 0x99ddff }));
+    t2.position.z = -0.25; scene.add(t2); this.trackMeshes.push(t2);
+
+    this._createPipeEntrance();
+
+    // Danger zone at skull end
+    const ep = this.getPathPosFromS(this.pathLength);
+    const dg = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.9, 8),
+      new THREE.MeshStandardMaterial({ color: 0xFF2255, emissive: 0x880020, metalness: 0.5, side: THREE.DoubleSide }));
+    dg.position.copy(ep); dg.position.z = -0.2; scene.add(dg); this.trackMeshes.push(dg);
+    const cm = new THREE.MeshStandardMaterial({ color: 0xFF2255, emissive: 0xaa0030, side: THREE.DoubleSide });
+    const c1 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.15), cm);
+    c1.position.copy(ep); c1.position.z = -0.15; scene.add(c1); this.trackMeshes.push(c1);
+    const c2 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.15), cm);
+    c2.position.copy(ep); c2.position.z = -0.15; c2.rotation.z = Math.PI / 2; scene.add(c2); this.trackMeshes.push(c2);
+  }
+
+  _createPipeEntrance() {
+    const startPos = this.getPathPosFromS(0);
+    const tangent = this.getPathTangentFromS(0);
+
+    const PIPE_LENGTH = 4.5;
+    const PIPE_RADIUS = BALL_RADIUS * 1.22;
+
+    const quatCyl = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+    const quatTorus = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+
+    const PIPE_OVERHANG = 0.5;
+    const pipeCenter = startPos.clone().addScaledVector(tangent, -(PIPE_LENGTH / 2) + PIPE_OVERHANG);
+    pipeCenter.z = -0.15;
+    const pipeMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(PIPE_RADIUS, PIPE_RADIUS, PIPE_LENGTH, 20, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0x2a4a66, metalness: 0.95, roughness: 0.08, emissive: 0x0a1a2a, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+    );
+    pipeMesh.position.copy(pipeCenter);
+    pipeMesh.quaternion.copy(quatCyl);
+    scene.add(pipeMesh); this.trackMeshes.push(pipeMesh);
+
+    const glowMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(PIPE_RADIUS * 0.78, PIPE_RADIUS * 0.78, PIPE_LENGTH, 16, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.0, roughness: 0.0, emissive: 0x224488, emissiveIntensity: 0.6, transparent: true, opacity: 0.18, side: THREE.BackSide })
+    );
+    glowMesh.position.copy(pipeCenter);
+    glowMesh.quaternion.copy(quatCyl);
+    scene.add(glowMesh); this.trackMeshes.push(glowMesh);
+
+    const ringPos = startPos.clone().addScaledVector(tangent, PIPE_OVERHANG); ringPos.z = -0.05;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(PIPE_RADIUS, 0.09, 10, 28),
+      new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.9, roughness: 0.0, emissive: 0x4488bb, emissiveIntensity: 1.2 })
+    );
+    ring.position.copy(ringPos);
+    ring.quaternion.copy(quatTorus);
+    scene.add(ring); this.trackMeshes.push(ring);
+
+    const ring2Pos = startPos.clone().addScaledVector(tangent, PIPE_OVERHANG - 0.6); ring2Pos.z = -0.05;
+    const ring2 = new THREE.Mesh(
+      new THREE.TorusGeometry(PIPE_RADIUS, 0.06, 8, 24),
+      new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.9, roughness: 0.0, emissive: 0x224466, emissiveIntensity: 0.8 })
+    );
+    ring2.position.copy(ring2Pos);
+    ring2.quaternion.copy(quatTorus);
+    scene.add(ring2); this.trackMeshes.push(ring2);
+  }
+
+  clearTrackVisuals() {
+    this.trackMeshes.forEach(m => scene.remove(m));
+    this.trackMeshes = [];
+  }
+
+  // ─── BONUS CRYSTALS (from scene.js) ───
+
+  spawnBonusCrystal() {
+    const s = this.pathLength * (0.15 + Math.random() * 0.70);
+    const pos = this.getPathPosFromS(s);
+    const tan = this.getPathTangentFromS(s);
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const OFFSET = 0.8 + Math.random() * 0.6;
+    const nx = -tan.y * side * OFFSET;
+    const ny =  tan.x * side * OFFSET;
+    const phase = Math.random() * Math.PI * 2;
+
+    const core = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.62, 0),
+      new THREE.MeshStandardMaterial({
+        color: 0xFFFFCC, emissive: 0xFFCC00, emissiveIntensity: 2.5,
+        metalness: 0.3, roughness: 0.0
+      })
+    );
+    const mid = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.92, 1),
+      new THREE.MeshStandardMaterial({
+        color: 0xFFAA00, emissive: 0xFF8800, emissiveIntensity: 1.0,
+        metalness: 0.0, roughness: 0.0, transparent: true, opacity: 0.38, side: THREE.DoubleSide
+      })
+    );
+    const cage = new THREE.Mesh(
+      new THREE.OctahedronGeometry(1.15, 0),
+      new THREE.MeshBasicMaterial({ color: 0xFFEE44, transparent: true, opacity: 0.55, wireframe: true })
+    );
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(1.5, 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0xFFCC00, transparent: true, opacity: 0.07, side: THREE.BackSide, depthWrite: false })
+    );
+
+    const group = new THREE.Group();
+    group.add(core, mid, cage, glow);
+    group.position.set(pos.x + nx, pos.y + ny, -1.8);
+    group.userData = { phase, core, cage, mid, glow };
+
+    scene.add(group);
+    this.bonusCrystals.push({ mesh: group, alive: true, life: 9.0 });
+  }
+
+  clearBonusCrystals() {
+    this.bonusCrystals.forEach(c => scene.remove(c.mesh));
+    this.bonusCrystals = [];
+  }
+
+  // ─── CHAIN METHODS (from chain.js) ───
+
+  cancelChainReactions() {
+    this.chainTimeouts.forEach(clearTimeout);
+    this.chainTimeouts = [];
+  }
+
+  getSegmentBounds(idx, skipGap = null, checkPushForwards = false) {
+    let start = idx, end = idx;
+    for (let i = idx - 1; i >= 0; i--) {
+      const gapHere = this.gaps.some(cg => {
+        if (cg === skipGap) return false;
+        const fi = this.chain.indexOf(cg.frontBall);
+        const bi = this.chain.indexOf(cg.backBall);
+        return fi === i && bi === i + 1;
+      }) || (checkPushForwards && this.pushForwards.some(pf => {
+        const ii = this.chain.indexOf(pf.insertedBall);
+        return ii === i + 1;
+      }));
+      if (gapHere) break;
+      start = i;
+    }
+    for (let i = idx + 1; i < this.chain.length; i++) {
+      const gapHere = this.gaps.some(cg => {
+        if (cg === skipGap) return false;
+        const fi = this.chain.indexOf(cg.frontBall);
+        const bi = this.chain.indexOf(cg.backBall);
+        return fi === i - 1 && bi === i;
+      }) || (checkPushForwards && this.pushForwards.some(pf => {
+        const ii = this.chain.indexOf(pf.insertedBall);
+        return ii === i;
+      }));
+      if (gapHere) break;
+      end = i;
+    }
+    return { start, end };
+  }
+
+  pickColor() {
+    if (this.spawningDone && this.chain.length > 0) {
+      const present = [...new Set(this.chain.map(b => b.colorIdx))];
+      if (present.length > 0) return present[Math.floor(Math.random() * present.length)];
+    }
+    return Math.floor(Math.random() * this.levelColors);
+  }
+
+  spawnChainBall() {
+    const colorIdx = this.pickColor();
+    const mesh = createBallMesh(colorIdx);
+    scene.add(mesh);
+    let startS = -BALL_SPACING;
+    if (this.chain.length > 0) startS = this.chain[this.chain.length - 1].s - BALL_SPACING;
+    this.chain.push({ mesh, colorIdx, s: startS, alive: true });
+  }
+
+  insertBallInChain(insertIdx, colorIdx, hitBallIdx = -1) {
+    const mesh = createBallMesh(colorIdx);
+    scene.add(mesh);
+
+    let splitGap = null;
+    let splitCase = null;
+    for (let gi = 0; gi < this.gaps.length; gi++) {
+      const cg = this.gaps[gi];
+      const fi = this.chain.indexOf(cg.frontBall);
+      const bi = this.chain.indexOf(cg.backBall);
+      if (bi !== fi + 1 || insertIdx !== bi) continue;
+      if (hitBallIdx === fi) { splitGap = cg; splitCase = 'A'; }
+      else if (hitBallIdx === bi) { splitGap = cg; splitCase = 'B'; }
+      break;
+    }
+
+    let refS;
+    if (splitCase === 'A') {
+      refS = splitGap.frontBall.s - BALL_SPACING;
+    } else if (insertIdx < this.chain.length) {
+      refS = this.chain[insertIdx].s;
+    } else if (this.chain.length > 0) {
+      refS = this.chain[this.chain.length - 1].s;
+    } else {
+      refS = 0;
+    }
+
+    const newBall = { mesh, colorIdx, s: refS, alive: true };
+    const pos = this.getPathPosFromS(refS);
+    mesh.position.copy(pos);
+
+    if (splitCase === 'A') {
+      splitGap.frontBall = newBall;
+      splitGap.matching = colorIdx === splitGap.backBall.colorIdx;
+    } else if (splitCase === 'B') {
+      splitGap.backBall = newBall;
+      splitGap.matching = splitGap.frontBall.colorIdx === colorIdx;
+    }
+
+    this.chain.splice(insertIdx, 0, newBall);
+
+    if (insertIdx > 0 && splitGap === null) {
+      this.pushForwards.push({ insertedBall: newBall, frontBall: this.chain[insertIdx - 1] });
+    }
+
+    if (insertIdx < this.chain.length - 1) {
+      const maxS = this.chain[insertIdx + 1].s + BALL_SPACING;
+      if (newBall.s < maxS) {
+        newBall.s = maxS;
+      }
+    }
+  }
+
+  hasGapBetween(frontIdx, backIdx) {
+    return this.chain[frontIdx].s - this.chain[backIdx].s > BALL_SPACING * 1.1;
+  }
+
+  checkMatches(idx, fromChainReaction = false) {
+    if (idx < 0 || idx >= this.chain.length) return;
+    const col = this.chain[idx].colorIdx;
+    let start = idx, end = idx;
+    while (start > 0 && this.chain[start - 1].colorIdx === col && !this.hasGapBetween(start - 1, start)) start--;
+    while (end < this.chain.length - 1 && this.chain[end + 1].colorIdx === col && !this.hasGapBetween(end, end + 1)) end++;
+
+    if (!fromChainReaction) this.combo = 1;
+
+    const count = end - start + 1;
+    if (count >= 3) {
+      const midIdx = Math.floor((start + end) / 2);
+      const midPos = this.chain[midIdx] ? this.getPathPosFromS(this.chain[midIdx].s) : new THREE.Vector3();
+
+      if (fromChainReaction) this.combo++;
+
+      const triggeredPowerups = [];
+      for (let i = start; i <= end; i++) {
+        if (this.chain[i].powerup) {
+          triggeredPowerups.push({ type: this.chain[i].powerup, s: this.chain[i].s, colorIdx: col });
+          removePowerupVisuals(this.chain[i]);
+          this.chain[i].powerup = null;
+        }
+      }
+
+      let preLastSplit = -1;
+      for (const g of this.gaps) {
+        const bi = this.chain.indexOf(g.backBall);
+        if (bi > preLastSplit) preLastSplit = bi;
+      }
+      const rearmostSegmentBalls = preLastSplit >= 0 ? this.chain.slice(preLastSplit) : [];
+      const ballAheadOfRearmost = preLastSplit > 0 ? this.chain[preLastSplit - 1] : null;
+
+      playSound('match', this.combo);
+      for (let i = start; i <= end; i++) {
+        explodeBall(this.chain[i]);
+        this.chain[i].alive = false;
+      }
+      this.chain = this.chain.filter(b => b.alive);
+
+      if (rearmostSegmentBalls.length > 0 && rearmostSegmentBalls.every(b => !b.alive)) {
+        const gapSize = ballAheadOfRearmost
+          ? ballAheadOfRearmost.s - rearmostSegmentBalls[0].s
+          : 0;
+        this.rearSegmentPauseTimer = Math.min(gapSize * 0.04, 1.2);
+      }
+
+      for (const pw of triggeredPowerups) {
+        this.activatePowerup(pw.type, pw.s, pw.colorIdx);
+      }
+      const gapMult = (this.pendingGapBonus && !fromChainReaction) ? 10 : 1;
+      const matchScore = (count * 10 * this.combo * gapMult + (this.chainBonus > 1 ? this.chainBonus * 10 : 0));
+
+      if (this.pendingGapBonus && !fromChainReaction) {
+        this.pendingGapBonus = false;
+        spawnGapBonusText(midPos, matchScore);
+      } else if (fromChainReaction) {
+        spawnComboText(midPos, this.combo, matchScore);
+      } else if (this.chainBonus > 1) {
+        spawnChainText(midPos, this.chainBonus, matchScore);
+      } else {
+        spawnScoreText(midPos, matchScore);
+      }
+      score += matchScore;
+      if (!fromChainReaction) this.chainBonus++;
+      updateHUD();
+
+      if (start > 0 && start < this.chain.length) {
+        this.scheduleCollapse(start);
+      }
+    } else {
+      this.combo = 1;
+      if (!fromChainReaction) { this.chainBonus = 1; this.pendingGapBonus = false; }
+      updateHUD();
+    }
+  }
+
+  scheduleCollapse(gapFrontIdx) {
+    const frontBall = this.chain[gapFrontIdx - 1];
+    const backBall = this.chain[gapFrontIdx];
+    if (!frontBall || !backBall) return;
+    if (this.gaps.some(g => g.frontBall === frontBall && g.backBall === backBall)) return;
+    const matching = frontBall.colorIdx === backBall.colorIdx;
+    const initialGapSize = frontBall.s - backBall.s - BALL_SPACING;
+    this.gaps.push({ frontBall, backBall, matching, initialGapSize });
+  }
+
+  updatePushForwards(dt) {
+    if (this.pushForwards.length === 0) return;
+
+    for (let g = this.pushForwards.length - 1; g >= 0; g--) {
+      const pf = this.pushForwards[g];
+      const insertedIdx = this.chain.indexOf(pf.insertedBall);
+      const frontIdx = this.chain.indexOf(pf.frontBall);
+
+      if (insertedIdx < 0 || frontIdx < 0 || frontIdx >= insertedIdx) {
+        this.pushForwards.splice(g, 1); continue;
+      }
+
+      const targetS = pf.insertedBall.s + BALL_SPACING;
+      const currentOverlap = targetS - pf.frontBall.s;
+
+      if (currentOverlap <= 0.02) {
+        pf.frontBall.s = targetS;
+        const { start: propStart } = this.getSegmentBounds(frontIdx);
+        for (let i = frontIdx - 1; i >= propStart; i--) {
+          const tgt = this.chain[i + 1].s + BALL_SPACING;
+          if (this.chain[i].s < tgt) this.chain[i].s = tgt; else break;
+        }
+        this.pushForwards.splice(g, 1);
+      } else {
+        const pushSpeed = 30;
+        const move = Math.min(pushSpeed * dt, currentOverlap);
+        const { start: pushStart } = this.getSegmentBounds(frontIdx);
+        for (let i = pushStart; i <= frontIdx; i++) this.chain[i].s += move;
+      }
+    }
+  }
+
+  updateCollapses(dt) {
+    if (this.gaps.length === 0) return;
+
+    for (let g = this.gaps.length - 1; g >= 0; g--) {
+      const gap = this.gaps[g];
+      const frontIdx = this.chain.indexOf(gap.frontBall);
+      const backIdx = this.chain.indexOf(gap.backBall);
+
+      if (frontIdx < 0 || backIdx < 0 || backIdx !== frontIdx + 1) {
+        this.gaps.splice(g, 1); continue;
+      }
+
+      const targetS = gap.frontBall.s - BALL_SPACING;
+      const currentGap = targetS - gap.backBall.s;
+
+      if (currentGap <= 0.05) {
+        gap.backBall.s = targetS;
+        for (let i = backIdx + 1; i < this.chain.length; i++) {
+          const tgt = this.chain[i - 1].s - BALL_SPACING;
+          if (this.chain[i].s > tgt) this.chain[i].s = tgt; else break;
+        }
+        this.gaps.splice(g, 1);
+
+        if (gap.matching) {
+          const impulse = Math.min(gap.initialGapSize * 1.2, 8.0);
+          this.snapImpulses.push({ frontBall: gap.frontBall, impulse });
+        }
+
+        if (gap.frontBall.colorIdx === gap.backBall.colorIdx) {
+          const checkIdx = backIdx;
+          const tid = setTimeout(() => {
+            this.chainTimeouts = this.chainTimeouts.filter(t => t !== tid);
+            if (this.chain.length > 0) {
+              playSound('chain', this.combo);
+              this.checkMatches(Math.min(checkIdx, this.chain.length - 1), true);
+            }
+          }, 100);
+          this.chainTimeouts.push(tid);
+        } else {
+          this.combo = 1;
+          updateHUD();
+        }
+      } else if (gap.matching) {
+        const { start: moveStart } = this.getSegmentBounds(frontIdx, gap, true);
+        const collapseSpeed = 25;
+        const move = Math.min(collapseSpeed * dt, currentGap);
+        for (let i = moveStart; i <= frontIdx; i++) this.chain[i].s -= move;
+      }
+    }
+  }
+
+  updateSnapImpulses(dt) {
+    const SNAP_FRICTION = 5.0;
+    for (let g = this.snapImpulses.length - 1; g >= 0; g--) {
+      const si = this.snapImpulses[g];
+      si.impulse = Math.max(0, si.impulse - SNAP_FRICTION * dt);
+      if (si.impulse <= 0) { this.snapImpulses.splice(g, 1); continue; }
+
+      const anchorIdx = this.chain.indexOf(si.frontBall);
+      if (anchorIdx < 0) { this.snapImpulses.splice(g, 1); continue; }
+
+      const { start: segStart, end: segEnd } = this.getSegmentBounds(anchorIdx);
+      for (let i = segStart; i <= segEnd; i++) this.chain[i].s -= si.impulse * dt;
+    }
+  }
+
+  // ─── POWERUP METHODS (from main.js) ───
+
+  tickBallPowerups(dt) {
+    for (const ball of this.chain) {
+      if (!ball.powerup) continue;
+      ball.powerupTimer -= dt;
+      if (ball.powerupTimer <= 0) {
+        removePowerupVisuals(ball);
+        ball.powerup = null;
+      } else {
+        const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 5);
+        if (ball.powerupSprite) {
+          ball.powerupSprite.visible = ball.mesh.visible;
+          ball.powerupSprite.position.copy(ball.mesh.position);
+          ball.powerupSprite.material.opacity = 0.7 + 0.3 * pulse;
+        }
+        if (ball.powerupHalo) {
+          ball.powerupHalo.material.opacity = 0.12 + 0.22 * pulse;
+          ball.powerupHalo.scale.setScalar(1 + 0.12 * pulse);
+        }
+        ball.mesh.material.emissiveIntensity = 1 + 2.5 * pulse;
+      }
+    }
+  }
+
+  tryAssignPowerup(type) {
+    if (!gameActive || this.chain.length < 6) return;
+    const candidates = this.chain.filter(
+      (b, i) => !b.powerup && b.alive && b.s >= 0 && i > 0 && i < this.chain.length - 1
+    );
+    if (candidates.length === 0) return;
+    const ball = candidates[Math.floor(Math.random() * candidates.length)];
+    ball.powerup = type;
+    ball.powerupTimer = 10; // POWERUP_BALL_DURATION
+    ball.powerupSprite = createPowerupSprite(type);
+    scene.add(ball.powerupSprite);
+    ball.powerupHalo = createPowerupHalo();
+    ball.mesh.add(ball.powerupHalo);
+  }
+
+  clearAllPowerupVisuals() {
+    for (const ball of this.chain) {
+      if (ball.powerup) removePowerupVisuals(ball);
+    }
+  }
+
+  activatePowerup(type, s = 0, colorIdx = -1) {
+    if (type === 'pause') {
+      this.chainFreezeTimer = 4.0;
+      showBanner('CHAIN FROZEN');
+    } else if (type === 'backwards') {
+      this.powerupBackTimer = 2.5;
+      showBanner('REVERSED!');
+    } else if (type === 'blast') {
+      this.activateBlast(s);
+      return;
+    } else if (type === 'chromatic') {
+      this.activateChromatic(colorIdx);
+      return;
+    }
+    playSound('powerup');
+  }
+
+  activateBlast(s) {
+    const BLAST_RADIUS = BALL_SPACING * 3;
+    const blastPos = this.getPathPosFromS(s);
+    showBanner('NOVA BLAST!');
+    playSound('powerup');
+
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1, 0.12, 8, 32),
+      new THREE.MeshBasicMaterial({ color: 0xFF8800, transparent: true, opacity: 0.7, depthWrite: false })
+    );
+    ring.position.copy(blastPos); ring.position.z = 0.2;
+    scene.add(ring);
+    shockwaves.push({ mesh: ring, life: 0.55, maxLife: 0.55 });
+
+    const ring2 = new THREE.Mesh(
+      new THREE.TorusGeometry(1, 0.07, 6, 28),
+      new THREE.MeshBasicMaterial({ color: 0xFFFFAA, transparent: true, opacity: 0.5, depthWrite: false })
+    );
+    ring2.position.copy(blastPos); ring2.position.z = 0.15;
+    scene.add(ring2);
+    shockwaves.push({ mesh: ring2, life: 0.4, maxLife: 0.4 });
+
+    let blastCount = 0;
+    for (let i = 0; i < this.chain.length; i++) {
+      const b = this.chain[i];
+      const dx = b.mesh.position.x - blastPos.x;
+      const dy = b.mesh.position.y - blastPos.y;
+      if (dx * dx + dy * dy <= BLAST_RADIUS * BLAST_RADIUS) {
+        if (b.powerup) {
+          const type = b.powerup;
+          const triggerS = b.s;
+          const triggerColor = b.colorIdx;
+          removePowerupVisuals(b);
+          b.powerup = null;
+          this.activatePowerup(type, triggerS, triggerColor);
+        }
+        explodeBall(b);
+        b.alive = false;
+        blastCount++;
+      }
+    }
+
+    if (blastCount > 0) {
+      this.chain = this.chain.filter(b => b.alive);
+      const pts = blastCount * 15;
+      score += pts;
+      updateHUD();
+      spawnScoreText(blastPos, pts);
+      if (this.chain.length > 1) {
+        for (let i = 0; i < this.chain.length - 1; i++) {
+          if (this.chain[i].s - this.chain[i + 1].s > BALL_SPACING * 1.5) {
+            this.scheduleCollapse(i + 1);
+          }
+        }
+      }
+    }
+
+    spawnParticleBurst(blastPos, 20, [0xFF6600, 0xFFEE44], { minSize: 0.08, maxSize: 0.18, minSpeed: 3, maxSpeed: 9, decay: 0.018 });
+  }
+
+  activateChromatic(colorIdx) {
+    if (colorIdx < 0 || colorIdx >= COLORS.length) return;
+    showBanner('COLOR PURGE!');
+    playSound('powerup');
+
+    const targets = this.chain.filter(b => b.colorIdx === colorIdx && b.alive && b.s >= 0);
+    if (targets.length === 0) return;
+
+    const rays = [];
+    const color = COLORS[colorIdx];
+    const rayCounts = new Map();
+    for (const ball of targets) rayCounts.set(ball, 0);
+
+    const shuffledTargets = [...targets].sort(() => Math.random() - 0.5);
+    for (const ball of shuffledTargets) {
+      const desired = 2 + Math.floor(Math.random() * 2);
+      const need = desired - rayCounts.get(ball);
+      if (need <= 0) continue;
+      const partners = targets
+        .filter(b => b !== ball && rayCounts.get(b) < 3)
+        .sort(() => Math.random() - 0.5)
+        .sort((a, b) => rayCounts.get(a) - rayCounts.get(b))
+        .slice(0, need);
+      for (const other of partners) {
+        const mesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.035, 0.035, 1, 4),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false })
+        );
+        mesh.position.z = 0.3;
+        scene.add(mesh);
+
+        const glow = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.09, 0.09, 1, 4),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })
+        );
+        glow.position.z = 0.3;
+        scene.add(glow);
+
+        rays.push({ mesh, glow, ballA: ball, ballB: other });
+        rayCounts.set(ball, rayCounts.get(ball) + 1);
+        rayCounts.set(other, rayCounts.get(other) + 1);
+      }
+    }
+
+    this.chromaticAnimations.push({
+      targets, rays, timer: 0, duration: 1.0, colorIdx, exploded: false
+    });
+  }
+
+  // ─── COLLISION (from main.js) ───
+
+  checkProjectileCollisions(dt) {
+    for (let p = projectiles.length - 1; p >= 0; p--) {
+      const proj = projectiles[p];
+      if (!proj.alive) continue;
+      proj.mesh.position.x += proj.vx * dt;
+      proj.mesh.position.y += proj.vy * dt;
+
+      const bound = 14 * (window.innerWidth / window.innerHeight) + 2;
+      if (Math.abs(proj.mesh.position.x) > bound || Math.abs(proj.mesh.position.y) > 16) {
+        scene.remove(proj.mesh); proj.alive = false; continue;
+      }
+
+      // Gap-crossing detection
+      if (!proj.gapBonus) {
+        const { s: closestS, dist: closestDist } = this.getClosestPathS(proj.mesh.position.x, proj.mesh.position.y);
+        if (closestDist < BALL_RADIUS * 1.5) {
+          for (let gi = 0; gi < this.chain.length - 1; gi++) {
+            if (this.chain[gi].s - this.chain[gi + 1].s > BALL_SPACING * 1.5 &&
+                closestS > this.chain[gi + 1].s && closestS < this.chain[gi].s) {
+              proj.gapBonus = true;
+              break;
+            }
+          }
+        }
+      }
+
+      for (let i = 0; i < this.chain.length; i++) {
+        const ball = this.chain[i];
+        if (!ball.alive) continue;
+        const dx = proj.mesh.position.x - ball.mesh.position.x;
+        const dy = proj.mesh.position.y - ball.mesh.position.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < BALL_RADIUS * 2.1) {
+          const tangent = this.getPathTangentFromS(ball.s);
+          const dot = tangent.x * dx / dist + tangent.y * dy / dist;
+          const insertIdx = dot > 0 ? i : i + 1;
+
+          scene.remove(proj.mesh); proj.alive = false;
+          this.pendingGapBonus = proj.gapBonus;
+          playSound('hit');
+          this.insertBallInChain(insertIdx, proj.colorIdx, i);
+          this.checkMatches(insertIdx);
+          break;
+        }
+      }
+
+      // Bonus crystal pickup
+      if (proj.alive) {
+        for (let ci = this.bonusCrystals.length - 1; ci >= 0; ci--) {
+          const c = this.bonusCrystals[ci];
+          if (!c.alive) continue;
+          const dx = proj.mesh.position.x - c.mesh.position.x;
+          const dy = proj.mesh.position.y - c.mesh.position.y;
+          if (dx * dx + dy * dy < (BALL_RADIUS + 1.0) * (BALL_RADIUS + 1.0)) {
+            c.alive = false;
+            scene.remove(c.mesh);
+            this.bonusCrystals.splice(ci, 1);
+            this.bonusCrystalSpawnTimer = 14.0; // BONUS_CRYSTAL_INTERVAL
+            scene.remove(proj.mesh); proj.alive = false;
+            score += 500;
+            updateHUD();
+            spawnScoreText(c.mesh.position.clone(), 500);
+            spawnParticleBurst(c.mesh.position, 14, 0xFFDD00, { minSize: 0.07, maxSize: 0.14, minSpeed: 2, maxSpeed: 7, decay: 0.020 });
+            break;
+          }
+        }
+      }
+    }
+    projectiles = projectiles.filter(p => p.alive);
+  }
+
+  // ─── MAIN UPDATE (extracted from animate()) ───
+
+  update(dt) {
+    // Animate bonus crystals
+    for (let ci = this.bonusCrystals.length - 1; ci >= 0; ci--) {
+      const c = this.bonusCrystals[ci];
+      if (!c.alive) continue;
+      c.life -= dt;
+      if (c.life <= 0) {
+        scene.remove(c.mesh);
+        this.bonusCrystals.splice(ci, 1);
+        continue;
+      }
+      const phase = c.mesh.userData.phase;
+      const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 3 + phase);
+      const fadeAlpha = Math.min(1, c.life / 2.0);
+      c.mesh.userData.core.rotation.y += dt * 2.5;
+      c.mesh.userData.core.rotation.x += dt * 1.1;
+      c.mesh.userData.core.material.emissiveIntensity = (1.8 + 2.0 * pulse) * fadeAlpha;
+      c.mesh.userData.mid.rotation.y -= dt * 1.3;
+      c.mesh.userData.mid.rotation.z += dt * 0.9;
+      c.mesh.userData.mid.material.opacity = 0.38 * fadeAlpha;
+      c.mesh.userData.cage.rotation.x += dt * 0.8;
+      c.mesh.userData.cage.rotation.z -= dt * 0.6;
+      c.mesh.userData.cage.material.opacity = 0.55 * fadeAlpha;
+      c.mesh.position.z = -1.8 + Math.sin(clock.elapsedTime * 2 + phase) * 0.22;
+      c.mesh.scale.setScalar((0.92 + 0.12 * pulse) * fadeAlpha);
+    }
+
+    // Bonus crystal spawning
+    if (!this.levelClearing) {
+      this.bonusCrystalSpawnTimer -= dt;
+      if (this.bonusCrystalSpawnTimer <= 0 && this.bonusCrystals.filter(c => c.alive).length === 0) {
+        this.spawnBonusCrystal();
+        this.bonusCrystalSpawnTimer = 14.0; // BONUS_CRYSTAL_INTERVAL
+      }
+    }
+
+    if (!this.levelClearing) {
+      // Spawn at back of chain
+      const rollingIn = this.rollInSpawned < 40; // ROLL_IN_COUNT
+      if (!this.spawningDone) {
+        while (this.chain.length === 0 || this.chain[this.chain.length - 1].s > -BALL_SPACING) {
+          this.spawnChainBall();
+          this.rollInSpawned++;
+        }
+      }
+
+      // Advance chain
+      if (this.rollBackTimer > 0) {
+        this.rollBackTimer = Math.max(0, this.rollBackTimer - dt);
+        for (let i = 0; i < this.chain.length; i++) this.chain[i].s -= 3.0 * dt; // ROLL_BACK_SPEED
+      } else if (this.powerupBackTimer > 0) {
+        this.powerupBackTimer = Math.max(0, this.powerupBackTimer - dt);
+        for (let i = 0; i < this.chain.length; i++) this.chain[i].s -= 3.0 * dt; // ROLL_BACK_SPEED
+      } else if (this.chainFreezeTimer > 0) {
+        this.chainFreezeTimer = Math.max(0, this.chainFreezeTimer - dt);
+      } else if (this.rearSegmentPauseTimer > 0) {
+        this.rearSegmentPauseTimer = Math.max(0, this.rearSegmentPauseTimer - dt);
+      } else if (this.chain.length > 0) {
+        const activeSpeed = (rollingIn ? 16.0 : this.chainSpeed) * (debugFastForward ? 5 : 1); // ROLL_IN_SPEED
+        const splitIndices = new Set();
+
+        for (const g of this.gaps) {
+          const bi = this.chain.indexOf(g.backBall);
+          if (bi > 0) splitIndices.add(bi);
+        }
+        for (const p of this.pushForwards) {
+          const ii = this.chain.indexOf(p.insertedBall);
+          if (ii > 0) splitIndices.add(ii);
+        }
+
+        if (splitIndices.size === 0) {
+          for (let i = 0; i < this.chain.length; i++) {
+            this.chain[i].s += activeSpeed * dt;
+          }
+          for (let i = 1; i < this.chain.length; i++) {
+            const tgt = this.chain[i - 1].s - BALL_SPACING;
+            if (this.chain[i].s > tgt) this.chain[i].s = tgt;
+          }
+        } else {
+          const sorted = [...splitIndices].sort((a, b) => a - b);
+          const lastSplit = sorted[sorted.length - 1];
+
+          for (let i = lastSplit; i < this.chain.length; i++) {
+            this.chain[i].s += activeSpeed * dt;
+          }
+          for (let i = lastSplit + 1; i < this.chain.length; i++) {
+            const tgt = this.chain[i - 1].s - BALL_SPACING;
+            if (this.chain[i].s > tgt) this.chain[i].s = tgt;
+          }
+
+          let segStart = 0;
+          for (const split of sorted) {
+            for (let i = segStart + 1; i < split; i++) {
+              const tgt = this.chain[i - 1].s - BALL_SPACING;
+              if (this.chain[i].s > tgt) this.chain[i].s = tgt;
+            }
+            segStart = split;
+          }
+        }
+      }
+
+      this.updateCollapses(dt);
+      this.updatePushForwards(dt);
+      this.tickBallPowerups(dt);
+
+      if (!this.spawningDone) {
+        this.pauseSpawnTimer -= dt;
+        if (this.pauseSpawnTimer <= 0) {
+          this.tryAssignPowerup('pause');
+          this.pauseSpawnTimer = 15; // PAUSE_SPAWN_INTERVAL
+        }
+        this.backSpawnTimer -= dt;
+        if (this.backSpawnTimer <= 0) {
+          this.tryAssignPowerup('backwards');
+          this.backSpawnTimer = 18; // BACK_SPAWN_INTERVAL
+        }
+        this.blastSpawnTimer -= dt;
+        if (this.blastSpawnTimer <= 0) {
+          this.tryAssignPowerup('blast');
+          this.blastSpawnTimer = 22; // BLAST_SPAWN_INTERVAL
+        }
+        this.chromaticSpawnTimer -= dt;
+        if (this.chromaticSpawnTimer <= 0) {
+          this.tryAssignPowerup('chromatic');
+          this.chromaticSpawnTimer = 28; // CHROMATIC_SPAWN_INTERVAL
+        }
+      }
+
+      this.updateSnapImpulses(dt);
+    }
+
+    // Update ball positions (always — even during levelClearing for visual continuity)
+    for (let i = 0; i < this.chain.length; i++) {
+      const ball = this.chain[i];
+      ball.mesh.visible = ball.s >= 0;
+      if (!ball.mesh.visible) continue;
+      const pos = this.getPathPosFromS(ball.s);
+      ball.mesh.position.copy(pos);
+      ball.mesh.rotation.z += dt * 1.5;
+      ball.mesh.rotation.x += dt * 0.8;
+    }
+
+    // Update chromatic ray animations
+    for (let ci = this.chromaticAnimations.length - 1; ci >= 0; ci--) {
+      const ca = this.chromaticAnimations[ci];
+      ca.timer += dt;
+      const t = ca.timer / ca.duration;
+
+      if (!ca.exploded) {
+        const pulse = 0.5 + 0.5 * Math.sin(ca.timer * 12);
+        for (const ball of ca.targets) {
+          if (ball.alive) ball.mesh.material.emissiveIntensity = 1 + 3 * pulse * Math.min(1, t / 0.4);
+        }
+      }
+
+      for (const ray of ca.rays) {
+        if (!ray.ballA.alive || !ray.ballB.alive) {
+          ray.mesh.visible = false;
+          ray.glow.visible = false;
+          continue;
+        }
+        const posA = ray.ballA.mesh.position;
+        const posB = ray.ballB.mesh.position;
+        const dir = new THREE.Vector3().subVectors(posB, posA);
+        const length = dir.length();
+        if (length < 0.01) continue;
+
+        const mid = new THREE.Vector3().addVectors(posA, posB).multiplyScalar(0.5);
+        mid.z = 0.3;
+        const dirNorm = dir.clone().normalize();
+        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirNorm);
+
+        for (const m of [ray.mesh, ray.glow]) {
+          m.position.copy(mid);
+          m.scale.set(1, length, 1);
+          m.quaternion.copy(quat);
+        }
+
+        if (t < 0.4) {
+          const fadeIn = t / 0.4;
+          ray.mesh.material.opacity = fadeIn * 0.9;
+          ray.glow.material.opacity = fadeIn * 0.25;
+        } else if (t < 0.7) {
+          const pulse = 0.5 + 0.5 * Math.sin((t - 0.4) / 0.3 * Math.PI * 6);
+          ray.mesh.material.opacity = 0.7 + 0.3 * pulse;
+          ray.glow.material.opacity = 0.15 + 0.15 * pulse;
+        }
+      }
+
+      if (t >= 0.7 && !ca.exploded) {
+        ca.exploded = true;
+        let count = 0;
+        let sumX = 0, sumY = 0, sumZ = 0;
+        for (const ball of ca.targets) {
+          if (!ball.alive) continue;
+          sumX += ball.mesh.position.x;
+          sumY += ball.mesh.position.y;
+          sumZ += ball.mesh.position.z;
+          if (ball.powerup) {
+            const ptype = ball.powerup, ps = ball.s, pc = ball.colorIdx;
+            removePowerupVisuals(ball);
+            ball.powerup = null;
+            this.activatePowerup(ptype, ps, pc);
+          }
+          explodeBall(ball);
+          ball.alive = false;
+          count++;
+        }
+        if (count > 0) {
+          this.chain = this.chain.filter(b => b.alive);
+          const pts = count * 15;
+          score += pts;
+          updateHUD();
+          const centroid = new THREE.Vector3(sumX / count, sumY / count, sumZ / count);
+          spawnScoreText(centroid, pts);
+          if (this.chain.length > 1) {
+            for (let i = 0; i < this.chain.length - 1; i++) {
+              if (this.chain[i].s - this.chain[i + 1].s > BALL_SPACING * 1.5) {
+                this.scheduleCollapse(i + 1);
+              }
+            }
+          }
+        }
+      }
+
+      if (t >= 0.7 && t < 1.0) {
+        const fadeOut = 1 - (t - 0.7) / 0.3;
+        for (const ray of ca.rays) {
+          ray.mesh.material.opacity = Math.max(0, fadeOut * 0.9);
+          ray.glow.material.opacity = Math.max(0, fadeOut * 0.25);
+        }
+      }
+
+      if (t >= 1.0) {
+        for (const ray of ca.rays) {
+          scene.remove(ray.mesh);
+          scene.remove(ray.glow);
+        }
+        for (const ball of ca.targets) {
+          if (ball.alive) ball.mesh.material.emissiveIntensity = 1;
+        }
+        this.chromaticAnimations.splice(ci, 1);
+      }
+    }
+
+    // Track frontmost ball position
+    if (this.chain.length > 0 && this.chain[0].s >= 0) this.lastFrontS = this.chain[0].s;
+  }
+
+  // ─── LEVEL MANAGEMENT ───
+
+  loadLevel(def) {
+    this.levelColors = def.colors;
+    this.chainSpeed = def.chainSpeed;
+    this.progressMax = def.progressThreshold;
+    this.clearTrackVisuals();
+    this.clearBonusCrystals();
+    this.buildPath(MAPS[def.map].waypoints);
+    this.createTrackVisuals();
+  }
+
+  reset(levelDef) {
+    this.cancelChainReactions();
+    this.clearAllPowerupVisuals();
+    this.chain.forEach(b => scene.remove(b.mesh));
+    this.chain = [];
+    this.gaps = [];
+    this.pushForwards = [];
+    this.snapImpulses = [];
+    this.chromaticAnimations.forEach(ca => ca.rays.forEach(r => { scene.remove(r.mesh); scene.remove(r.glow); }));
+    this.chromaticAnimations = [];
+
+    this.loadLevel(levelDef);
+    this.progress = 0;
+    this.combo = 1;
+    this.chainBonus = 1;
+    this.spawningDone = false;
+    this.rollBackTimer = 0;
+    this.rollInSpawned = 0;
+    this.levelClearing = false;
+    this.chainFreezeTimer = 0;
+    this.powerupBackTimer = 0;
+    this.rearSegmentPauseTimer = 0;
+    this.pauseSpawnTimer = 15;
+    this.backSpawnTimer = 20;
+    this.blastSpawnTimer = 25;
+    this.chromaticSpawnTimer = 30;
+    this.bonusCrystalSpawnTimer = 8.0;
+    this.lastFrontS = 0;
+    this.pendingGapBonus = false;
+  }
+
+  // Returns true if chain reached the skull
+  isGameOver() {
+    return this.chain.length > 0 && this.chain[0].s >= this.pathLength * 0.98;
+  }
+
+  // Returns true if all balls cleared after spawning stopped
+  isCleared() {
+    return !this.levelClearing && this.spawningDone && !this.chain.some(b => b.s >= -2);
+  }
+}

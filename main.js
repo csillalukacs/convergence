@@ -226,6 +226,7 @@ function startGame(startLevel = 1) {
   document.getElementById('title-screen').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('victory-screen').style.display = 'none';
+  document.getElementById('level-summary').style.display = 'none';
   document.getElementById('pause-screen').style.display = 'none';
 
   score = 0; level = startLevel;
@@ -287,27 +288,41 @@ function levelUp() {
   const emptyDistance = track.pathLength - track.lastFrontS;
   const bonusSlots = Math.floor(emptyDistance / BALL_SPACING);
 
-  function showLevelBannerAndAdvance() {
+  let clearanceTotal = 0;
+
+  function showLevelSummary() {
     score += timeBonus;
     updateHUD();
 
-    // Build banner text
-    let bannerText = 'LEVEL ' + level + ' CLEAR — ' + levelScore.toLocaleString() + ' pts';
-    if (timeBonus > 0) bannerText += '\n+' + timeBonus.toLocaleString() + ' TIME BONUS';
-    showBanner(bannerText);
+    const elapsed = track.levelElapsedTime;
+    const mins = Math.floor(elapsed / 60);
+    const secs = Math.floor(elapsed % 60);
 
-    setTimeout(() => {
-      // Victory check
-      if (level >= LEVELS.length) {
+    document.getElementById('ls-title').textContent = 'LEVEL ' + level + ' CLEAR';
+    document.getElementById('ls-score').textContent = levelScore.toLocaleString();
+    document.getElementById('ls-clearance').textContent = clearanceTotal > 0 ? '+' + clearanceTotal.toLocaleString() : '—';
+    document.getElementById('ls-time-row').style.display = timeBonus > 0 ? 'flex' : 'none';
+    document.getElementById('ls-time').textContent = '+' + timeBonus.toLocaleString();
+    document.getElementById('ls-total').textContent = (levelScore + clearanceTotal + timeBonus).toLocaleString();
+    document.getElementById('ls-elapsed').textContent = 'Time: ' + mins + ':' + String(secs).padStart(2, '0');
+
+    const isVictory = level >= LEVELS.length;
+    const btn = document.getElementById('ls-continue');
+    btn.textContent = isVictory ? 'ONWARD' : 'CONTINUE';
+    btn.onclick = () => {
+      document.getElementById('level-summary').style.display = 'none';
+      if (isVictory) {
         victory();
-        return;
+      } else {
+        level++;
+        track.levelClearing = false;
+        track.lastFrontS = 0;
+        resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
+        showBanner('LEVEL ' + level);
       }
-      level++;
-      track.levelClearing = false;
-      track.lastFrontS = 0;
-      resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
-      showBanner('LEVEL ' + level);
-    }, 1500);
+    };
+
+    document.getElementById('level-summary').style.display = 'flex';
   }
 
   if (bonusSlots > 0) {
@@ -318,12 +333,13 @@ function levelUp() {
         playSound('cleartick');
         spawnScoreText(pos, 100);
         score += 100;
+        clearanceTotal += 100;
         updateHUD();
       }, i * 30);
     }
-    setTimeout(showLevelBannerAndAdvance, bonusSlots * 30 + 400);
+    setTimeout(showLevelSummary, bonusSlots * 30 + 400);
   } else {
-    showLevelBannerAndAdvance();
+    showLevelSummary();
   }
 }
 

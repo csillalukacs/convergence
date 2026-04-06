@@ -409,6 +409,71 @@ body {
   letter-spacing: 2px;
 }
 
+#level-summary {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: rgba(0,0,8,0.88);
+}
+
+#level-summary h2 {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 36px;
+  color: #88ffcc;
+  text-shadow: 0 0 24px rgba(136,255,204,0.5);
+  margin-bottom: 24px;
+  letter-spacing: 4px;
+}
+
+.ls-stats {
+  min-width: 300px;
+  margin-bottom: 16px;
+}
+
+.ls-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-family: 'Spectral', serif;
+  font-size: 16px;
+  color: #88ccff;
+  letter-spacing: 1px;
+}
+
+.ls-row.ls-total {
+  font-size: 20px;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(136,204,255,0.6);
+}
+
+.ls-label { color: #668899; }
+.ls-total .ls-label { color: #aaddff; }
+
+.ls-value {
+  font-weight: bold;
+  min-width: 80px;
+  text-align: right;
+}
+
+.ls-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #336699, transparent);
+  margin: 8px 0;
+}
+
+.ls-elapsed {
+  font-family: 'Spectral', serif;
+  font-style: italic;
+  color: #446688;
+  font-size: 13px;
+  letter-spacing: 2px;
+  margin-bottom: 24px;
+}
+
 .combo-text {
   position: fixed;
   font-family: 'Cinzel Decorative', serif;

@@ -128,6 +128,109 @@ button.flash {
 /* combo buttons */
 .combo-btn { min-width: 38px; text-align: center; }
 
+/* A/B engine toggle */
+#ab-btn { font-weight: 700; }
+
+/* ── Tweaker panel ── */
+.tweaker { width: 100%; max-width: 780px; }
+
+.tweaker-toggle {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #5599cc;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  padding: 10px 0;
+}
+.tweaker-toggle:hover { color: #aaddff; }
+
+.tweaker-body { display: none; }
+.tweaker-body.open { display: block; }
+
+.partial-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid #0d1a2e;
+}
+
+.partial-row .idx {
+  font-size: 10px; color: #334466; text-align: center;
+}
+
+.param-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.param-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.param-item label {
+  font-size: 10px; letter-spacing: 1px; color: #446688;
+  text-transform: uppercase; min-width: 70px;
+}
+
+.param-item input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  flex: 1; height: 3px;
+  background: #1a3355; border-radius: 2px; outline: none; cursor: pointer;
+}
+.param-item input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #88ccff; cursor: pointer;
+  box-shadow: 0 0 4px rgba(136,204,255,0.5);
+}
+
+.param-item .val {
+  font-size: 10px; color: #88ccff; min-width: 36px; text-align: right;
+}
+
+.partial-header {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 6px 0 2px;
+}
+
+.partial-header span {
+  font-size: 9px; letter-spacing: 1px; color: #334466;
+  text-transform: uppercase; text-align: center;
+}
+
+.section-label {
+  font-size: 10px; letter-spacing: 2px; color: #446688;
+  text-transform: uppercase; margin: 16px 0 6px; padding-top: 10px;
+  border-top: 1px solid #1e3355;
+}
+
+#config-output {
+  background: #050c18;
+  border: 1px solid #1e3355;
+  border-radius: 4px;
+  color: #7ab8dd;
+  font-family: monospace;
+  font-size: 11px;
+  width: 100%;
+  min-height: 120px;
+  padding: 10px;
+  resize: vertical;
+  display: none;
+  margin-top: 8px;
+}
+
+.tweaker .btn-row { margin-top: 10px; }
+
 /* ── Sequence card ── */
 .card.wide {
   grid-column: 1 / -1;
@@ -186,9 +289,50 @@ button.flash {
   <label>Volume</label>
   <input type="range" id="vol-slider" min="0" max="100" value="75"
     oninput="masterGain && (masterGain.gain.value = this.value / 100)">
+  <div style="width:1px;height:20px;background:#1e3355;margin:0 4px"></div>
+  <label>Engine</label>
+  <button id="ab-btn" onclick="toggleEngine()" style="min-width:60px">NEW</button>
 </div>
 
 <div class="grid" id="grid"></div>
+
+<div class="tweaker" id="tweaker">
+  <div class="tweaker-toggle" onclick="document.getElementById('tweaker-body').classList.toggle('open')">
+    &#9662; Bell Engine Parameters
+  </div>
+  <div class="tweaker-body" id="tweaker-body">
+    <div class="card">
+      <div class="section-label">Partials</div>
+      <div class="partial-header">
+        <span>#</span><span>Ratio</span><span>Amp</span><span>Decay</span><span>Pan</span>
+      </div>
+      <div id="partial-rows"></div>
+
+      <div class="section-label">Envelope</div>
+      <div class="param-group" id="env-params"></div>
+
+      <div class="section-label">Strike Transient</div>
+      <div class="param-group" id="strike-params"></div>
+
+      <div class="section-label">Chorus</div>
+      <div class="param-group" id="chorus-params"></div>
+
+      <div class="section-label">Presets</div>
+      <div class="btn-row" id="preset-btns"></div>
+
+      <div class="section-label">Test / Export</div>
+      <div class="btn-row">
+        <button onclick="playSound('match', 1)">Test Match</button>
+        <button onclick="playSound('shoot')">Test Shoot</button>
+        <button onclick="playSound('levelup')">Test Level Up</button>
+        <button onclick="playSound('gameover')">Test Game Over</button>
+        <button onclick="copyConfig()">Copy Config</button>
+        <button onclick="resetConfig()">Reset</button>
+      </div>
+      <textarea id="config-output" readonly></textarea>
+    </div>
+  </div>
+</div>
 
 <div class="grid" style="max-width:780px;width:100%">
   <div class="card wide" id="seq-card">
@@ -213,6 +357,41 @@ button.flash {
 
 <script src="audio.js"></script>
 <script>
+// ── A/B toggle: old engine config ──
+const OLD_CONFIG = {
+  partials: [
+    { ratio: 1.000, amp: 1.00, decay: 1.00, pan: 0 },
+    { ratio: 2.756, amp: 0.38, decay: 0.72, pan: 0 },
+    { ratio: 5.404, amp: 0.16, decay: 0.52, pan: 0 },
+    { ratio: 8.933, amp: 0.07, decay: 0.38, pan: 0 },
+  ],
+  envelope: { attackTime: 0.001, sustainLevel: 0.01, sustainPoint: 0.99 },
+  strike:   { minDuration: 9999, freqMult: 2.5, maxFreq: 11000, Q: 1.8, gain: 0, duration: 0.04 },
+  chorus:   { detuneCents: 0 },
+};
+
+let usingNew = true;
+
+function applyConfig(cfg) {
+  BELL_CONFIG.partials = JSON.parse(JSON.stringify(cfg.partials));
+  Object.assign(BELL_CONFIG.envelope, cfg.envelope);
+  Object.assign(BELL_CONFIG.strike, cfg.strike);
+  Object.assign(BELL_CONFIG.chorus, cfg.chorus);
+}
+
+function toggleEngine() {
+  usingNew = !usingNew;
+  applyConfig(usingNew ? DEFAULT_CONFIG : OLD_CONFIG);
+  // Refresh tweaker sliders to reflect current config
+  if (typeof buildPartialRows === 'function') {
+    buildPartialRows(); buildEnvParams(); buildStrikeParams(); buildChorusParams();
+  }
+  const btn = document.getElementById('ab-btn');
+  btn.textContent = usingNew ? 'NEW' : 'OLD';
+  btn.style.borderColor = usingNew ? '#2a4466' : '#664422';
+  btn.style.color = usingNew ? '#7ab8dd' : '#ddaa77';
+}
+
 const SOUND_DEFS = [
   {
     name: 'shoot',
@@ -252,6 +431,46 @@ const SOUND_DEFS = [
   {
     name: 'gameover',
     desc: 'Descending A minor — game over.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'crystal',
+    desc: 'Warm chime — bonus crystal collected (500 pts).',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'extralife',
+    desc: 'Triumphant fanfare — extra life earned at 50k milestone.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'gapbonus',
+    desc: 'Bright sparkle — gap crossing bonus (10× multiplier).',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'resonance',
+    desc: 'Deep swell — resonance gauge peaked, no more balls.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'cleartick',
+    desc: 'Quick soft tick — level clearance bonus counting.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'pause',
+    desc: 'Soft thud — game paused.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'unpause',
+    desc: 'Light ting — game unpaused.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'lifelost',
+    desc: 'Sad descending tone — lost a life but still playing.',
     buttons: [{ label: 'Play', args: [] }],
   },
 ];
@@ -356,6 +575,288 @@ function playSequence() {
 }
 
 buildDots();
+
+// ── Bell Engine Tweaker ──
+
+// Deep-copy the initial config so we can reset
+const DEFAULT_CONFIG = JSON.parse(JSON.stringify(BELL_CONFIG));
+
+function makeSlider(container, label, value, min, max, step, onChange) {
+  const item = document.createElement('div');
+  item.className = 'param-item';
+
+  const lbl = document.createElement('label');
+  lbl.textContent = label;
+
+  const inp = document.createElement('input');
+  inp.type = 'range';
+  inp.min = min; inp.max = max; inp.step = step;
+  inp.value = value;
+
+  const val = document.createElement('span');
+  val.className = 'val';
+  val.textContent = Number(value).toFixed(step < 0.01 ? 3 : 2);
+
+  inp.oninput = () => {
+    const v = parseFloat(inp.value);
+    val.textContent = v.toFixed(step < 0.01 ? 3 : 2);
+    onChange(v);
+  };
+
+  item.append(lbl, inp, val);
+  container.appendChild(item);
+  return inp;
+}
+
+function buildPartialRows() {
+  const container = document.getElementById('partial-rows');
+  container.innerHTML = '';
+  BELL_CONFIG.partials.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'partial-row';
+
+    const idx = document.createElement('span');
+    idx.className = 'idx';
+    idx.textContent = i + 1;
+    row.appendChild(idx);
+
+    // Ratio
+    const r = document.createElement('div');
+    makeSlider(r, '', p.ratio, 0.1, 12, 0.001, v => { BELL_CONFIG.partials[i].ratio = v; });
+    row.appendChild(r);
+
+    // Amp
+    const a = document.createElement('div');
+    makeSlider(a, '', p.amp, 0, 1, 0.01, v => { BELL_CONFIG.partials[i].amp = v; });
+    row.appendChild(a);
+
+    // Decay
+    const d = document.createElement('div');
+    makeSlider(d, '', p.decay, 0.05, 2, 0.01, v => { BELL_CONFIG.partials[i].decay = v; });
+    row.appendChild(d);
+
+    // Pan
+    const pn = document.createElement('div');
+    makeSlider(pn, '', p.pan, -1, 1, 0.01, v => { BELL_CONFIG.partials[i].pan = v; });
+    row.appendChild(pn);
+
+    container.appendChild(row);
+  });
+}
+
+function buildEnvParams() {
+  const c = document.getElementById('env-params');
+  c.innerHTML = '';
+  const e = BELL_CONFIG.envelope;
+  makeSlider(c, 'Attack', e.attackTime, 0.001, 0.05, 0.001, v => { e.attackTime = v; });
+  makeSlider(c, 'Sustain Lvl', e.sustainLevel, 0.05, 0.9, 0.01, v => { e.sustainLevel = v; });
+  makeSlider(c, 'Sustain Pt', e.sustainPoint, 0.1, 0.8, 0.01, v => { e.sustainPoint = v; });
+}
+
+function buildStrikeParams() {
+  const c = document.getElementById('strike-params');
+  c.innerHTML = '';
+  const s = BELL_CONFIG.strike;
+  makeSlider(c, 'Gain', s.gain, 0, 0.5, 0.01, v => { s.gain = v; });
+  makeSlider(c, 'Freq Mult', s.freqMult, 0.5, 6, 0.1, v => { s.freqMult = v; });
+  makeSlider(c, 'Q', s.Q, 0.3, 8, 0.1, v => { s.Q = v; });
+  makeSlider(c, 'Duration', s.duration, 0.005, 0.12, 0.005, v => { s.duration = v; });
+}
+
+function buildChorusParams() {
+  const c = document.getElementById('chorus-params');
+  c.innerHTML = '';
+  makeSlider(c, 'Detune ¢', BELL_CONFIG.chorus.detuneCents, 0, 20, 0.5,
+    v => { BELL_CONFIG.chorus.detuneCents = v; });
+}
+
+function copyConfig() {
+  const cfg = BELL_CONFIG;
+  const pad = (n, d = 2) => n.toFixed(d).padStart(d + 3);
+  let s = 'const BELL_CONFIG = {\n  partials: [\n';
+  for (const p of cfg.partials) {
+    s += `    { ratio: ${pad(p.ratio, 3)}, amp: ${pad(p.amp)}, decay: ${pad(p.decay)}, pan: ${pad(p.pan)} },\n`;
+  }
+  s += '  ],\n  envelope: {\n';
+  s += `    attackTime:   ${cfg.envelope.attackTime},\n`;
+  s += `    sustainLevel: ${cfg.envelope.sustainLevel},\n`;
+  s += `    sustainPoint: ${cfg.envelope.sustainPoint},\n`;
+  s += '  },\n  strike: {\n';
+  s += `    minDuration: ${cfg.strike.minDuration},\n`;
+  s += `    freqMult:    ${cfg.strike.freqMult},\n`;
+  s += `    maxFreq:     ${cfg.strike.maxFreq},\n`;
+  s += `    Q:           ${cfg.strike.Q},\n`;
+  s += `    gain:        ${cfg.strike.gain},\n`;
+  s += `    duration:    ${cfg.strike.duration},\n`;
+  s += '  },\n  chorus: {\n';
+  s += `    detuneCents: ${cfg.chorus.detuneCents},\n`;
+  s += '  },\n};\n';
+
+  const ta = document.getElementById('config-output');
+  ta.value = s;
+  ta.style.display = 'block';
+  ta.select();
+  navigator.clipboard.writeText(s).catch(() => {});
+}
+
+function resetConfig() {
+  Object.assign(BELL_CONFIG, JSON.parse(JSON.stringify(DEFAULT_CONFIG)));
+  buildPartialRows();
+  buildEnvParams();
+  buildStrikeParams();
+  buildChorusParams();
+  document.getElementById('config-output').style.display = 'none';
+}
+
+// ── Presets ──
+
+const PRESETS = {
+  'Crystal (default)': DEFAULT_CONFIG,
+
+  // Warm, woody, fundamental-heavy with fast upper decay — like a marimba
+  'Marimba': {
+    partials: [
+      { ratio: 0.500, amp: 0.10, decay: 0.60, pan:  0.00 },
+      { ratio: 1.000, amp: 0.70, decay: 1.00, pan:  0.00 },
+      { ratio: 2.000, amp: 0.15, decay: 0.35, pan:  0.10 },
+      { ratio: 3.000, amp: 0.06, decay: 0.20, pan: -0.12 },
+      { ratio: 4.000, amp: 0.03, decay: 0.12, pan:  0.15 },
+    ],
+    envelope: { attackTime: 0.002, sustainLevel: 0.08, sustainPoint: 0.20 },
+    strike:   { minDuration: 0.04, freqMult: 4.0, maxFreq: 14000, Q: 0.8, gain: 0.30, duration: 0.015 },
+    chorus:   { detuneCents: 1 },
+  },
+
+  // Dense inharmonic partials, long sustain, shimmering beating — Javanese gamelan
+  'Gamelan': {
+    partials: [
+      { ratio: 1.000, amp: 0.55, decay: 1.20, pan:  0.00 },
+      { ratio: 1.520, amp: 0.40, decay: 1.10, pan:  0.25 },
+      { ratio: 2.320, amp: 0.30, decay: 0.90, pan: -0.30 },
+      { ratio: 3.110, amp: 0.22, decay: 0.75, pan:  0.35 },
+      { ratio: 3.870, amp: 0.14, decay: 0.60, pan: -0.40 },
+      { ratio: 5.180, amp: 0.08, decay: 0.45, pan:  0.45 },
+      { ratio: 6.720, amp: 0.05, decay: 0.35, pan: -0.50 },
+    ],
+    envelope: { attackTime: 0.002, sustainLevel: 0.50, sustainPoint: 0.40 },
+    strike:   { minDuration: 0.06, freqMult: 3.0, maxFreq: 9000, Q: 2.5, gain: 0.22, duration: 0.025 },
+    chorus:   { detuneCents: 5 },
+  },
+
+  // Bright, glassy, high partials dominant — like striking a wine glass
+  'Glass': {
+    partials: [
+      { ratio: 1.000, amp: 0.30, decay: 1.30, pan:  0.00 },
+      { ratio: 2.000, amp: 0.50, decay: 1.10, pan:  0.15 },
+      { ratio: 3.010, amp: 0.35, decay: 0.90, pan: -0.20 },
+      { ratio: 4.020, amp: 0.25, decay: 0.75, pan:  0.30 },
+      { ratio: 5.040, amp: 0.18, decay: 0.60, pan: -0.35 },
+      { ratio: 7.060, amp: 0.10, decay: 0.45, pan:  0.40 },
+      { ratio: 9.080, amp: 0.06, decay: 0.35, pan: -0.45 },
+    ],
+    envelope: { attackTime: 0.004, sustainLevel: 0.45, sustainPoint: 0.35 },
+    strike:   { minDuration: 0.08, freqMult: 5.0, maxFreq: 14000, Q: 3.5, gain: 0.10, duration: 0.020 },
+    chorus:   { detuneCents: 4 },
+  },
+
+  // Slow attack, wide chorus, dreamy sustain — ambient pad feel
+  'Ethereal': {
+    partials: [
+      { ratio: 0.500, amp: 0.35, decay: 1.40, pan: -0.15 },
+      { ratio: 1.000, amp: 0.50, decay: 1.30, pan:  0.00 },
+      { ratio: 1.500, amp: 0.30, decay: 1.15, pan:  0.20 },
+      { ratio: 2.000, amp: 0.25, decay: 1.00, pan: -0.25 },
+      { ratio: 3.000, amp: 0.12, decay: 0.80, pan:  0.35 },
+      { ratio: 5.000, amp: 0.05, decay: 0.50, pan: -0.40 },
+    ],
+    envelope: { attackTime: 0.040, sustainLevel: 0.60, sustainPoint: 0.50 },
+    strike:   { minDuration: 9999, freqMult: 2.5, maxFreq: 11000, Q: 1.8, gain: 0, duration: 0.04 },
+    chorus:   { detuneCents: 12 },
+  },
+
+  // Tight pluck, strong strike, fast decay — like a kalimba / thumb piano
+  'Kalimba': {
+    partials: [
+      { ratio: 1.000, amp: 0.65, decay: 0.80, pan:  0.00 },
+      { ratio: 2.000, amp: 0.20, decay: 0.40, pan:  0.12 },
+      { ratio: 3.000, amp: 0.08, decay: 0.25, pan: -0.15 },
+      { ratio: 5.330, amp: 0.04, decay: 0.18, pan:  0.20 },
+    ],
+    envelope: { attackTime: 0.001, sustainLevel: 0.15, sustainPoint: 0.15 },
+    strike:   { minDuration: 0.03, freqMult: 3.5, maxFreq: 14000, Q: 1.2, gain: 0.35, duration: 0.010 },
+    chorus:   { detuneCents: 2 },
+  },
+
+  // Heavy sub, deep resonance, slow decay — cathedral bell
+  'Cathedral': {
+    partials: [
+      { ratio: 0.250, amp: 0.20, decay: 1.50, pan:  0.00 },
+      { ratio: 0.500, amp: 0.45, decay: 1.40, pan: -0.08 },
+      { ratio: 1.000, amp: 0.55, decay: 1.20, pan:  0.00 },
+      { ratio: 1.183, amp: 0.20, decay: 1.00, pan:  0.15 },
+      { ratio: 2.000, amp: 0.30, decay: 0.85, pan: -0.18 },
+      { ratio: 2.756, amp: 0.22, decay: 0.70, pan:  0.22 },
+      { ratio: 3.657, amp: 0.12, decay: 0.55, pan: -0.28 },
+      { ratio: 5.404, amp: 0.06, decay: 0.40, pan:  0.32 },
+      { ratio: 8.933, amp: 0.02, decay: 0.28, pan: -0.38 },
+    ],
+    envelope: { attackTime: 0.005, sustainLevel: 0.55, sustainPoint: 0.45 },
+    strike:   { minDuration: 0.08, freqMult: 1.8, maxFreq: 6000, Q: 1.0, gain: 0.20, duration: 0.050 },
+    chorus:   { detuneCents: 4 },
+  },
+
+  // Harsh, metallic, lots of high inharmonics — steel drum / oil barrel
+  'Steel Drum': {
+    partials: [
+      { ratio: 1.000, amp: 0.50, decay: 0.70, pan:  0.00 },
+      { ratio: 2.400, amp: 0.40, decay: 0.55, pan:  0.20 },
+      { ratio: 3.890, amp: 0.30, decay: 0.42, pan: -0.25 },
+      { ratio: 4.950, amp: 0.18, decay: 0.35, pan:  0.30 },
+      { ratio: 6.280, amp: 0.12, decay: 0.28, pan: -0.35 },
+      { ratio: 8.100, amp: 0.06, decay: 0.22, pan:  0.40 },
+    ],
+    envelope: { attackTime: 0.002, sustainLevel: 0.25, sustainPoint: 0.25 },
+    strike:   { minDuration: 0.05, freqMult: 2.0, maxFreq: 10000, Q: 1.5, gain: 0.25, duration: 0.020 },
+    chorus:   { detuneCents: 6 },
+  },
+
+  // Pure, clean, near-harmonic — like a music box
+  'Music Box': {
+    partials: [
+      { ratio: 1.000, amp: 0.60, decay: 1.00, pan:  0.00 },
+      { ratio: 2.000, amp: 0.25, decay: 0.70, pan:  0.10 },
+      { ratio: 3.000, amp: 0.10, decay: 0.45, pan: -0.12 },
+      { ratio: 4.000, amp: 0.05, decay: 0.30, pan:  0.15 },
+    ],
+    envelope: { attackTime: 0.001, sustainLevel: 0.20, sustainPoint: 0.20 },
+    strike:   { minDuration: 0.04, freqMult: 5.0, maxFreq: 16000, Q: 4.0, gain: 0.28, duration: 0.008 },
+    chorus:   { detuneCents: 1.5 },
+  },
+};
+
+function loadPreset(name) {
+  const preset = PRESETS[name];
+  if (!preset) return;
+  applyConfig(preset);
+  buildPartialRows();
+  buildEnvParams();
+  buildStrikeParams();
+  buildChorusParams();
+}
+
+// Build preset buttons
+const presetContainer = document.getElementById('preset-btns');
+for (const name of Object.keys(PRESETS)) {
+  const btn = document.createElement('button');
+  btn.textContent = name;
+  btn.onclick = () => { loadPreset(name); flash(btn); };
+  presetContainer.appendChild(btn);
+}
+
+buildPartialRows();
+buildEnvParams();
+buildStrikeParams();
+buildChorusParams();
 </script>
 </body>
 </html>

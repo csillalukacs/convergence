@@ -201,6 +201,7 @@ function animate() {
 function togglePause() {
   if (!gameActive) return;
   gamePaused = !gamePaused;
+  playSound(gamePaused ? 'pause' : 'unpause');
   document.getElementById('pause-screen').style.display = gamePaused ? 'flex' : 'none';
   if (!gamePaused) clock.getDelta(); // discard time accumulated while paused
 }
@@ -252,7 +253,7 @@ function gameOver() {
     document.getElementById('go-title').textContent = 'CONVERGENCE LOST';
   } else {
     score = track.levelStartScore;
-    playSound('gameover');
+    playSound('lifelost');
     showBanner('LIFE LOST');
     resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
   }
@@ -279,6 +280,7 @@ function levelUp() {
       const s = track.lastFrontS + (i + 0.5) * BALL_SPACING;
       setTimeout(() => {
         const pos = track.getPathPosFromS(Math.min(s, track.pathLength));
+        playSound('cleartick');
         spawnScoreText(pos, 100);
         score += 100;
         updateHUD();
@@ -306,6 +308,7 @@ function updateHUD() {
     nextExtraLife += 50000;
     document.getElementById('lives-val').textContent = '♥'.repeat(Math.max(0, lives));
     document.getElementById('lives-label').textContent = lives === 0 ? 'Last life!' : 'Lives:';
+    playSound('extralife');
     showBanner('EXTRA LIFE!');
   }
   track.progress = Math.min(1, (score - track.levelStartScore) / track.progressMax);
@@ -313,6 +316,7 @@ function updateHUD() {
   if (track.progress >= 1 && !track.spawningDone) {
     track.spawningDone = true;
     track.rollBackTimer = 2.0; // ROLL_BACK_DURATION
+    playSound('resonance');
     showBanner('NO MORE BALLS!');
   }
 }

@@ -411,6 +411,7 @@ class Track {
 
       if (this.pendingGapBonus && !fromChainReaction) {
         this.pendingGapBonus = false;
+        playSound('gapbonus');
         spawnGapBonusText(midPos, matchScore);
       } else if (fromChainReaction) {
         spawnComboText(midPos, this.combo, matchScore);
@@ -775,6 +776,7 @@ class Track {
             this.bonusCrystals.splice(ci, 1);
             this.bonusCrystalSpawnTimer = 14.0; // BONUS_CRYSTAL_INTERVAL
             scene.remove(proj.mesh); proj.alive = false;
+            playSound('crystal');
             score += 500;
             updateHUD();
             spawnScoreText(c.mesh.position.clone(), 500);

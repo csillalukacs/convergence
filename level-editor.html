@@ -75,6 +75,21 @@ button.danger:hover { background: #1e0a10; }
 /* z axis labels */
 .z-axis-labels { display: flex; justify-content: space-between; font-size: 9px; color: #2a3a55; margin-top: 3px; }
 
+/* ─── TRACK TABS ─── */
+#track-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+.track-tab {
+  padding: 4px 10px; font-size: 10px; cursor: pointer;
+  border: 1px solid #1e2840; border-radius: 3px;
+  background: #080c18; color: #556; font-family: monospace;
+  transition: background 0.1s, border-color 0.1s;
+}
+.track-tab:hover { background: #111828; }
+.track-tab.active { background: #0d1a2a; border-color: #3a5a80; color: #7cf; font-weight: bold; }
+.track-tab.t0 { border-left: 3px solid #3a8aff; }
+.track-tab.t1 { border-left: 3px solid #ff6a3a; }
+.track-tab.t2 { border-left: 3px solid #3aff8a; }
+.track-tab.t3 { border-left: 3px solid #ff3aff; }
+
 /* ─── CANVAS AREA ─── */
 #canvas-wrap { flex: 1; position: relative; overflow: hidden; }
 canvas { display: block; width: 100%; height: 100%; }
@@ -103,6 +118,15 @@ canvas { display: block; width: 100%; height: 100%; }
       Arrows: nudge (Shift = 1 unit)<br>
       [ / ]: decrease/increase Z<br>
       Ctrl+Z / Z: undo
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3>Tracks</h3>
+    <div id="track-tabs"></div>
+    <div class="btn-row">
+      <button onclick="addTrack()">+ Add Track</button>
+      <button class="danger" onclick="removeTrack()">− Remove Track</button>
     </div>
   </div>
 
@@ -175,7 +199,7 @@ canvas { display: block; width: 100%; height: 100%; }
 
   <div class="sec">
     <h3>Import (paste existing map)</h3>
-    <textarea id="import-area" style="height:64px;resize:vertical" placeholder="Paste a MAPS entry { name: '...', waypoints: [...] } here"></textarea>
+    <textarea id="import-area" style="height:64px;resize:vertical" placeholder="Paste a MAPS entry (single or multi-track) here"></textarea>
     <div class="btn-row"><button onclick="importLevel()">Import</button></div>
   </div>
 
@@ -188,6 +212,7 @@ canvas { display: block; width: 100%; height: 100%; }
       <option value="figure8">Figure of Eight</option>
       <option value="paisley">Paisley Scroll</option>
       <option value="wideSweep">Wide Sweep</option>
+      <option value="dualHelix">Dual Helix (2 tracks)</option>
     </select>
     <button onclick="loadExample()">Load</button>
   </div>
@@ -209,13 +234,17 @@ const WORLD_H      = 14;
 const SNAP         = 0.25;
 
 // ─── STATE ───
-let waypoints   = [];
+let allTracks   = [[]];      // array of waypoint arrays, one per track
+let activeTrack = 0;         // which track is being edited
+let waypoints   = allTracks[0]; // alias to active track's waypoints
 let selectedIdx = -1;
 let dragIdx     = -1;
 let dragOffX    = 0, dragOffY = 0;
 let history     = [];
 let mouseWorld  = { x: 0, y: 0 };
 let shiftHeld   = false;
+
+const TRACK_COLORS = ['#3a8aff', '#ff6a3a', '#3aff8a', '#ff3aff'];
 
 // ─── CANVAS ───
 const canvas = document.getElementById('canvas');
@@ -298,12 +327,27 @@ function render() {
 
   drawGrid(w, h);
 
+  // Draw inactive tracks first (dimmed)
+  for (let ti = 0; ti < allTracks.length; ti++) {
+    if (ti === activeTrack) continue;
+    const tw = allTracks[ti];
+    if (tw.length < 2) continue;
+    const ts = sampleCurve(tw);
+    const tl = calcArcLengths(ts);
+    drawPathGlow(ts, TRACK_COLORS[ti], 0.05);
+    drawPathColored(ts, TRACK_COLORS[ti], 0.35);
+    drawBallMarkers(ts, tl, TRACK_COLORS[ti], 0.08);
+    drawSkull(tw[tw.length - 1]);
+    drawStartMarker(tw[0]);
+  }
+
+  // Draw active track
   const samples = waypoints.length >= 2 ? sampleCurve(waypoints) : null;
   const lens    = samples ? calcArcLengths(samples) : null;
   const pathLen = lens ? lens[lens.length-1] : 0;
 
   if (samples) {
-    drawPathGlow(samples);
+    drawPathGlow(samples, TRACK_COLORS[activeTrack], 0.10);
     drawPath(samples);
     drawBallMarkers(samples, lens);
     drawSkull(waypoints[waypoints.length-1]);
@@ -349,10 +393,17 @@ function drawGrid(w, h) {
   ctx.fillText('game bounds', bl.x + 4, bl.y + 3);
 }
 
-function drawPathGlow(samples) {
+function drawPathGlow(samples, color = 'rgba(50, 120, 200, 0.10)', opacity = null) {
   const s = pxPerUnit();
   ctx.save();
-  ctx.strokeStyle = 'rgba(50, 120, 200, 0.10)';
+  if (opacity !== null) {
+    // Parse hex color to rgba
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substring(0,2), 16), g = parseInt(hex.substring(2,4), 16), b = parseInt(hex.substring(4,6), 16);
+    ctx.strokeStyle = `rgba(${r},${g},${b},${opacity})`;
+  } else {
+    ctx.strokeStyle = color;
+  }
   ctx.lineWidth = BALL_RADIUS * 2 * s;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.beginPath();
@@ -362,6 +413,20 @@ function drawPathGlow(samples) {
   }
   ctx.stroke();
   ctx.restore();
+}
+
+function drawPathColored(samples, color, opacity = 1) {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substring(0,2), 16), g = parseInt(hex.substring(2,4), 16), b = parseInt(hex.substring(4,6), 16);
+  ctx.strokeStyle = `rgba(${r},${g},${b},${opacity})`;
+  ctx.lineWidth = 2 * dpr;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < samples.length; i++) {
+    const c = w2c(samples[i].x, samples[i].y);
+    i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y);
+  }
+  ctx.stroke();
 }
 
 // Draw path as short segments, color-tinted by z so crossings are visually distinguishable
@@ -389,16 +454,26 @@ function drawPath(samples) {
   }
 }
 
-function drawBallMarkers(samples, lens) {
+function drawBallMarkers(samples, lens, color = null, fillOpacity = 0.10) {
   const s = pxPerUnit();
   const r = BALL_RADIUS * s;
   let next = 0;
+  let fillCol, strokeCol;
+  if (color) {
+    const hex = color.replace('#', '');
+    const cr = parseInt(hex.substring(0,2), 16), cg = parseInt(hex.substring(2,4), 16), cb = parseInt(hex.substring(4,6), 16);
+    fillCol = `rgba(${cr},${cg},${cb},${fillOpacity})`;
+    strokeCol = `rgba(${cr},${cg},${cb},${fillOpacity * 2.8})`;
+  } else {
+    fillCol = 'rgba(60, 130, 200, 0.10)';
+    strokeCol = 'rgba(60, 130, 200, 0.28)';
+  }
   for (let i = 0; i < samples.length; i++) {
     if (lens[i] >= next) {
       const c = w2c(samples[i].x, samples[i].y);
       ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
-      ctx.fillStyle   = 'rgba(60, 130, 200, 0.10)';
-      ctx.strokeStyle = 'rgba(60, 130, 200, 0.28)';
+      ctx.fillStyle   = fillCol;
+      ctx.strokeStyle = strokeCol;
       ctx.lineWidth = 1;
       ctx.fill(); ctx.stroke();
       next += BALL_SPACING;
@@ -505,11 +580,15 @@ function drawWaypoints() {
 function updateStats(pathLen) {
   const ballCount = Math.floor(pathLen / BALL_SPACING);
   const hasZ = waypoints.some(p => (p.z ?? 0) !== 0);
-  document.getElementById('stats').innerHTML =
-    `Path length: <b>${pathLen.toFixed(1)}</b> units<br>` +
+  let html =
+    `Track ${activeTrack + 1} length: <b>${pathLen.toFixed(1)}</b> units<br>` +
     `Ball capacity: <b>~${ballCount}</b> balls<br>` +
     `Waypoints: <b>${waypoints.length}</b>` +
     (hasZ ? `<br>Depth layers: <b style="color:#aa7733">yes</b>` : '');
+  if (allTracks.length > 1) {
+    html += `<br>Tracks: <b>${allTracks.length}</b>`;
+  }
+  document.getElementById('stats').innerHTML = html;
 }
 
 // ─── INPUT HELPERS ───
@@ -532,8 +611,41 @@ function nearestWP(cx, cy, thresh = 14 * dpr) {
 function snapV(v) { return shiftHeld ? Math.round(v / SNAP) * SNAP : Math.round(v * 100) / 100; }
 
 function saveHistory() {
-  history.push(waypoints.map(p => ({...p})));
+  history.push({ tracks: allTracks.map(t => t.map(p => ({...p}))), active: activeTrack });
   if (history.length > 80) history.shift();
+}
+
+function switchTrack(idx) {
+  if (idx < 0 || idx >= allTracks.length) return;
+  activeTrack = idx;
+  waypoints = allTracks[activeTrack];
+  selectedIdx = -1;
+  dragIdx = -1;
+  updateAll();
+}
+
+function addTrack() {
+  if (allTracks.length >= 4) return;
+  saveHistory();
+  allTracks.push([]);
+  switchTrack(allTracks.length - 1);
+}
+
+function removeTrack() {
+  if (allTracks.length <= 1) return;
+  saveHistory();
+  allTracks.splice(activeTrack, 1);
+  if (activeTrack >= allTracks.length) activeTrack = allTracks.length - 1;
+  waypoints = allTracks[activeTrack];
+  selectedIdx = -1;
+  updateAll();
+}
+
+function updateTrackTabs() {
+  const el = document.getElementById('track-tabs');
+  el.innerHTML = allTracks.map((t, i) =>
+    `<div class="track-tab t${i}${i === activeTrack ? ' active' : ''}" onclick="switchTrack(${i})">Track ${i + 1} (${t.length})</div>`
+  ).join('');
 }
 
 // ─── MOUSE EVENTS ───
@@ -567,7 +679,8 @@ canvas.addEventListener('mousedown', e => {
       render(); updateWpList(); updateWpDetail();
     } else {
       saveHistory();
-      waypoints.push({ x: snapV(mouseWorld.x), y: snapV(mouseWorld.y), z: 0 });
+      allTracks[activeTrack].push({ x: snapV(mouseWorld.x), y: snapV(mouseWorld.y), z: 0 });
+      waypoints = allTracks[activeTrack];
       selectedIdx = waypoints.length - 1;
       updateAll();
     }
@@ -576,7 +689,8 @@ canvas.addEventListener('mousedown', e => {
   if (e.button === 2) {
     if (hit >= 0) {
       saveHistory();
-      waypoints.splice(hit, 1);
+      allTracks[activeTrack].splice(hit, 1);
+      waypoints = allTracks[activeTrack];
       if (selectedIdx >= waypoints.length) selectedIdx = waypoints.length - 1;
       updateAll();
     }
@@ -607,7 +721,8 @@ window.addEventListener('keydown', e => {
 
   if ((e.code === 'Delete' || e.code === 'Backspace') && selectedIdx >= 0) {
     saveHistory();
-    waypoints.splice(selectedIdx, 1);
+    allTracks[activeTrack].splice(selectedIdx, 1);
+    waypoints = allTracks[activeTrack];
     if (selectedIdx >= waypoints.length) selectedIdx = waypoints.length - 1;
     updateAll(); return;
   }
@@ -643,7 +758,10 @@ window.addEventListener('keyup', e => { if (e.key === 'Shift') shiftHeld = false
 // ─── ACTIONS ───
 function undoLast() {
   if (!history.length) return;
-  waypoints = history.pop();
+  const snap = history.pop();
+  allTracks = snap.tracks;
+  activeTrack = Math.min(snap.active, allTracks.length - 1);
+  waypoints = allTracks[activeTrack];
   if (selectedIdx >= waypoints.length) selectedIdx = waypoints.length - 1;
   updateAll();
 }
@@ -651,7 +769,9 @@ function undoLast() {
 function clearAll() {
   if (!waypoints.length) return;
   saveHistory();
-  waypoints = []; selectedIdx = -1;
+  allTracks[activeTrack] = [];
+  waypoints = allTracks[activeTrack];
+  selectedIdx = -1;
   updateAll();
 }
 
@@ -729,20 +849,38 @@ function selectWP(i) {
 }
 
 // ─── OUTPUT GENERATION ───
+function formatWaypoints(wps, indent) {
+  let s = '';
+  for (const wp of wps) {
+    const z     = wz(wp);
+    const zPart = z !== 0 ? `, z: ${String(z.toFixed(1)).padStart(4)}` : '';
+    s += `${indent}{ x: ${String(wp.x.toFixed(2)).padStart(6)}, y: ${String(wp.y.toFixed(2)).padStart(6)}${zPart} },\n`;
+  }
+  return s;
+}
+
 function updateOutput() {
   const mapName   = document.getElementById('mapName').value.trim() || 'Untitled';
   const colors    = parseInt(document.getElementById('colors').value) || 3;
   const speed     = parseFloat(document.getElementById('chainSpeed').value) || 2.4;
   const threshold = parseInt(document.getElementById('threshold').value) || 750;
 
-  // MAPS entry
-  let map = `{\n  name: '${mapName.replace(/'/g, "\\'")}',\n  waypoints: [\n`;
-  for (const wp of waypoints) {
-    const z     = wz(wp);
-    const zPart = z !== 0 ? `, z: ${String(z.toFixed(1)).padStart(4)}` : '';
-    map += `    { x: ${String(wp.x.toFixed(2)).padStart(6)}, y: ${String(wp.y.toFixed(2)).padStart(6)}${zPart} },\n`;
+  let map;
+  if (allTracks.length === 1) {
+    // Single-track format
+    map = `{\n  name: '${mapName.replace(/'/g, "\\'")}',\n  waypoints: [\n`;
+    map += formatWaypoints(allTracks[0], '    ');
+    map += `  ],\n},`;
+  } else {
+    // Multi-track format
+    map = `{\n  name: '${mapName.replace(/'/g, "\\'")}',\n  tracks: [\n`;
+    for (let i = 0; i < allTracks.length; i++) {
+      map += `    {\n      waypoints: [\n`;
+      map += formatWaypoints(allTracks[i], '        ');
+      map += `      ],\n    },\n`;
+    }
+    map += `  ],\n},`;
   }
-  map += `  ],\n},`;
 
   // LEVELS entry
   const level = `{ map: ???, colors: ${colors}, chainSpeed: ${speed.toFixed(1)}, progressThreshold: ${threshold} },`;
@@ -761,26 +899,44 @@ function copyField(fieldId, btnId) {
 }
 
 // ─── IMPORT ───
+function parseWaypointsStr(str) {
+  const cleaned = ('[' + str
+    .replace(/\{[^}]+\}/g, m => {
+      const xm = m.match(/x\s*:\s*(-?[\d.]+)/);
+      const ym = m.match(/y\s*:\s*(-?[\d.]+)/);
+      const zm = m.match(/z\s*:\s*(-?[\d.]+)/);
+      if (!xm || !ym) throw new Error('Bad waypoint: ' + m);
+      return `{"x":${xm[1]},"y":${ym[1]}${zm ? `,"z":${zm[1]}` : ''}}`;
+    }) + ']').replace(/,(\s*\])/, '$1');
+  const parsed = JSON.parse(cleaned);
+  return parsed.map(p => ({ x: +p.x, y: +p.y, z: +(p.z ?? 0) }));
+}
+
 function importLevel() {
   const raw = document.getElementById('import-area').value.trim();
   if (!raw) return;
   try {
-    const wpMatch = raw.match(/waypoints\s*:\s*\[([\s\S]*?)\]/);
-    if (!wpMatch) throw new Error('No waypoints array found');
-    // Support optional z field
-    const cleaned = ('[' + wpMatch[1]
-      .replace(/\{[^}]+\}/g, m => {
-        const xm = m.match(/x\s*:\s*(-?[\d.]+)/);
-        const ym = m.match(/y\s*:\s*(-?[\d.]+)/);
-        const zm = m.match(/z\s*:\s*(-?[\d.]+)/);
-        if (!xm || !ym) throw new Error('Bad waypoint: ' + m);
-        return `{"x":${xm[1]},"y":${ym[1]}${zm ? `,"z":${zm[1]}` : ''}}`;
-      }) + ']').replace(/,(\s*\])/, '$1');
-    const parsed = JSON.parse(cleaned);
-    if (!parsed.length) throw new Error('Empty waypoints');
-
     saveHistory();
-    waypoints = parsed.map(p => ({ x: +p.x, y: +p.y, z: +(p.z ?? 0) }));
+
+    // Check for multi-track format: tracks: [ { waypoints: [...] }, ... ]
+    const tracksMatch = raw.match(/tracks\s*:\s*\[([\s\S]*)\]\s*,?\s*\}/);
+    if (tracksMatch) {
+      // Extract each { waypoints: [...] } block
+      const wpBlocks = [...tracksMatch[1].matchAll(/waypoints\s*:\s*\[([\s\S]*?)\]/g)];
+      if (wpBlocks.length === 0) throw new Error('No waypoints found in tracks');
+      allTracks = wpBlocks.map(m => parseWaypointsStr(m[1]));
+      activeTrack = 0;
+      waypoints = allTracks[0];
+    } else {
+      // Single-track format
+      const wpMatch = raw.match(/waypoints\s*:\s*\[([\s\S]*?)\]/);
+      if (!wpMatch) throw new Error('No waypoints array found');
+      const parsed = parseWaypointsStr(wpMatch[1]);
+      if (!parsed.length) throw new Error('Empty waypoints');
+      allTracks = [parsed];
+      activeTrack = 0;
+      waypoints = allTracks[0];
+    }
 
     // Parse map name
     const nm = raw.match(/name\s*:\s*['"]([^'"]+)['"]/);
@@ -846,6 +1002,23 @@ const EXAMPLES = {
       {x:-17.99,y: -1.24},
     ],
   },
+  dualHelix: {
+    name: 'Dual Helix',
+    tracks: [
+      { waypoints: [
+        {x:-14,y:10},{x:-8,y:12},{x:-1,y:10},{x:6,y:12},{x:12,y:9},
+        {x:14,y:5},{x:10,y:2},{x:4,y:4},{x:-2,y:6},{x:-8,y:4},
+        {x:-12,y:2},{x:-10,y:-1},{x:-4,y:0},{x:3,y:2},{x:8,y:0},
+        {x:5,y:-2},{x:0,y:-1},{x:-3,y:1},
+      ]},
+      { waypoints: [
+        {x:14,y:-10},{x:8,y:-12},{x:1,y:-10},{x:-6,y:-12},{x:-12,y:-9},
+        {x:-14,y:-5},{x:-10,y:-2},{x:-4,y:-4},{x:2,y:-6},{x:8,y:-4},
+        {x:12,y:-2},{x:10,y:1},{x:4,y:0},{x:-3,y:-2},{x:-8,y:0},
+        {x:-5,y:2},{x:0,y:1},{x:3,y:-1},
+      ]},
+    ],
+  },
 };
 
 function loadExample() {
@@ -853,7 +1026,13 @@ function loadExample() {
   if (!key || !EXAMPLES[key]) return;
   saveHistory();
   const ex = EXAMPLES[key];
-  waypoints = ex.waypoints.map(p => ({x: p.x, y: p.y, z: p.z ?? 0}));
+  if (ex.tracks) {
+    allTracks = ex.tracks.map(t => t.waypoints.map(p => ({x: p.x, y: p.y, z: p.z ?? 0})));
+  } else {
+    allTracks = [ex.waypoints.map(p => ({x: p.x, y: p.y, z: p.z ?? 0}))];
+  }
+  activeTrack = 0;
+  waypoints = allTracks[0];
   document.getElementById('mapName').value = ex.name;
   selectedIdx = -1;
   updateAll();
@@ -861,6 +1040,7 @@ function loadExample() {
 
 // ─── MAIN UPDATE ───
 function updateAll(regen = true) {
+  updateTrackTabs();
   updateWpList();
   updateWpDetail();
   if (regen) updateOutput();

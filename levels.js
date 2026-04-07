@@ -190,11 +190,13 @@ const MAPS = [
 
 const COLOR_TIERS = [3, 4, 5, 6];
 
+const BASE_CHAIN_SPEED = 2.5;
+
 const TIER_CONFIG = [
-  { speeds: [2.2, 2.5, 2.8, 3.1, 3.4], thresholds: [ 750,  900, 1100, 1300, 1500], parTime:  70 },
-  { speeds: [2.4, 2.7, 3.0, 3.3, 3.6], thresholds: [1000, 1200, 1500, 1800, 2100], parTime:  80 },
-  { speeds: [2.5, 2.8, 3.1, 3.4, 3.7], thresholds: [1200, 1500, 1800, 2200, 2600], parTime: 100 },
-  { speeds: [2.6, 2.9, 3.2, 3.5, 3.8], thresholds: [1400, 1700, 2100, 2500, 3000], parTime: 110 },
+  { thresholds: [ 750,  900, 1100, 1300, 1500], parTime:  70 },
+  { thresholds: [1000, 1200, 1500, 1800, 2100], parTime:  80 },
+  { thresholds: [1200, 1500, 1800, 2200, 2600], parTime: 100 },
+  { thresholds: [1400, 1700, 2100, 2500, 3000], parTime: 110 },
 ];
 
 function generateLevels() {
@@ -206,7 +208,7 @@ function generateLevels() {
       levels.push({
         map:                mi,
         colors:             colors,
-        chainSpeed:         cfg.speeds[mi] || cfg.speeds[cfg.speeds.length - 1],
+        chainSpeed:         BASE_CHAIN_SPEED,
         progressThreshold:  cfg.thresholds[mi] || cfg.thresholds[cfg.thresholds.length - 1],
         parTime:            cfg.parTime,
       });

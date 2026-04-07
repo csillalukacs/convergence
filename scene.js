@@ -56,23 +56,24 @@ function createShooter() {
   shooterPivot.position.set(SHOOTER_POS.x, SHOOTER_POS.y, 0);
   scene.add(shooterPivot);
 
-  // Crystal base disc
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.75, 0.4, 16),
-    new THREE.MeshStandardMaterial({ color: 0x224466, metalness: 0.9, roughness: 0.1, emissive: 0x112233 }));
-  base.rotation.x = Math.PI / 2; shooterPivot.add(base);
-
-  // Glow ring
-  shooterPivot.add(new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.06, 8, 16),
-    new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.8, roughness: 0.0, emissive: 0x336699 })));
-
-  // Crystal barrel
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.20, 1.6, 8),
-    new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.8, roughness: 0.05, emissive: 0x112244, transparent: true, opacity: 0.85 }));
-  barrel.position.y = 0.9; shooterPivot.add(barrel);
-
-  const tip = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.04, 6, 12),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.0, emissive: 0x4488aa }));
-  tip.position.y = 1.65; shooterPivot.add(tip);
+  // Arcane Orb — floating crystal orb with orbiting rings
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12),
+    new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.9, roughness: 0.0, emissive: 0x4488cc, transparent: true, opacity: 0.8 }));
+  shooterPivot.add(orb);
+  const inner = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10),
+    new THREE.MeshBasicMaterial({ color: 0xaaddff, transparent: true, opacity: 0.4 }));
+  shooterPivot.add(inner);
+  for (const ra of [0, Math.PI / 3, -Math.PI / 3]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.65, 0.03, 8, 24),
+      new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.9, roughness: 0.0, emissive: 0x6699cc }));
+    ring.rotation.x = ra; ring.rotation.y = ra * 0.5; shooterPivot.add(ring);
+  }
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.9, 6),
+    new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.8, roughness: 0.05, emissive: 0x224466, transparent: true, opacity: 0.7 }));
+  barrel.position.y = 0.8; shooterPivot.add(barrel);
+  const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.0, emissive: 0x88ccff }));
+  tip.position.y = 1.3; shooterPivot.add(tip);
 
   loadShooterBalls();
 }

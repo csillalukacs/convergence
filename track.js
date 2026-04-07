@@ -13,6 +13,9 @@
 //   particles, shockwaves         (visual arrays — from main.js)
 //   debugFastForward              (debug flag — from main.js)
 //
+
+
+
 // Score popup helpers referenced directly:
 //   spawnScoreText, spawnGapBonusText, spawnComboText, spawnChainText
 
@@ -64,6 +67,7 @@ class Track {
     // ─── Visuals owned by track ───
     this.chromaticAnimations = [];
     this.trackMeshes = [];
+    this.vortexMeshes = null; // { outer, mid, inner, core, arms[] } for danger animation
     this.bonusCrystals = [];
     this.bonusCrystalSpawnTimer = 8.0;
   }
@@ -130,65 +134,175 @@ class Track {
     t2.position.z = -0.25; scene.add(t2); this.trackMeshes.push(t2);
 
     this._createPipeEntrance();
+    this._createSkullEnd();
+  }
 
-    // Danger zone at skull end
+  _createSkullEnd() {
     const ep = this.getPathPosFromS(this.pathLength);
-    const dg = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.9, 8),
-      new THREE.MeshStandardMaterial({ color: 0xFF2255, emissive: 0x880020, metalness: 0.5, side: THREE.DoubleSide }));
-    dg.position.copy(ep); dg.position.z = -0.2; scene.add(dg); this.trackMeshes.push(dg);
-    const cm = new THREE.MeshStandardMaterial({ color: 0xFF2255, emissive: 0xaa0030, side: THREE.DoubleSide });
-    const c1 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.15), cm);
-    c1.position.copy(ep); c1.position.z = -0.15; scene.add(c1); this.trackMeshes.push(c1);
-    const c2 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.15), cm);
-    c2.position.copy(ep); c2.position.z = -0.15; c2.rotation.z = Math.PI / 2; scene.add(c2); this.trackMeshes.push(c2);
+    const add = m => { scene.add(m); this.trackMeshes.push(m); };
+
+    // Void Vortex — concentric purple rings with spiral arms and dark core
+    const outer = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.12, 12, 24),
+      new THREE.MeshStandardMaterial({ color: 0x220033, metalness: 0.9, roughness: 0.1, emissive: 0x440066 }));
+    outer.position.copy(ep); outer.position.z = -0.1; add(outer);
+    const mid = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.08, 10, 20),
+      new THREE.MeshStandardMaterial({ color: 0x8800aa, metalness: 0.7, roughness: 0.1, emissive: 0x660088 }));
+    mid.position.copy(ep); mid.position.z = -0.05; add(mid);
+    const inner = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.06, 8, 16),
+      new THREE.MeshStandardMaterial({ color: 0xcc44ff, metalness: 0.5, roughness: 0.0, emissive: 0xaa22dd }));
+    inner.position.copy(ep); add(inner);
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 12),
+      new THREE.MeshStandardMaterial({ color: 0x000000, metalness: 1.0, roughness: 0.0, emissive: 0x110022 }));
+    core.position.copy(ep); core.position.z = 0.05; add(core);
+    const arms = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const arm = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.7),
+        new THREE.MeshStandardMaterial({ color: 0x8800cc, emissive: 0x440066, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
+      arm.position.copy(ep);
+      arm.position.x += Math.cos(a) * 0.3; arm.position.y += Math.sin(a) * 0.3; arm.position.z = 0.02;
+      arm.rotation.z = a + 0.4; add(arm);
+      arms.push(arm);
+    }
+    this.vortexMeshes = { outer, mid, inner, core, arms };
+  }
+
+  _updateDangerVisuals(dt) {
+    const v = this.vortexMeshes;
+    if (!v) return;
+
+    // Danger ratio: 0 = safe, 1 = about to die
+    const frontS = this.chain.length > 0 && this.chain[0].s >= 0 ? this.chain[0].s : 0;
+    const dangerStart = this.pathLength * 0.55;
+    const danger = Math.max(0, Math.min(1, (frontS - dangerStart) / (this.pathLength * 0.43)));
+
+    const t = clock.elapsedTime;
+    const pulseSpeed = 3 + danger * 9; // faster pulse when closer
+    const pulse = 0.5 + 0.5 * Math.sin(t * pulseSpeed);
+
+    // Vortex rings: shift from purple toward red, scale up, pulse emissive
+    const rLerp = danger; // 0 = purple palette, 1 = red palette
+    const outerEmR = 0x44 + Math.round(0xbb * rLerp);
+    const outerEmG = Math.round(0x00 * (1 - rLerp) + 0x00 * rLerp);
+    const outerEmB = Math.round(0x66 * (1 - rLerp));
+    v.outer.material.emissive.setRGB(outerEmR / 255, outerEmG / 255, outerEmB / 255);
+    v.outer.material.emissiveIntensity = 1 + danger * 2 * pulse;
+    v.outer.scale.setScalar(1 + danger * 0.15 * pulse);
+
+    v.mid.material.emissive.setRGB(
+      (0x66 + 0x99 * rLerp) / 255,
+      0x00,
+      (0x88 * (1 - rLerp)) / 255
+    );
+    v.mid.material.emissiveIntensity = 1 + danger * 2.5 * pulse;
+    v.mid.scale.setScalar(1 + danger * 0.1 * pulse);
+
+    v.inner.material.emissive.setRGB(
+      (0xaa + 0x55 * rLerp) / 255,
+      (0x22 * (1 - rLerp)) / 255,
+      (0xdd * (1 - rLerp)) / 255
+    );
+    v.inner.material.emissiveIntensity = 1 + danger * 3 * pulse;
+
+    // Core glows red-hot at max danger
+    v.core.material.emissive.setRGB(
+      (0x11 + 0xcc * danger) / 255,
+      0,
+      (0x22 * (1 - danger)) / 255
+    );
+    v.core.material.emissiveIntensity = 1 + danger * 4 * pulse;
+
+    // Spin arms faster as danger increases
+    const spinDelta = dt * (0.3 + danger * 2.5);
+    for (const arm of v.arms) {
+      arm.rotation.z += spinDelta;
+      arm.material.opacity = 0.6 + danger * 0.4 * pulse;
+      arm.material.emissive.setRGB(
+        (0x44 + 0xbb * rLerp) / 255,
+        0,
+        (0x66 * (1 - rLerp)) / 255
+      );
+    }
+
+    // Tint balls in the danger zone (last 30% of path) with red emissive boost
+    const dangerZoneS = this.pathLength * 0.70;
+    for (let i = 0; i < this.chain.length; i++) {
+      const ball = this.chain[i];
+      if (!ball.alive || ball.s < 0) continue;
+      if (ball.s > dangerZoneS) {
+        const ballDanger = (ball.s - dangerZoneS) / (this.pathLength * 0.30);
+        const bd = Math.min(1, ballDanger);
+        // Additive red tint that intensifies — don't overwrite powerup pulse
+        if (!ball.powerup) {
+          ball.mesh.material.emissiveIntensity = 1 + bd * 2.5 * (0.6 + 0.4 * pulse);
+        }
+      } else if (!ball.powerup) {
+        ball.mesh.material.emissiveIntensity = 1;
+      }
+    }
   }
 
   _createPipeEntrance() {
     const startPos = this.getPathPosFromS(0);
     const tangent = this.getPathTangentFromS(0);
+    const add = m => { scene.add(m); this.trackMeshes.push(m); };
 
     const PIPE_LENGTH = 4.5;
     const PIPE_RADIUS = BALL_RADIUS * 1.22;
+    const PIPE_OVERHANG = 0.5;
 
     const quatCyl = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
     const quatTorus = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
-
-    const PIPE_OVERHANG = 0.5;
     const pipeCenter = startPos.clone().addScaledVector(tangent, -(PIPE_LENGTH / 2) + PIPE_OVERHANG);
     pipeCenter.z = -0.15;
-    const pipeMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(PIPE_RADIUS, PIPE_RADIUS, PIPE_LENGTH, 20, 1, true),
-      new THREE.MeshStandardMaterial({ color: 0x2a4a66, metalness: 0.95, roughness: 0.08, emissive: 0x0a1a2a, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
-    );
-    pipeMesh.position.copy(pipeCenter);
-    pipeMesh.quaternion.copy(quatCyl);
-    scene.add(pipeMesh); this.trackMeshes.push(pipeMesh);
 
-    const glowMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(PIPE_RADIUS * 0.78, PIPE_RADIUS * 0.78, PIPE_LENGTH, 16, 1, true),
-      new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.0, roughness: 0.0, emissive: 0x224488, emissiveIntensity: 0.6, transparent: true, opacity: 0.18, side: THREE.BackSide })
+    // Translucent energy conduit (outer shell)
+    const conduit = new THREE.Mesh(
+      new THREE.CylinderGeometry(PIPE_RADIUS, PIPE_RADIUS * 0.95, PIPE_LENGTH, 20, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0x1a2244, metalness: 0.8, roughness: 0.05, emissive: 0x112244, side: THREE.DoubleSide, transparent: true, opacity: 0.55 })
     );
-    glowMesh.position.copy(pipeCenter);
-    glowMesh.quaternion.copy(quatCyl);
-    scene.add(glowMesh); this.trackMeshes.push(glowMesh);
+    conduit.position.copy(pipeCenter); conduit.quaternion.copy(quatCyl); add(conduit);
 
-    const ringPos = startPos.clone().addScaledVector(tangent, PIPE_OVERHANG); ringPos.z = -0.05;
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(PIPE_RADIUS, 0.09, 10, 28),
-      new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.9, roughness: 0.0, emissive: 0x4488bb, emissiveIntensity: 1.2 })
+    // Inner energy flow (bright core tube)
+    const flow = new THREE.Mesh(
+      new THREE.CylinderGeometry(PIPE_RADIUS * 0.6, PIPE_RADIUS * 0.6, PIPE_LENGTH, 12, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.0, roughness: 0.0, emissive: 0x336699, emissiveIntensity: 0.8, transparent: true, opacity: 0.15, side: THREE.BackSide })
     );
-    ring.position.copy(ringPos);
-    ring.quaternion.copy(quatTorus);
-    scene.add(ring); this.trackMeshes.push(ring);
+    flow.position.copy(pipeCenter); flow.quaternion.copy(quatCyl); add(flow);
 
-    const ring2Pos = startPos.clone().addScaledVector(tangent, PIPE_OVERHANG - 0.6); ring2Pos.z = -0.05;
-    const ring2 = new THREE.Mesh(
-      new THREE.TorusGeometry(PIPE_RADIUS, 0.06, 8, 24),
-      new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.9, roughness: 0.0, emissive: 0x224466, emissiveIntensity: 0.8 })
-    );
-    ring2.position.copy(ring2Pos);
-    ring2.quaternion.copy(quatTorus);
-    scene.add(ring2); this.trackMeshes.push(ring2);
+    // Arcane rings spaced along the conduit
+    const ringCount = 5;
+    for (let i = 0; i < ringCount; i++) {
+      const t = i / (ringCount - 1); // 0..1 along pipe
+      const offset = PIPE_OVERHANG - t * PIPE_LENGTH;
+      const rPos = startPos.clone().addScaledVector(tangent, offset);
+      rPos.z = -0.05;
+
+      const isMouth = i === 0; // mouth ring is brightest
+      const radius = PIPE_RADIUS + (isMouth ? 0.05 : -0.02);
+      const thickness = isMouth ? 0.08 : 0.04;
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(radius, thickness, 8, 20),
+        new THREE.MeshStandardMaterial({
+          color: isMouth ? 0xaaddff : 0x6688aa,
+          metalness: 0.9, roughness: 0.0,
+          emissive: isMouth ? 0x4488bb : 0x223355,
+          emissiveIntensity: isMouth ? 1.2 : 0.6,
+        })
+      );
+      ring.position.copy(rPos); ring.quaternion.copy(quatTorus); add(ring);
+    }
+
+    // Rune markers flanking the mouth
+    const mouthPos = startPos.clone().addScaledVector(tangent, PIPE_OVERHANG);
+    const perp = new THREE.Vector3(-tangent.y, tangent.x, 0).normalize();
+    for (const side of [-1, 1]) {
+      const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0),
+        new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.5, roughness: 0.0, emissive: 0x4488cc, emissiveIntensity: 1.5 }));
+      rune.position.copy(mouthPos).addScaledVector(perp, side * (PIPE_RADIUS + 0.25));
+      rune.position.z = 0.05;
+      add(rune);
+    }
   }
 
   clearTrackVisuals() {
@@ -198,6 +312,7 @@ class Track {
       if (m.material) m.material.dispose();
     });
     this.trackMeshes = [];
+    this.vortexMeshes = null;
   }
 
   // ─── BONUS CRYSTALS (from scene.js) ───
@@ -874,7 +989,10 @@ class Track {
 
     if (!this.levelClearing) {
       // Spawn at back of chain
-      const rollingIn = this.rollInSpawned < 40; // ROLL_IN_COUNT
+      const fillFraction = tracks.length > 1 ? 0.25 : 0.5;
+      const maxTrackBalls = Math.floor((this.pathLength * fillFraction) / BALL_SPACING);
+      const rollInLimit = Math.min(40, maxTrackBalls);
+      const rollingIn = this.rollInSpawned < rollInLimit;
       if (!this.spawningDone) {
         while (this.chain.length === 0 || this.chain[this.chain.length - 1].s > -BALL_SPACING) {
           this.spawnChainBall();
@@ -978,6 +1096,9 @@ class Track {
       ball.mesh.rotation.z += dt * 1.5;
       ball.mesh.rotation.x += dt * 0.8;
     }
+
+    // ─── Danger zone: vortex + ball visual feedback ───
+    this._updateDangerVisuals(dt);
 
     // Update chromatic ray animations
     for (let ci = this.chromaticAnimations.length - 1; ci >= 0; ci--) {

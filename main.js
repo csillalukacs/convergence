@@ -25,7 +25,7 @@ let gameActive = false;
 let gamePaused = false;
 let mouseX = 0, mouseY = 0;
 
-let track; // Track instance — holds all per-track state
+let tracks = []; // Track instances — one per path in the current level
 
 // Debug
 let debugMode = false;
@@ -35,6 +35,44 @@ let debugShowGaps = false;
 let debugGapMarkers = [];
 
 let shockwaves = []; // expanding ring visuals from blast
+
+// ─── MULTI-TRACK HELPERS ───
+
+function loadTracksForLevel(levelDef) {
+  const map = MAPS[levelDef.map];
+  const trackDefs = map.tracks || [{ waypoints: map.waypoints }];
+  tracks.forEach(t => { t.clearTrackVisuals(); t.clearBonusCrystals(); });
+  tracks = [];
+  for (const td of trackDefs) {
+    const t = new Track();
+    t.loadLevelMulti(levelDef, td.waypoints);
+    tracks.push(t);
+  }
+}
+
+function resetTracksForLevel(levelDef) {
+  const map = MAPS[levelDef.map];
+  const trackDefs = map.tracks || [{ waypoints: map.waypoints }];
+  // If track count changed (different map shape), rebuild entirely
+  if (tracks.length !== trackDefs.length) {
+    tracks.forEach(t => {
+      t.resetState();
+      t.clearTrackVisuals();
+      t.clearBonusCrystals();
+    });
+    tracks = [];
+    for (const td of trackDefs) {
+      const t = new Track();
+      t.loadLevelMulti(levelDef, td.waypoints);
+      tracks.push(t);
+    }
+  } else {
+    for (let i = 0; i < tracks.length; i++) {
+      tracks[i].resetState();
+      tracks[i].loadLevelMulti(levelDef, trackDefs[i].waypoints);
+    }
+  }
+}
 
 // ─── INIT ───
 
@@ -68,8 +106,7 @@ function init() {
 
   loadAudioSettings();
 
-  track = new Track();
-  track.loadLevel(LEVELS[0]);
+  loadTracksForLevel(LEVELS[0]);
   createBackground();
   createShooter();
 
@@ -95,15 +132,15 @@ function init() {
     if (debugMode && gameActive) {
       const debugKeys = ['KeyB','KeyF','KeyR','KeyC','KeyS','KeyN','KeyA','KeyD'];
       if (debugKeys.includes(e.code)) debugUsedThisRun = true;
-      if (e.code === 'KeyB') track.tryAssignPowerup('blast');
-      if (e.code === 'KeyF') track.tryAssignPowerup('pause');
-      if (e.code === 'KeyR') track.tryAssignPowerup('backwards');
-      if (e.code === 'KeyC') track.tryAssignPowerup('chromatic');
-      if (e.code === 'KeyS') { track.spawningDone = true; showBanner('SPAWNING STOPPED'); }
+      if (e.code === 'KeyB') tracks.forEach(t => t.tryAssignPowerup('blast'));
+      if (e.code === 'KeyF') tracks.forEach(t => t.tryAssignPowerup('pause'));
+      if (e.code === 'KeyR') tracks.forEach(t => t.tryAssignPowerup('backwards'));
+      if (e.code === 'KeyC') tracks.forEach(t => t.tryAssignPowerup('chromatic'));
+      if (e.code === 'KeyS') { tracks.forEach(t => t.spawningDone = true); showBanner('SPAWNING STOPPED'); }
       if (e.code === 'KeyN') { levelUp(); }
       if (e.code === 'KeyG') { debugShowGaps = !debugShowGaps; if (!debugShowGaps) clearDebugGapMarkers(); }
       if (e.code === 'KeyA') debugFastForward = true;
-      if (e.code === 'KeyD') track.chainFreezeTimer = track.chainFreezeTimer > 0 ? 0 : 99999;
+      if (e.code === 'KeyD') tracks.forEach(t => t.chainFreezeTimer = t.chainFreezeTimer > 0 ? 0 : 99999);
     }
   });
   window.addEventListener('keyup', e => {
@@ -116,7 +153,7 @@ function init() {
 // ─── SHOOTING ───
 
 function onShoot(e) {
-  if (!gameActive || track.levelClearing || e.button !== 0) return;
+  if (!gameActive || tracks.some(t => t.levelClearing) || e.button !== 0) return;
   playSound('shoot');
   const dir = getAimDir(e.clientX, e.clientY);
   const proj = new THREE.Mesh(getSharedBallGeom(),
@@ -170,16 +207,16 @@ function animate() {
   });
 
   if (gameActive && !gamePaused) {
-    track.update(dt);
+    for (const t of tracks) t.update(dt);
 
-    // Game over
-    if (track.isGameOver()) gameOver();
+    // Game over if any track reaches skull
+    if (tracks.some(t => t.isGameOver())) gameOver();
 
-    track.checkProjectileCollisions(dt);
+    for (const t of tracks) t.checkProjectileCollisions(dt);
     updateTimer();
 
-    // Level clear
-    if (track.isCleared()) levelUp();
+    // Level clear when all tracks are cleared
+    if (tracks.every(t => t.isCleared())) levelUp();
   }
 
   // Particles
@@ -228,8 +265,9 @@ function getDebugRingGeom() {
 
 function updateDebugGapMarkers() {
   clearDebugGapMarkers();
+  for (const track of tracks) {
   const chain = track.chain;
-  if (chain.length < 2) return;
+  if (chain.length < 2) continue;
 
   for (let i = 0; i < chain.length - 1; i++) {
     const dist = chain[i].s - chain[i + 1].s;
@@ -278,6 +316,7 @@ function updateDebugGapMarkers() {
     scene.add(sprite);
     debugGapMarkers.push(sprite);
   }
+  } // end for each track
 }
 
 // ─── GAME STATE ───
@@ -297,8 +336,8 @@ function resetGameState(levelDef) {
   shockwaves.forEach(sw => { scene.remove(sw.mesh); sw.mesh.geometry.dispose(); sw.mesh.material.dispose(); }); shockwaves = [];
   clearDebugGapMarkers();
 
-  track.reset(levelDef);
-  track.levelStartScore = score;
+  resetTracksForLevel(levelDef);
+  tracks.forEach(t => t.levelStartScore = score);
   gamePaused = false;
 
   updateHUD(); updateProgressBar(); loadShooterBalls();
@@ -348,7 +387,7 @@ function gameOver() {
     goTitle.classList.toggle('go-highscore', isNewHigh);
     renderHighScores('go-highscores');
   } else {
-    score = track.levelStartScore;
+    score = tracks[0].levelStartScore;
     playSound('lifelost');
     showBanner('LIFE LOST');
     resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
@@ -356,24 +395,29 @@ function gameOver() {
 }
 
 function levelUp() {
-  if (track.levelClearing) return; // guard against double-call
-  track.levelClearing = true;
-  track.clearBonusCrystals();
+  if (tracks.some(t => t.levelClearing)) return; // guard against double-call
+  tracks.forEach(t => { t.levelClearing = true; t.clearBonusCrystals(); });
   playSound('levelup');
 
   // Per-level score
-  const levelScore = score - track.levelStartScore;
+  const levelScore = score - tracks[0].levelStartScore;
 
   // Time bonus: 50 pts per second under par
   const levelDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
   let timeBonus = 0;
-  if (levelDef.parTime && track.levelElapsedTime < levelDef.parTime) {
-    timeBonus = Math.floor(levelDef.parTime - track.levelElapsedTime) * 50;
+  const maxElapsed = Math.max(...tracks.map(t => t.levelElapsedTime));
+  if (levelDef.parTime && maxElapsed < levelDef.parTime) {
+    timeBonus = Math.floor(levelDef.parTime - maxElapsed) * 50;
   }
 
-  // Calculate clearance bonus: 100 pts per ball slot of empty space to the skull
-  const emptyDistance = track.pathLength - track.lastFrontS;
-  const bonusSlots = Math.floor(emptyDistance / BALL_SPACING);
+  // Calculate clearance bonus: sum across all tracks
+  let totalBonusSlots = 0;
+  const trackBonusInfo = tracks.map(t => {
+    const emptyDistance = t.pathLength - t.lastFrontS;
+    const slots = Math.floor(emptyDistance / BALL_SPACING);
+    return { track: t, slots, lastFrontS: t.lastFrontS };
+  });
+  totalBonusSlots = trackBonusInfo.reduce((sum, info) => sum + info.slots, 0);
 
   let clearanceTotal = 0;
 
@@ -382,7 +426,7 @@ function levelUp() {
     updateHUD();
     gamePaused = true; // freeze game loop while summary is showing
 
-    const elapsed = track.levelElapsedTime;
+    const elapsed = maxElapsed;
     const mins = Math.floor(elapsed / 60);
     const secs = Math.floor(elapsed % 60);
 
@@ -407,8 +451,7 @@ function levelUp() {
         victory();
       } else {
         level++;
-        track.levelClearing = false;
-        track.lastFrontS = 0;
+        tracks.forEach(t => { t.levelClearing = false; t.lastFrontS = 0; });
         resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
         const nextDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
         showBanner('LEVEL ' + level + '\n' + MAPS[nextDef.map].name);
@@ -418,19 +461,24 @@ function levelUp() {
     document.getElementById('level-summary').style.display = 'flex';
   }
 
-  if (bonusSlots > 0) {
-    for (let i = 0; i < bonusSlots; i++) {
-      const s = track.lastFrontS + (i + 0.5) * BALL_SPACING;
-      setTimeout(() => {
-        const pos = track.getPathPosFromS(Math.min(s, track.pathLength));
-        playSound('cleartick');
-        spawnScoreText(pos, 100);
-        score += 100;
-        clearanceTotal += 100;
-        updateHUD();
-      }, i * 30);
+  if (totalBonusSlots > 0) {
+    let tickIdx = 0;
+    for (const info of trackBonusInfo) {
+      for (let i = 0; i < info.slots; i++) {
+        const s = info.lastFrontS + (i + 0.5) * BALL_SPACING;
+        const t = info.track;
+        setTimeout(() => {
+          const pos = t.getPathPosFromS(Math.min(s, t.pathLength));
+          playSound('cleartick');
+          spawnScoreText(pos, 100);
+          score += 100;
+          clearanceTotal += 100;
+          updateHUD();
+        }, tickIdx * 30);
+        tickIdx++;
+      }
     }
-    setTimeout(showLevelSummary, bonusSlots * 30 + 400);
+    setTimeout(showLevelSummary, totalBonusSlots * 30 + 400);
   } else {
     showLevelSummary();
   }
@@ -439,7 +487,7 @@ function levelUp() {
 function victory() {
   gameActive = false;
   gamePaused = false;
-  track.levelClearing = false;
+  tracks.forEach(t => t.levelClearing = false);
   playSound('victory');
   const isNewHigh = saveHighScore(true);
   spawnVictoryParticles();
@@ -468,23 +516,25 @@ function updateHUD() {
     playSound('extralife');
     showBanner('EXTRA LIFE!');
   }
-  track.progress = Math.min(1, (score - track.levelStartScore) / track.progressMax);
+  for (const t of tracks) {
+    t.progress = Math.min(1, (score - t.levelStartScore) / t.progressMax);
+  }
   updateProgressBar();
-  if (track.progress >= 1 && !track.spawningDone) {
-    track.spawningDone = true;
-    track.rollBackTimer = 2.0; // ROLL_BACK_DURATION
+  if (tracks.every(t => t.progress >= 1) && tracks.some(t => !t.spawningDone)) {
+    tracks.forEach(t => { t.spawningDone = true; t.rollBackTimer = 2.0; });
     playSound('resonance');
     showBanner('NO MORE BALLS!');
   }
 }
 
 function updateProgressBar() {
-  document.getElementById('progress-bar').style.width = (track.progress * 100) + '%';
-  document.getElementById('progress-label').textContent = track.spawningDone ? 'RESONANCE PEAKED — CLEAR THE CHAIN!' : 'RESONANCE';
+  const avgProgress = tracks.reduce((sum, t) => sum + t.progress, 0) / tracks.length;
+  document.getElementById('progress-bar').style.width = (avgProgress * 100) + '%';
+  document.getElementById('progress-label').textContent = tracks.every(t => t.spawningDone) ? 'RESONANCE PEAKED — CLEAR THE CHAIN!' : 'RESONANCE';
 }
 
 function updateTimer() {
-  const elapsed = track.levelElapsedTime;
+  const elapsed = Math.max(...tracks.map(t => t.levelElapsedTime));
   const mins = Math.floor(elapsed / 60);
   const secs = Math.floor(elapsed % 60);
   document.getElementById('timer-val').textContent = mins + ':' + String(secs).padStart(2, '0');

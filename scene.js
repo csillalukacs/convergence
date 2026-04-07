@@ -78,7 +78,9 @@ function createShooter() {
 }
 
 function pickColor() {
-  return track.pickColor();
+  // Pick from a random track's chain for color relevance
+  const t = tracks[Math.floor(Math.random() * tracks.length)];
+  return t.pickColor();
 }
 
 function makeBallPreview(colorIdx, size) {

@@ -1089,16 +1089,22 @@ class Track {
   // ─── LEVEL MANAGEMENT ───
 
   loadLevel(def) {
+    const map = MAPS[def.map];
+    const waypoints = map.tracks ? map.tracks[0].waypoints : map.waypoints;
+    this.loadLevelMulti(def, waypoints);
+  }
+
+  loadLevelMulti(def, waypoints) {
     this.levelColors = def.colors;
     this.chainSpeed = def.chainSpeed;
     this.progressMax = def.progressThreshold;
     this.clearTrackVisuals();
     this.clearBonusCrystals();
-    this.buildPath(MAPS[def.map].waypoints);
+    this.buildPath(waypoints);
     this.createTrackVisuals();
   }
 
-  reset(levelDef) {
+  resetState() {
     this.cancelChainReactions();
     this.clearAllPowerupVisuals();
     this.chain.forEach(b => { scene.remove(b.mesh); disposeMesh(b.mesh); });
@@ -1112,7 +1118,6 @@ class Track {
     }));
     this.chromaticAnimations = [];
 
-    this.loadLevel(levelDef);
     this.progress = 0;
     this.combo = 1;
     this.chainBonus = 1;
@@ -1131,6 +1136,11 @@ class Track {
     this.lastFrontS = 0;
     this.pendingGapBonus = false;
     this.levelElapsedTime = 0;
+  }
+
+  reset(levelDef) {
+    this.resetState();
+    this.loadLevel(levelDef);
   }
 
   // Returns true if chain reached the skull

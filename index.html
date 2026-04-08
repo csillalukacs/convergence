@@ -121,25 +121,184 @@
 // ─── LEVEL PICKER ───
 let _pickerSelected = 1;
 
+/* Catmull-Rom interpolation for smooth path preview */
+function catmullRomPoint(p0, p1, p2, p3, t) {
+  const t2 = t * t, t3 = t2 * t;
+  return {
+    x: 0.5 * ((2*p1.x) + (-p0.x+p2.x)*t + (2*p0.x-5*p1.x+4*p2.x-p3.x)*t2 + (-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+    y: 0.5 * ((2*p1.y) + (-p0.y+p2.y)*t + (2*p0.y-5*p1.y+4*p2.y-p3.y)*t2 + (-p0.y+3*p1.y-3*p2.y+p3.y)*t3),
+  };
+}
+
+function drawPathPreview(canvas, mapDef) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const trackList = mapDef.tracks || [{ waypoints: mapDef.waypoints }];
+
+  /* find global bounds across all tracks */
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const track of trackList) {
+    for (const p of track.waypoints) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+  }
+  const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1;
+  const pad = 8;
+  const scaleX = (w - pad * 2) / rangeX, scaleY = (h - pad * 2) / rangeY;
+  const scale = Math.min(scaleX, scaleY);
+  const offX = (w - rangeX * scale) / 2, offY = (h - rangeY * scale) / 2;
+
+  function tx(p) {
+    return { x: (p.x - minX) * scale + offX, y: h - ((p.y - minY) * scale + offY) };
+  }
+
+  const trackColors = ['rgba(136,204,255,0.7)', 'rgba(136,255,204,0.7)'];
+
+  trackList.forEach((track, ti) => {
+    const wp = track.waypoints;
+    if (wp.length < 2) return;
+
+    /* generate interpolated points along the catmull-rom spline */
+    const pts = [];
+    const segs = 8;
+    for (let i = 0; i < wp.length - 1; i++) {
+      const p0 = wp[Math.max(0, i - 1)];
+      const p1 = wp[i];
+      const p2 = wp[i + 1];
+      const p3 = wp[Math.min(wp.length - 1, i + 2)];
+      for (let s = 0; s < segs; s++) {
+        pts.push(tx(catmullRomPoint(p0, p1, p2, p3, s / segs)));
+      }
+    }
+    pts.push(tx(wp[wp.length - 1]));
+
+    /* draw glow layer */
+    ctx.strokeStyle = trackColors[ti] || trackColors[0];
+    ctx.lineWidth = 3;
+    ctx.shadowColor = trackColors[ti] || trackColors[0];
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+
+    /* draw core */
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+
+    /* start marker (pipe) */
+    const start = pts[0];
+    ctx.fillStyle = 'rgba(136,204,255,0.8)';
+    ctx.beginPath();
+    ctx.arc(start.x, start.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    /* end marker (skull) */
+    const end = pts[pts.length - 1];
+    ctx.fillStyle = 'rgba(255,68,100,0.9)';
+    ctx.beginPath();
+    ctx.arc(end.x, end.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+const COLOR_HEX = ['#FF2255', '#00AAFF', '#00FF88', '#FFCC00', '#CC44FF', '#AACCEE'];
+
 function buildLevelPickers() {
   ['title-level-picker', 'pause-level-picker'].forEach(id => {
     const isPause = id === 'pause-level-picker';
     const el = document.getElementById(id);
     el.innerHTML = '';
+
+    if (isPause) {
+      /* pause screen keeps simple numbered buttons */
+      for (let i = 1; i <= LEVELS.length; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'lvl-btn';
+        btn.textContent = i;
+        btn.dataset.n = i;
+        btn.onclick = () => jumpToLevel(i);
+        el.appendChild(btn);
+      }
+      return;
+    }
+
+    /* title screen gets preview cards */
     for (let i = 1; i <= LEVELS.length; i++) {
-      const btn = document.createElement('button');
-      btn.className = 'lvl-btn' + (!isPause && i === 1 ? ' lvl-btn-active' : '');
-      btn.textContent = i;
-      btn.dataset.n = i;
-      btn.onclick = () => {
-        if (isPause) {
-          jumpToLevel(i);
-        } else {
-          _pickerSelected = i;
-          el.querySelectorAll('.lvl-btn').forEach(b => b.classList.toggle('lvl-btn-active', +b.dataset.n === i));
-        }
+      const lvl = LEVELS[i - 1];
+      const map = MAPS[lvl.map];
+      const tierNum = Math.floor((i - 1) / MAPS.length) + 1;
+
+      const card = document.createElement('button');
+      card.className = 'lvl-card' + (i === 1 ? ' lvl-card-active' : '');
+      card.dataset.n = i;
+
+      /* path preview canvas */
+      const cvs = document.createElement('canvas');
+      cvs.className = 'lvl-preview';
+      cvs.width = 140;
+      cvs.height = 100;
+      card.appendChild(cvs);
+
+      /* info overlay */
+      const info = document.createElement('div');
+      info.className = 'lvl-info';
+
+      const num = document.createElement('div');
+      num.className = 'lvl-num';
+      num.textContent = i;
+      info.appendChild(num);
+
+      const name = document.createElement('div');
+      name.className = 'lvl-name';
+      name.textContent = map.name;
+      info.appendChild(name);
+
+      const meta = document.createElement('div');
+      meta.className = 'lvl-meta';
+
+      /* color dots */
+      const dots = document.createElement('span');
+      dots.className = 'lvl-dots';
+      for (let c = 0; c < lvl.colors; c++) {
+        const dot = document.createElement('span');
+        dot.className = 'lvl-dot';
+        dot.style.background = COLOR_HEX[c];
+        dots.appendChild(dot);
+      }
+      meta.appendChild(dots);
+
+      const par = document.createElement('span');
+      par.className = 'lvl-par';
+      const m = Math.floor(lvl.parTime / 60);
+      const s = lvl.parTime % 60;
+      par.textContent = m + ':' + String(s).padStart(2, '0');
+      meta.appendChild(par);
+
+      info.appendChild(meta);
+      card.appendChild(info);
+
+      card.onclick = () => {
+        _pickerSelected = i;
+        el.querySelectorAll('.lvl-card').forEach(b =>
+          b.classList.toggle('lvl-card-active', +b.dataset.n === i)
+        );
       };
-      el.appendChild(btn);
+
+      el.appendChild(card);
+
+      /* draw the preview after the card is in the DOM */
+      requestAnimationFrame(() => drawPathPreview(cvs, map));
     }
   });
 }

@@ -246,13 +246,25 @@ body {
 #title-level-wrap {
   max-height: 0;
   overflow: hidden;
+  overflow-y: auto;
   transition: max-height 0.35s ease, margin 0.35s ease;
   margin-bottom: 0;
 }
 
 #title-level-wrap.open {
-  max-height: 400px;
+  max-height: 60vh;
   margin-bottom: 24px;
+}
+
+#title-level-wrap::-webkit-scrollbar { width: 6px; }
+#title-level-wrap::-webkit-scrollbar-track { background: transparent; }
+#title-level-wrap::-webkit-scrollbar-thumb {
+  background: rgba(68,119,170,0.4);
+  border-radius: 3px;
+}
+
+#title-level-picker {
+  max-width: 680px;
 }
 
 .btn-select-level {
@@ -652,9 +664,9 @@ body {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 32px;
-  max-width: 480px;
+  max-width: 680px;
 }
 
 .level-picker-label {
@@ -691,6 +703,102 @@ body {
   border-color: #4488cc;
   background: linear-gradient(135deg, #112244, #1a3a66);
   box-shadow: 0 0 14px rgba(136,204,255,0.35);
+}
+
+/* ─── LEVEL CARDS (title screen) ─── */
+
+.lvl-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 150px;
+  background: linear-gradient(135deg, #0a1428, #0d1a33);
+  border: 1px solid #1a2e4a;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.25s;
+  padding: 0;
+  font-family: 'Cinzel Decorative', serif;
+  pointer-events: all;
+}
+
+.lvl-card:hover {
+  border-color: #336699;
+  box-shadow: 0 0 16px rgba(136,204,255,0.2);
+  transform: translateY(-2px);
+}
+
+.lvl-card-active {
+  border-color: #4488cc;
+  box-shadow: 0 0 20px rgba(136,204,255,0.35), inset 0 0 12px rgba(136,204,255,0.05);
+  background: linear-gradient(135deg, #0e1e3a, #142a4d);
+}
+
+.lvl-preview {
+  width: 100%;
+  height: 100px;
+  display: block;
+  background: radial-gradient(ellipse at center, #080818 0%, #040410 100%);
+  border-bottom: 1px solid #1a2e4a;
+}
+
+.lvl-info {
+  padding: 6px 8px 8px;
+}
+
+.lvl-num {
+  color: #4477aa;
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+
+.lvl-card-active .lvl-num {
+  color: #88ccff;
+}
+
+.lvl-name {
+  color: #8ab4d8;
+  font-size: 11px;
+  letter-spacing: 1px;
+  margin: 2px 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lvl-card-active .lvl-name {
+  color: #aaddff;
+}
+
+.lvl-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.lvl-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.lvl-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  opacity: 0.75;
+}
+
+.lvl-par {
+  color: #446688;
+  font-family: 'Spectral', serif;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.lvl-card-active .lvl-par {
+  color: #6699aa;
 }
 
 .gear-deco {

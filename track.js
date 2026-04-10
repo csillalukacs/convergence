@@ -30,6 +30,7 @@ class Track {
     this.chain = [];
     this.gaps = [];
     this.pushForwards = [];
+    this._nextGapId = 1;
     this.snapImpulses = [];
     this.chainTimeouts = [];
 
@@ -568,7 +569,7 @@ class Track {
     if (this.gaps.some(g => g.frontBall === frontBall && g.backBall === backBall)) return;
     const matching = frontBall.colorIdx === backBall.colorIdx;
     const initialGapSize = frontBall.s - backBall.s - BALL_SPACING;
-    this.gaps.push({ frontBall, backBall, matching, initialGapSize });
+    this.gaps.push({ id: this._nextGapId++, frontBall, backBall, matching, initialGapSize });
   }
 
   updatePushForwards(dt) {
@@ -646,7 +647,7 @@ class Track {
           updateHUD();
         }
       } else if (gap.matching) {
-        const { start: moveStart } = this.getSegmentBounds(frontIdx, gap, true);
+        const { start: moveStart } = this.getSegmentBounds(frontIdx, gap);
         const collapseSpeed = 25;
         const move = Math.min(collapseSpeed * dt, currentGap);
         for (let i = moveStart; i <= frontIdx; i++) this.chain[i].s -= move;

@@ -1030,7 +1030,7 @@ class Track {
       } else if (this.rearSegmentPauseTimer > 0) {
         this.rearSegmentPauseTimer = Math.max(0, this.rearSegmentPauseTimer - dt);
       } else if (this.chain.length > 0) {
-        const activeSpeed = (rollingIn ? 16.0 : this.chainSpeed) * (debugFastForward ? 5 : 1); // ROLL_IN_SPEED
+        const activeSpeed = (rollingIn ? 16.0 : this.chainSpeed) * (typeof debugFastForward !== 'undefined' && debugFastForward ? 5 : 1); // ROLL_IN_SPEED
         const splitIndices = new Set();
 
         for (const g of this.gaps) {

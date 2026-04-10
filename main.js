@@ -27,12 +27,8 @@ let mouseX = 0, mouseY = 0;
 
 let tracks = []; // Track instances — one per path in the current level
 
-// Debug
-let debugMode = false;
-let debugFastForward = false;
+// Debug usage flag — stays here because it affects score saving
 let debugUsedThisRun = false;
-let debugShowGaps = false;
-let debugGapMarkers = [];
 
 let shockwaves = []; // expanding ring visuals from blast
 
@@ -120,31 +116,16 @@ function init() {
     if (e.code === 'Space') { e.preventDefault(); onSwapAction(); }
     if (e.code === 'KeyP' || e.code === 'Escape') { e.preventDefault(); togglePause(); }
 
-    // Toggle debug mode
     if (e.code === 'Backquote') {
-      debugMode = !debugMode;
-      document.getElementById('debug-overlay').classList.toggle('visible', debugMode);
-      if (!debugMode) { debugFastForward = false; debugShowGaps = false; clearDebugGapMarkers(); }
+      if (typeof toggleDebugMode === 'function') toggleDebugMode();
       return;
     }
-
-    // Debug keys (only in debug mode)
-    if (debugMode && gameActive) {
-      const debugKeys = ['KeyB','KeyF','KeyR','KeyC','KeyS','KeyN','KeyA','KeyD'];
-      if (debugKeys.includes(e.code)) debugUsedThisRun = true;
-      if (e.code === 'KeyB') tracks.forEach(t => t.tryAssignPowerup('blast'));
-      if (e.code === 'KeyF') tracks.forEach(t => t.tryAssignPowerup('pause'));
-      if (e.code === 'KeyR') tracks.forEach(t => t.tryAssignPowerup('backwards'));
-      if (e.code === 'KeyC') tracks.forEach(t => t.tryAssignPowerup('chromatic'));
-      if (e.code === 'KeyS') { tracks.forEach(t => t.spawningDone = true); showBanner('SPAWNING STOPPED'); }
-      if (e.code === 'KeyN') { levelUp(); }
-      if (e.code === 'KeyG') { debugShowGaps = !debugShowGaps; if (!debugShowGaps) clearDebugGapMarkers(); }
-      if (e.code === 'KeyA') debugFastForward = true;
-      if (e.code === 'KeyD') tracks.forEach(t => t.chainFreezeTimer = t.chainFreezeTimer > 0 ? 0 : 99999);
+    if (typeof debugMode !== 'undefined' && debugMode) {
+      if (typeof handleDebugKey === 'function') handleDebugKey(e);
     }
   });
   window.addEventListener('keyup', e => {
-    if (e.code === 'KeyA') debugFastForward = false;
+    if (typeof handleDebugKeyUp === 'function') handleDebugKeyUp(e);
   });
 
   animate();
@@ -269,89 +250,9 @@ function animate() {
     sw.mesh.material.opacity = (1 - t) * 0.7;
   }
 
-  if (debugMode && gameActive) {
-    const totalGaps = tracks.reduce((sum, t) => sum + t.gaps.length, 0);
-    document.getElementById('dbg-gap-count').textContent = totalGaps;
-    if (debugShowGaps) updateDebugGapMarkers();
-  }
+  if (typeof tickDebug === 'function') tickDebug();
 
   renderer.render(scene, camera);
-}
-
-function clearDebugGapMarkers() {
-  for (const m of debugGapMarkers) {
-    scene.remove(m);
-    if (m.geometry) m.geometry.dispose();
-    if (m.material) {
-      if (m.material.map) m.material.map.dispose();
-      m.material.dispose();
-    }
-  }
-  debugGapMarkers = [];
-}
-
-// Shared geometry for diamond markers — created once, reused
-let _debugRingGeom = null;
-function getDebugRingGeom() {
-  if (!_debugRingGeom) _debugRingGeom = new THREE.RingGeometry(0.3, 0.5, 4);
-  return _debugRingGeom;
-}
-
-function updateDebugGapMarkers() {
-  clearDebugGapMarkers();
-  for (const track of tracks) {
-  const chain = track.chain;
-  if (chain.length < 2) continue;
-
-  for (let i = 0; i < chain.length - 1; i++) {
-    const dist = chain[i].s - chain[i + 1].s;
-    if (dist <= BALL_SPACING * 1.05) continue;
-
-    const trackedGap = track.gaps.find(g => g.frontBall === chain[i] && g.backBall === chain[i + 1]);
-    const tracked = !!trackedGap;
-    const pushing = track.pushForwards.some(pf => {
-      const ii = chain.indexOf(pf.insertedBall);
-      return ii === i + 1;
-    });
-    const blocksMatch = dist > BALL_SPACING * 1.1;
-
-    let color;
-    if (tracked || pushing) {
-      color = 0x00ff00;
-    } else if (blocksMatch) {
-      color = 0xff0000;
-    } else {
-      color = 0xffff00;
-    }
-
-    const midS = (chain[i].s + chain[i + 1].s) / 2;
-    const pos = track.getPathPosFromS(midS);
-
-    // Diamond marker — shared geometry, per-marker material
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false });
-    const marker = new THREE.Mesh(getDebugRingGeom(), mat);
-    marker.position.set(pos.x, pos.y, 1);
-    marker.rotation.z = Math.PI / 4;
-    scene.add(marker);
-    debugGapMarkers.push(marker);
-
-    // Distance label
-    const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 40;
-    const ctx = canvas.getContext('2d');
-    ctx.font = 'bold 24px monospace';
-    ctx.fillStyle = color === 0xff0000 ? '#ff4444' : color === 0x00ff00 ? '#44ff44' : '#ffff44';
-    const label = (dist / BALL_SPACING).toFixed(2) + 'x' + (tracked ? ' #' + trackedGap.id : pushing ? ' P' : ' !!');
-    ctx.fillText(label, 2, 28);
-    const tex = new THREE.CanvasTexture(canvas);
-    const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
-    const sprite = new THREE.Sprite(spriteMat);
-    sprite.position.set(pos.x, pos.y + 0.9, 1);
-    sprite.scale.set(2.5, 0.8, 1);
-    scene.add(sprite);
-    debugGapMarkers.push(sprite);
-  }
-  } // end for each track
 }
 
 // ─── GAME STATE ───
@@ -369,7 +270,7 @@ function resetGameState(levelDef) {
   projectiles.forEach(p => { scene.remove(p.mesh); disposeMesh(p.mesh); }); projectiles = [];
   particles.forEach(p => { scene.remove(p); p.geometry.dispose(); p.material.dispose(); }); particles = [];
   shockwaves.forEach(sw => { scene.remove(sw.mesh); sw.mesh.geometry.dispose(); sw.mesh.material.dispose(); }); shockwaves = [];
-  clearDebugGapMarkers();
+  if (typeof clearDebugGapMarkers === 'function') clearDebugGapMarkers();
 
   resetTracksForLevel(levelDef);
   tracks.forEach(t => t.levelStartScore = score);

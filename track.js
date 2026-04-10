@@ -517,12 +517,18 @@ class Track {
       const rearmostSegmentBalls = preLastSplit >= 0 ? this.chain.slice(preLastSplit) : [];
       const ballAheadOfRearmost = preLastSplit > 0 ? this.chain[preLastSplit - 1] : null;
 
+      const hasChromatic = triggeredPowerups.some(pw => pw.type === 'chromatic');
+      const matchedBalls = [];
+      for (let i = start; i <= end; i++) matchedBalls.push(this.chain[i]);
+
       playSound('match', this.combo);
-      for (let i = start; i <= end; i++) {
-        explodeBall(this.chain[i]);
-        this.chain[i].alive = false;
+      if (!hasChromatic) {
+        for (const b of matchedBalls) {
+          explodeBall(b);
+          b.alive = false;
+        }
       }
-      this.chain = this.chain.filter(b => b.alive);
+      this.chain = this.chain.filter(b => b.alive || (hasChromatic && matchedBalls.includes(b)));
 
       if (rearmostSegmentBalls.length > 0 && rearmostSegmentBalls.every(b => !b.alive)) {
         const gapSize = ballAheadOfRearmost
@@ -532,7 +538,11 @@ class Track {
       }
 
       for (const pw of triggeredPowerups) {
-        this.activatePowerup(pw.type, pw.s, pw.colorIdx);
+        if (pw.type === 'chromatic') {
+          this.activateChromatic(pw.colorIdx, matchedBalls);
+        } else {
+          this.activatePowerup(pw.type, pw.s, pw.colorIdx);
+        }
       }
       const gapMult = (this.pendingGapBonus && !fromChainReaction) ? 10 : 1;
       const matchScore = (count * 10 * this.combo * gapMult + (this.chainBonus > 1 ? this.chainBonus * 10 : 0));
@@ -707,16 +717,19 @@ class Track {
         ball.powerup = null;
       } else {
         const pulse = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 5);
+        // Flash icon when about to expire (last 3 seconds)
+        const expiring = ball.powerupTimer < 3;
+        const flashOn = !expiring || Math.sin(clock.elapsedTime * (ball.powerupTimer < 1.5 ? 20 : 10)) > 0;
         if (ball.powerupSprite) {
-          ball.powerupSprite.visible = ball.mesh.visible;
+          ball.powerupSprite.visible = ball.mesh.visible && flashOn;
           ball.powerupSprite.position.copy(ball.mesh.position);
           ball.powerupSprite.material.opacity = 0.7 + 0.3 * pulse;
         }
         if (ball.powerupHalo) {
-          ball.powerupHalo.material.opacity = 0.12 + 0.22 * pulse;
+          ball.powerupHalo.material.opacity = (0.12 + 0.22 * pulse) * (flashOn ? 1 : 0.15);
           ball.powerupHalo.scale.setScalar(1 + 0.12 * pulse);
         }
-        ball.mesh.material.emissiveIntensity = 1 + 2.5 * pulse;
+        ball.mesh.material.emissiveIntensity = 1 + 2.5 * pulse * (flashOn ? 1 : 0.3);
       }
     }
   }
@@ -819,12 +832,16 @@ class Track {
     spawnParticleBurst(blastPos, 20, [0xFF6600, 0xFFEE44], { minSize: 0.08, maxSize: 0.18, minSpeed: 3, maxSpeed: 9, decay: 0.018 });
   }
 
-  activateChromatic(colorIdx) {
+  activateChromatic(colorIdx, sourceBalls = []) {
     if (colorIdx < 0 || colorIdx >= COLORS.length) return;
     showBanner('COLOR PURGE!');
     playSound('powerup');
 
     const targets = this.chain.filter(b => b.colorIdx === colorIdx && b.alive && b.s >= 0);
+    // Include source balls (the original match) so they animate with the purge
+    for (const b of sourceBalls) {
+      if (b.alive && !targets.includes(b)) targets.push(b);
+    }
     if (targets.length === 0) return;
 
     const rays = [];

@@ -148,6 +148,36 @@ function init() {
   });
 
   animate();
+  hideLoadingScreen();
+
+  const fsBtn = document.getElementById('fullscreen-btn');
+  if (!document.fullscreenEnabled) fsBtn.style.display = 'none';
+  document.addEventListener('fullscreenchange', updateFullscreenBtn);
+}
+
+// ─── LOADING / FULLSCREEN ───
+
+function hideLoadingScreen() {
+  const el = document.getElementById('loading-screen');
+  if (!el) return;
+  el.style.opacity = '0';
+  setTimeout(() => el.remove(), 550);
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function updateFullscreenBtn() {
+  const btn = document.getElementById('fullscreen-btn');
+  if (!btn) return;
+  const active = !!document.fullscreenElement;
+  btn.textContent = active ? 'EXIT' : 'FULL';
+  btn.classList.toggle('fullscreen-active', active);
 }
 
 // ─── SHOOTING ───

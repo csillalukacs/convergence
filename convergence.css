@@ -809,6 +809,92 @@ body {
   color: #6699aa;
 }
 
+/* ─── LOADING SCREEN ─── */
+
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  background: radial-gradient(ellipse at center, #080820 0%, #000008 70%);
+  transition: opacity 0.5s ease;
+}
+
+.loading-title {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: clamp(36px, 6vw, 72px);
+  color: #aaddff;
+  text-shadow: 0 0 30px rgba(136,204,255,0.8), 0 0 60px rgba(136,204,255,0.3), 0 4px 8px rgba(0,0,0,0.8);
+  letter-spacing: 6px;
+  margin-bottom: 32px;
+  animation: loadingPulse 2s ease-in-out infinite;
+}
+
+@keyframes loadingPulse {
+  0%, 100% { text-shadow: 0 0 30px rgba(136,204,255,0.8), 0 0 60px rgba(136,204,255,0.3); }
+  50%       { text-shadow: 0 0 50px rgba(136,204,255,1),   0 0 100px rgba(136,204,255,0.5), 0 0 140px rgba(204,136,255,0.2); }
+}
+
+.loading-bar-wrap {
+  width: clamp(200px, 30vw, 320px);
+  height: 2px;
+  background: rgba(51,102,153,0.25);
+  overflow: hidden;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.loading-bar-scan {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, #88ccff 40%, #ffffff 50%, #88ccff 60%, transparent 100%);
+  animation: loadingScan 1.4s ease-in-out infinite;
+}
+
+@keyframes loadingScan {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.loading-label {
+  font-family: 'Spectral', serif;
+  font-style: italic;
+  color: #334466;
+  font-size: 13px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+/* ─── FULLSCREEN BUTTON ─── */
+
+#fullscreen-btn {
+  font-family: 'Cinzel Decorative', serif;
+  background: linear-gradient(135deg, #112244, #1a3055, #112244);
+  color: #446688;
+  border: 1px solid #1a3344;
+  padding: 6px 12px;
+  font-size: 9px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  box-shadow: 0 0 10px rgba(136,204,255,0.05);
+}
+
+#fullscreen-btn:hover {
+  color: #88ccff;
+  border-color: #336699;
+  box-shadow: 0 0 16px rgba(136,204,255,0.35);
+}
+
+#fullscreen-btn.fullscreen-active {
+  color: #88ccff;
+  border-color: #336699;
+}
+
 .gear-deco {
   position: absolute;
   border: 1px solid rgba(136,204,255,0.12);

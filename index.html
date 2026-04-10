@@ -26,8 +26,17 @@
 <div id="swap-hint">Right-click or Space to swap</div>
 
 <div id="audio-control">
+  <button id="fullscreen-btn" onclick="toggleFullscreen()">FULL</button>
   <button id="mute-btn" onclick="toggleMute()">SOUND</button>
   <input type="range" id="volume-slider" min="0" max="100" value="75" oninput="setVolume(this.value)">
+</div>
+
+<div id="loading-screen">
+  <h1 class="loading-title">CONVERGENCE</h1>
+  <div class="loading-bar-wrap">
+    <div class="loading-bar-scan"></div>
+  </div>
+  <div class="loading-label">Initializing</div>
 </div>
 
 <div id="title-screen">

@@ -239,7 +239,11 @@ function animate() {
     sw.mesh.material.opacity = (1 - t) * 0.7;
   }
 
-  if (debugMode && debugShowGaps && gameActive) updateDebugGapMarkers();
+  if (debugMode && gameActive) {
+    const totalGaps = tracks.reduce((sum, t) => sum + t.gaps.length, 0);
+    document.getElementById('dbg-gap-count').textContent = totalGaps;
+    if (debugShowGaps) updateDebugGapMarkers();
+  }
 
   renderer.render(scene, camera);
 }
@@ -273,7 +277,8 @@ function updateDebugGapMarkers() {
     const dist = chain[i].s - chain[i + 1].s;
     if (dist <= BALL_SPACING * 1.05) continue;
 
-    const tracked = track.gaps.some(g => g.frontBall === chain[i] && g.backBall === chain[i + 1]);
+    const trackedGap = track.gaps.find(g => g.frontBall === chain[i] && g.backBall === chain[i + 1]);
+    const tracked = !!trackedGap;
     const pushing = track.pushForwards.some(pf => {
       const ii = chain.indexOf(pf.insertedBall);
       return ii === i + 1;
@@ -306,7 +311,7 @@ function updateDebugGapMarkers() {
     const ctx = canvas.getContext('2d');
     ctx.font = 'bold 24px monospace';
     ctx.fillStyle = color === 0xff0000 ? '#ff4444' : color === 0x00ff00 ? '#44ff44' : '#ffff44';
-    const label = (dist / BALL_SPACING).toFixed(2) + 'x' + (tracked ? ' T' : pushing ? ' P' : ' !!');
+    const label = (dist / BALL_SPACING).toFixed(2) + 'x' + (tracked ? ' #' + trackedGap.id : pushing ? ' P' : ' !!');
     ctx.fillText(label, 2, 28);
     const tex = new THREE.CanvasTexture(canvas);
     const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });

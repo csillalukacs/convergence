@@ -946,7 +946,7 @@ class Track {
   // ─── MAIN UPDATE (extracted from animate()) ───
 
   update(dt) {
-    this.levelElapsedTime += dt;
+    if (!this.levelClearing) this.levelElapsedTime += dt;
 
     // Animate bonus crystals
     for (let ci = this.bonusCrystals.length - 1; ci >= 0; ci--) {

@@ -60,7 +60,7 @@ const MAPS = [
     ],
   },
   {
-    name: 'Figure of Eight',
+    name: 'Slippery Slope',
     waypoints: [
       { x:   0, y: -12 },
       { x:  10, y:  -6 },

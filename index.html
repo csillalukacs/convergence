@@ -19,7 +19,7 @@
     <div id="progress-label">RESONANCE</div>
   </div>
   <div class="hud-panel hud-timer" id="timer-panel">
-    <span id="timer-val">0:00</span> / <span id="timer-par">0:00</span>
+    <span id="timer-val">0:00</span><span id="timer-par"></span>
   </div>
 </div>
 
@@ -76,11 +76,14 @@
   <div class="ls-stats">
     <div class="ls-row"><span class="ls-label">Level Score</span><span class="ls-value" id="ls-score">0</span></div>
     <div class="ls-row"><span class="ls-label">Clearance Bonus</span><span class="ls-value" id="ls-clearance">0</span></div>
-    <div class="ls-row" id="ls-time-row"><span class="ls-label">Time Bonus</span><span class="ls-value" id="ls-time">0</span></div>
+    <div class="ls-divider"></div>
+    <div class="ls-row ls-section-label"><span class="ls-label">TIME</span></div>
+    <div class="ls-row"><span class="ls-label">Your Time</span><span class="ls-value" id="ls-time-elapsed">0:00</span></div>
+    <div class="ls-row"><span class="ls-label">Par</span><span class="ls-value ls-par-val" id="ls-time-par">0:00</span></div>
+    <div class="ls-row" id="ls-time-row"><span class="ls-label">Time Bonus</span><span class="ls-value ls-good-val" id="ls-time">0</span></div>
     <div class="ls-divider"></div>
     <div class="ls-row ls-total"><span class="ls-label">Total</span><span class="ls-value" id="ls-total">0</span></div>
   </div>
-  <div class="ls-elapsed" id="ls-elapsed"></div>
   <button class="btn-start" id="ls-continue">CONTINUE</button>
 </div>
 

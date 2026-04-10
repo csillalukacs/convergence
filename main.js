@@ -405,9 +405,9 @@ function levelUp() {
   // Time bonus: 50 pts per second under par
   const levelDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
   let timeBonus = 0;
-  const maxElapsed = Math.max(...tracks.map(t => t.levelElapsedTime));
+  const maxElapsed = Math.floor(Math.max(...tracks.map(t => t.levelElapsedTime)));
   if (levelDef.parTime && maxElapsed < levelDef.parTime) {
-    timeBonus = Math.floor(levelDef.parTime - maxElapsed) * 50;
+    timeBonus = (levelDef.parTime - maxElapsed) * 50;
   }
 
   // Calculate clearance bonus: sum across all tracks
@@ -426,19 +426,23 @@ function levelUp() {
     updateHUD();
     gamePaused = true; // freeze game loop while summary is showing
 
-    const elapsed = maxElapsed;
-    const mins = Math.floor(elapsed / 60);
-    const secs = Math.floor(elapsed % 60);
+    const elapsed = Math.floor(maxElapsed);
+    const par = levelDef.parTime || 0;
+
+    function fmt(t) {
+      return Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+    }
 
     const mapName = MAPS[levelDef.map].name;
     document.getElementById('ls-title').textContent = 'LEVEL ' + level + ' CLEAR';
     document.getElementById('ls-track').textContent = mapName;
     document.getElementById('ls-score').textContent = levelScore.toLocaleString();
     document.getElementById('ls-clearance').textContent = clearanceTotal > 0 ? '+' + clearanceTotal.toLocaleString() : '—';
+    document.getElementById('ls-time-elapsed').textContent = fmt(elapsed);
+    document.getElementById('ls-time-par').textContent = fmt(par);
     document.getElementById('ls-time-row').style.display = timeBonus > 0 ? 'flex' : 'none';
     document.getElementById('ls-time').textContent = '+' + timeBonus.toLocaleString();
     document.getElementById('ls-total').textContent = (levelScore + clearanceTotal + timeBonus).toLocaleString();
-    document.getElementById('ls-elapsed').textContent = 'Time: ' + mins + ':' + String(secs).padStart(2, '0');
 
     const isVictory = level >= LEVELS.length;
     const btn = document.getElementById('ls-continue');
@@ -535,15 +539,13 @@ function updateProgressBar() {
 
 function updateTimer() {
   const elapsed = Math.max(...tracks.map(t => t.levelElapsedTime));
-  const mins = Math.floor(elapsed / 60);
-  const secs = Math.floor(elapsed % 60);
-  document.getElementById('timer-val').textContent = mins + ':' + String(secs).padStart(2, '0');
-
   const levelDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
   const par = levelDef.parTime || 0;
-  const parMins = Math.floor(par / 60);
-  const parSecs = par % 60;
-  document.getElementById('timer-par').textContent = parMins + ':' + String(parSecs).padStart(2, '0');
+  const remaining = Math.max(0, par - Math.floor(elapsed));
+  const mins = Math.floor(remaining / 60);
+  const secs = Math.floor(remaining % 60);
+  document.getElementById('timer-val').textContent = mins + ':' + String(secs).padStart(2, '0');
+  document.getElementById('timer-par').textContent = '';
 
   const panel = document.getElementById('timer-panel');
   panel.classList.toggle('under-par', elapsed < par);

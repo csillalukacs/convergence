@@ -525,13 +525,21 @@ body {
   margin: 8px 0;
 }
 
-.ls-elapsed {
-  font-family: 'Spectral', serif;
-  font-style: italic;
-  color: #446688;
-  font-size: 13px;
-  letter-spacing: 2px;
-  margin-bottom: 24px;
+.ls-section-label {
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+.ls-section-label .ls-label {
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #334455;
+}
+.ls-par-val {
+  color: #4477aa;
+}
+.ls-good-val {
+  color: #55cc88;
 }
 
 .combo-text {

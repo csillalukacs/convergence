@@ -473,6 +473,65 @@ const SOUND_DEFS = [
     desc: 'Sad descending tone — lost a life but still playing.',
     buttons: [{ label: 'Play', args: [] }],
   },
+  {
+    name: 'powerupspawn',
+    desc: 'Rising three-note sparkle — powerup icon appears on a chain ball.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'powerupexpire',
+    desc: 'Soft two-note drop — powerup timer ran out.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'crystalspawn',
+    desc: 'Bright inviting ting — bonus crystal materialises on screen.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'crystalfade',
+    desc: 'Soft descending sigh — bonus crystal fades uncollected.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'chromaticboom',
+    desc: 'Big resonant chord burst — chromatic purge detonates.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'levelstart',
+    desc: 'Short two-note flourish — new level begins.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'miss',
+    desc: 'Quiet low thud — fired ball goes out of bounds.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'dangerpulse',
+    desc: 'Low ominous throb — chain approaching skull. danger 0–1 scales volume.',
+    buttons: [
+      { label: 'Low (0.3)',  args: [0.3] },
+      { label: 'Mid (0.6)',  args: [0.6] },
+      { label: 'High (1.0)', args: [1.0] },
+    ],
+  },
+  {
+    name: 'newhighscore',
+    desc: 'Delayed triumphant sparkle layered over gameover — new all-time high score.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'newlevelbest',
+    desc: 'Light three-note chime — new personal best on a level.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
+  {
+    name: 'timebonus',
+    desc: 'Quick ascending trill — time bonus awarded.',
+    buttons: [{ label: 'Play', args: [] }],
+  },
 ];
 
 function flash(btn) {

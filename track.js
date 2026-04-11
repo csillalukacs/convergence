@@ -71,6 +71,9 @@ class Track {
     this.vortexMeshes = null; // { outer, mid, inner, core, arms[] } for danger animation
     this.bonusCrystals = [];
     this.bonusCrystalSpawnTimer = 8.0;
+
+    // ─── Audio timers ───
+    this.dangerPulseTimer = 0;
   }
 
   // ─── PATH METHODS (from path.js) ───
@@ -225,6 +228,18 @@ class Track {
       );
     }
 
+    // Danger audio pulse — interval shrinks from 2.5 s to 0.5 s as danger peaks
+    if (danger > 0.2) {
+      const interval = 2.5 - danger * 2.0;
+      this.dangerPulseTimer -= dt;
+      if (this.dangerPulseTimer <= 0) {
+        playSound('dangerpulse', danger);
+        this.dangerPulseTimer = interval;
+      }
+    } else {
+      this.dangerPulseTimer = 0;
+    }
+
     // Tint balls in the danger zone (last 30% of path) with red emissive boost
     const dangerZoneS = this.pathLength * 0.70;
     for (let i = 0; i < this.chain.length; i++) {
@@ -358,6 +373,7 @@ class Track {
 
     scene.add(group);
     this.bonusCrystals.push({ mesh: group, alive: true, life: 9.0 });
+    playSound('crystalspawn');
   }
 
   clearBonusCrystals() {
@@ -723,6 +739,7 @@ class Track {
       if (!ball.powerup) continue;
       ball.powerupTimer -= dt;
       if (ball.powerupTimer <= 0) {
+        playSound('powerupexpire');
         removePowerupVisuals(ball);
         ball.powerup = null;
       } else {
@@ -757,6 +774,7 @@ class Track {
     scene.add(ball.powerupSprite);
     ball.powerupHalo = createPowerupHalo();
     ball.mesh.add(ball.powerupHalo);
+    playSound('powerupspawn');
   }
 
   clearAllPowerupVisuals() {
@@ -906,6 +924,7 @@ class Track {
 
       const bound = 14 * (window.innerWidth / window.innerHeight) + 2;
       if (Math.abs(proj.mesh.position.x) > bound || Math.abs(proj.mesh.position.y) > 16) {
+        playSound('miss');
         scene.remove(proj.mesh); disposeMesh(proj.mesh); proj.alive = false; continue;
       }
 
@@ -982,6 +1001,7 @@ class Track {
       if (!c.alive) continue;
       c.life -= dt;
       if (c.life <= 0) {
+        playSound('crystalfade');
         scene.remove(c.mesh);
         c.mesh.traverse(child => {
           if (child.geometry) child.geometry.dispose();
@@ -1177,6 +1197,7 @@ class Track {
 
       if (t >= 0.7 && !ca.exploded) {
         ca.exploded = true;
+        playSound('chromaticboom');
         let count = 0;
         let sumX = 0, sumY = 0, sumZ = 0;
         for (const ball of ca.targets) {

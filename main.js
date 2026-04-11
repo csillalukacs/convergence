@@ -312,6 +312,7 @@ function startGame(startLevel = 1) {
   gameActive = true;
   const startDef = LEVELS[startLevel - 1] || LEVELS[0];
   showBanner('LEVEL ' + startLevel + '\n' + MAPS[startDef.map].name);
+  playSound('levelstart');
 }
 
 function startSingleLevel(n) {
@@ -324,6 +325,7 @@ function startSingleLevel(n) {
   gameActive = true;
   const def = LEVELS[n - 1] || LEVELS[0];
   showBanner('LEVEL ' + n + '\n' + MAPS[def.map].name);
+  playSound('levelstart');
 }
 
 function jumpToLevel(n) {
@@ -357,6 +359,7 @@ function gameOver() {
     gameActive = false;
     playSound('gameover');
     const isNewHigh = saveHighScore(false);
+    if (isNewHigh) playSound('newhighscore');
     document.getElementById('game-over').style.display = 'flex';
     document.getElementById('final-score').textContent = 'Score: ' + score.toLocaleString();
     document.getElementById('final-level').textContent = 'Level: ' + level;
@@ -454,6 +457,7 @@ function levelUp() {
           resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
           const nextDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
           showBanner('LEVEL ' + level + '\n' + MAPS[nextDef.map].name);
+          playSound('levelstart');
         }
       };
     }
@@ -470,6 +474,8 @@ function levelUp() {
     bestLabelEl.textContent = isNewLevelBest ? 'PREVIOUS BEST' : 'BEST';
     bestScoreEl.textContent = prevBest > 0 ? prevBest.toLocaleString() : '—';
     newBestEl.style.display = isNewLevelBest ? 'block' : 'none';
+    if (isNewLevelBest) playSound('newlevelbest');
+    if (timeBonus > 0) playSound('timebonus');
 
     document.getElementById('level-summary').style.display = 'flex';
   }

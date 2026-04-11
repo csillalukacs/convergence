@@ -302,6 +302,92 @@ const SOUNDS = {
     crystalBellAt(349.23, t + 0.15, 0.7, 0.28);
     crystalBellAt(261.63, t + 0.30, 1.0, 0.34);
   },
+
+  // Rising three-note sparkle — powerup icon appears on a chain ball
+  powerupspawn: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(1174.7, t,        0.22, 0.13);
+    crystalBellAt(1480,   t + 0.05, 0.18, 0.11);
+    crystalBellAt(1760,   t + 0.10, 0.16, 0.09);
+  },
+
+  // Soft two-note drop — powerup timer ran out
+  powerupexpire: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(783.99, t,        0.32, 0.11);
+    crystalBellAt(587.33, t + 0.09, 0.28, 0.09);
+  },
+
+  // Bright inviting ting — bonus crystal materialises on screen
+  crystalspawn: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(1318.5, t,        0.28, 0.15);
+    crystalBellAt(1760,   t + 0.07, 0.22, 0.11);
+  },
+
+  // Soft descending sigh — bonus crystal fades uncollected
+  crystalfade: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(659.25, t,        0.38, 0.09);
+    crystalBellAt(523.25, t + 0.11, 0.32, 0.07);
+  },
+
+  // Big resonant chord burst — chromatic purge detonates
+  chromaticboom: () => {
+    const ctx = getAudioCtx();
+    const t = ctx.currentTime;
+    [261.63, 392, 523.25, 783.99, 1046.5].forEach((f, i) => {
+      crystalBellAt(f, t + i * 0.04, 1.4, 0.34);
+    });
+  },
+
+  // Short two-note flourish — new level begins
+  levelstart: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(659.25, t,        0.38, 0.28);
+    crystalBellAt(1046.5, t + 0.13, 0.48, 0.32);
+  },
+
+  // Quiet low thud — fired ball goes out of bounds
+  miss: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(220, t, 0.14, 0.07);
+  },
+
+  // Low ominous throb — chain approaching skull; danger scales volume
+  dangerpulse: (danger = 0.5) => {
+    const t = getAudioCtx().currentTime;
+    const g = 0.08 + danger * 0.18;
+    crystalBellAt(110,    t,        0.40, g);
+    crystalBellAt(146.83, t + 0.06, 0.34, g * 0.55);
+  },
+
+  // Delayed triumphant sparkle layered over gameover — new all-time high score
+  newhighscore: () => {
+    const ctx = getAudioCtx();
+    const t = ctx.currentTime;
+    // Starts after the gameover arpeggio settles (~1.8 s)
+    [1046.5, 1318.5, 1568, 2093].forEach((f, i) => {
+      crystalBellAt(f, t + 1.8 + i * 0.12, 0.65, 0.26);
+    });
+  },
+
+  // Light three-note chime — new personal best on a level
+  newlevelbest: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(1046.5, t,        0.32, 0.20);
+    crystalBellAt(1318.5, t + 0.09, 0.28, 0.18);
+    crystalBellAt(1568,   t + 0.18, 0.26, 0.16);
+  },
+
+  // Quick ascending trill — time bonus awarded
+  timebonus: () => {
+    const ctx = getAudioCtx();
+    const t = ctx.currentTime;
+    [659.25, 783.99, 987.77, 1174.7].forEach((f, i) => {
+      crystalBellAt(f, t + i * 0.07, 0.32, 0.20);
+    });
+  },
 };
 
 function playSound(name, ...args) {

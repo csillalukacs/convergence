@@ -630,10 +630,20 @@ class Track {
       const currentGap = targetS - gap.backBall.s;
 
       if (currentGap <= 0.05) {
-        gap.backBall.s = targetS;
-        for (let i = backIdx + 1; i < this.chain.length; i++) {
-          const tgt = this.chain[i - 1].s - BALL_SPACING;
-          if (this.chain[i].s > tgt) this.chain[i].s = tgt; else break;
+        if (gap.backBall.s > targetS + 0.01) {
+          // Back segment pushed forward into front — push front segment forward
+          gap.frontBall.s = gap.backBall.s + BALL_SPACING;
+          for (let i = frontIdx - 1; i >= 0; i--) {
+            const tgt = this.chain[i + 1].s + BALL_SPACING;
+            if (this.chain[i].s < tgt) this.chain[i].s = tgt; else break;
+          }
+        } else {
+          // Normal collapse — snap back ball forward to meet front
+          gap.backBall.s = targetS;
+          for (let i = backIdx + 1; i < this.chain.length; i++) {
+            const tgt = this.chain[i - 1].s - BALL_SPACING;
+            if (this.chain[i].s > tgt) this.chain[i].s = tgt; else break;
+          }
         }
         this.gaps.splice(g, 1);
 

@@ -23,6 +23,7 @@ let lives = 3;
 let nextExtraLife = 50000;
 let gameActive = false;
 let gamePaused = false;
+let gameMode = 'story'; // 'story' | 'single'
 let mouseX = 0, mouseY = 0;
 
 let tracks = []; // Track instances — one per path in the current level
@@ -139,10 +140,23 @@ function init() {
 // ─── LOADING / FULLSCREEN ───
 
 function hideLoadingScreen() {
+  const label = document.getElementById('loading-label');
+  const enter = document.getElementById('loading-enter');
+  const bar = document.querySelector('.loading-bar-wrap');
+  if (label) label.style.display = 'none';
+  if (bar) bar.style.display = 'none';
+  if (enter) enter.style.display = 'block';
+  const el = document.getElementById('loading-screen');
+  if (el) el.style.cursor = 'pointer';
+  el.addEventListener('click', onLoadingClick, { once: true });
+}
+
+function onLoadingClick() {
+  getAudioCtx().resume();
   const el = document.getElementById('loading-screen');
   if (!el) return;
   el.style.opacity = '0';
-  setTimeout(() => el.remove(), 550);
+  setTimeout(() => el.remove(), 1);
 }
 
 function toggleFullscreen() {
@@ -159,6 +173,7 @@ function updateFullscreenBtn() {
   const active = !!document.fullscreenElement;
   btn.textContent = active ? 'EXIT' : 'FULL';
   btn.classList.toggle('fullscreen-active', active);
+  if (typeof syncOptionsPanel === 'function') syncOptionsPanel();
 }
 
 // ─── SHOOTING ───
@@ -279,36 +294,63 @@ function resetGameState(levelDef) {
   updateHUD(); updateProgressBar(); loadShooterBalls();
 }
 
-function startGame(startLevel = 1) {
-  document.getElementById('title-screen').style.display = 'none';
-  document.getElementById('game-over').style.display = 'none';
-  document.getElementById('victory-screen').style.display = 'none';
-  document.getElementById('level-summary').style.display = 'none';
-  document.getElementById('pause-screen').style.display = 'none';
+function hideAllScreens() {
+  ['title-screen','game-over','victory-screen','level-summary','pause-screen',
+   'levels-overlay','scores-overlay'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
 
+function startGame(startLevel = 1) {
+  hideAllScreens();
+  gameMode = 'story';
   score = 0; level = startLevel;
   lives = 3; nextExtraLife = 50000;
-  debugUsedThisRun = startLevel !== 1;
+  debugUsedThisRun = false;
   resetGameState(LEVELS[startLevel - 1] || LEVELS[0]);
-
   gameActive = true;
   const startDef = LEVELS[startLevel - 1] || LEVELS[0];
   showBanner('LEVEL ' + startLevel + '\n' + MAPS[startDef.map].name);
 }
 
+function startSingleLevel(n) {
+  hideAllScreens();
+  gameMode = 'single';
+  score = 0; level = n;
+  lives = 0; nextExtraLife = Infinity;
+  debugUsedThisRun = false;
+  resetGameState(LEVELS[n - 1] || LEVELS[0]);
+  gameActive = true;
+  const def = LEVELS[n - 1] || LEVELS[0];
+  showBanner('LEVEL ' + n + '\n' + MAPS[def.map].name);
+}
+
 function jumpToLevel(n) {
   document.getElementById('pause-screen').style.display = 'none';
-
   debugUsedThisRun = true;
   score = 0; level = n;
   lives = 3; nextExtraLife = 50000;
   const jumpDef = LEVELS[n - 1] || LEVELS[LEVELS.length - 1];
   resetGameState(jumpDef);
-
   showBanner('LEVEL ' + n + '\n' + MAPS[jumpDef.map].name);
 }
 
 function gameOver() {
+  if (gameMode === 'single') {
+    gameActive = false;
+    playSound('gameover');
+    document.getElementById('game-over').style.display = 'flex';
+    document.getElementById('final-score').textContent = 'Score: ' + score.toLocaleString();
+    document.getElementById('final-level').textContent = 'Level: ' + level;
+    const goTitle = document.getElementById('go-title');
+    goTitle.textContent = 'CONVERGENCE LOST';
+    goTitle.classList.remove('go-highscore');
+    document.getElementById('go-retry-btn').style.display = 'inline-block';
+    document.getElementById('go-menu-btn').style.display = 'inline-block';
+    renderHighScores('go-highscores');
+    return;
+  }
   lives--;
   updateHUD();
   if (lives < 0) {
@@ -321,6 +363,8 @@ function gameOver() {
     const goTitle = document.getElementById('go-title');
     goTitle.textContent = isNewHigh ? 'NEW HIGH SCORE!' : 'CONVERGENCE LOST';
     goTitle.classList.toggle('go-highscore', isNewHigh);
+    document.getElementById('go-retry-btn').style.display = 'inline-block';
+    document.getElementById('go-menu-btn').style.display = 'none';
     renderHighScores('go-highscores');
   } else {
     score = tracks[0].levelStartScore;
@@ -380,23 +424,58 @@ function levelUp() {
     document.getElementById('ls-time').textContent = '+' + timeBonus.toLocaleString();
     document.getElementById('ls-total').textContent = (levelScore + clearanceTotal + timeBonus).toLocaleString();
 
-    const isVictory = level >= LEVELS.length;
+    const isVictory = gameMode === 'story' && level >= LEVELS.length;
     const btn = document.getElementById('ls-continue');
-    btn.textContent = isVictory ? 'ONWARD' : 'CONTINUE';
-    btn.onclick = () => {
-      document.getElementById('level-summary').style.display = 'none';
-      gamePaused = false;
-      clock.getDelta(); // discard accumulated time
-      if (isVictory) {
-        victory();
-      } else {
-        level++;
-        tracks.forEach(t => { t.levelClearing = false; t.lastFrontS = 0; });
-        resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
-        const nextDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
-        showBanner('LEVEL ' + level + '\n' + MAPS[nextDef.map].name);
-      }
-    };
+    const menuBtn = document.getElementById('ls-menu');
+
+    if (gameMode === 'single') {
+      btn.textContent = 'TRY AGAIN';
+      menuBtn.style.display = 'inline-block';
+      btn.onclick = () => {
+        document.getElementById('level-summary').style.display = 'none';
+        gamePaused = false;
+        clock.getDelta();
+        startSingleLevel(level);
+      };
+    } else {
+      btn.textContent = isVictory ? 'ONWARD' : 'CONTINUE';
+      menuBtn.style.display = 'none';
+      btn.onclick = () => {
+        document.getElementById('level-summary').style.display = 'none';
+        gamePaused = false;
+        clock.getDelta();
+        if (isVictory) {
+          victory();
+        } else {
+          level++;
+          tracks.forEach(t => { t.levelClearing = false; t.lastFrontS = 0; });
+          resetGameState(LEVELS[level - 1] || LEVELS[LEVELS.length - 1]);
+          const nextDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
+          showBanner('LEVEL ' + level + '\n' + MAPS[nextDef.map].name);
+        }
+      };
+    }
+
+    // Unlock next level in story mode (before the player clicks Continue)
+    if (gameMode === 'story' && !debugUsedThisRun && level < LEVELS.length) unlockLevel(level + 1);
+
+    // Per-level best score (counts in both story and single mode, never in debug)
+    const levelTotal = levelScore + clearanceTotal + timeBonus;
+    const prevBest = loadLevelScores()[level] || 0;
+    const isNewLevelBest = !debugUsedThisRun && saveLevelScore(level, levelTotal);
+    const bestRow = document.getElementById('ls-best-row');
+    const bestEl = document.getElementById('ls-best');
+    if (isNewLevelBest) {
+      bestRow.style.display = 'flex';
+      bestEl.textContent = 'NEW BEST!';
+      bestEl.className = 'ls-value ls-good-val';
+    } else if (prevBest > 0) {
+      bestRow.style.display = 'flex';
+      bestEl.textContent = prevBest.toLocaleString();
+      bestEl.className = 'ls-value';
+    } else {
+      bestRow.style.display = 'none';
+    }
 
     document.getElementById('level-summary').style.display = 'flex';
   }
@@ -446,9 +525,14 @@ function showBanner(text) {
 function updateHUD() {
   document.getElementById('score-val').textContent = score;
   document.getElementById('level-val').textContent = level;
-  document.getElementById('lives-val').textContent = '♥'.repeat(Math.max(0, lives));
-  document.getElementById('lives-label').textContent = lives === 0 ? 'Last life!' : 'Lives:';
-  while (score >= nextExtraLife) {
+  if (gameMode === 'single') {
+    document.getElementById('lives-val').textContent = '—';
+    document.getElementById('lives-label').textContent = 'Single Level';
+  } else {
+    document.getElementById('lives-val').textContent = '♥'.repeat(Math.max(0, lives));
+    document.getElementById('lives-label').textContent = lives === 0 ? 'Last life!' : 'Lives:';
+  }
+  while (gameMode === 'story' && score >= nextExtraLife) {
     lives++;
     nextExtraLife += 50000;
     document.getElementById('lives-val').textContent = '♥'.repeat(Math.max(0, lives));
@@ -506,6 +590,33 @@ function saveHighScore(won) {
   if (scores.length > 5) scores.length = 5;
   localStorage.setItem('convergence-highscores', JSON.stringify(scores));
   return true;
+}
+
+// ─── LEVEL PROGRESS & PER-LEVEL HIGH SCORES ───
+
+function loadUnlockedLevel() {
+  return parseInt(localStorage.getItem('convergence-unlocked') || '1', 10);
+}
+
+function unlockLevel(n) {
+  if (n > loadUnlockedLevel()) {
+    localStorage.setItem('convergence-unlocked', String(n));
+  }
+}
+
+function loadLevelScores() {
+  try { return JSON.parse(localStorage.getItem('convergence-level-scores')) || {}; }
+  catch { return {}; }
+}
+
+function saveLevelScore(levelNum, sc) {
+  const scores = loadLevelScores();
+  const isNew = sc > (scores[levelNum] || 0);
+  if (isNew) {
+    scores[levelNum] = sc;
+    localStorage.setItem('convergence-level-scores', JSON.stringify(scores));
+  }
+  return isNew;
 }
 
 function renderHighScores(containerId) {

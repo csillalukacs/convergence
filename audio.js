@@ -281,6 +281,19 @@ const SOUNDS = {
     crystalBellAt(523.25, t, 0.2, 0.18);
   },
 
+  // Whisper ping — menu button hover
+  menuhover: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(1318.5, t, 0.12, 0.06);
+  },
+
+  // Crisp click — menu button press
+  menuclick: () => {
+    const t = getAudioCtx().currentTime;
+    crystalBellAt(1046.5, t,        0.18, 0.20);
+    crystalBellAt(1318.5, t + 0.04, 0.14, 0.14);
+  },
+
   // Sad descending tone — lost a life but still playing
   lifelost: () => {
     const ctx = getAudioCtx();

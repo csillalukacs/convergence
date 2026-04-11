@@ -31,12 +31,34 @@
   <input type="range" id="volume-slider" min="0" max="100" value="75" oninput="setVolume(this.value)">
 </div>
 
+<div id="options-overlay" class="menu-overlay">
+  <div class="menu-panel options-panel">
+    <h2 class="menu-panel-title">OPTIONS</h2>
+    <div class="opt-rows">
+      <div class="opt-row">
+        <span class="opt-label">SOUND</span>
+        <button class="opt-toggle" id="opt-mute-btn" onclick="toggleMute(); syncOptionsPanel()">ON</button>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">VOLUME</span>
+        <input type="range" class="opt-slider" id="opt-volume-slider" min="0" max="100" value="75" oninput="setVolume(this.value); syncOptionsPanel()">
+      </div>
+      <div class="opt-row" id="opt-fs-row">
+        <span class="opt-label">FULLSCREEN</span>
+        <button class="opt-toggle" id="opt-fs-btn" onclick="toggleFullscreen(); setTimeout(syncOptionsPanel, 200)">OFF</button>
+      </div>
+    </div>
+    <button class="btn-menu" onclick="closeOptionsOverlay()">BACK</button>
+  </div>
+</div>
+
 <div id="loading-screen">
   <h1 class="loading-title">CONVERGENCE</h1>
   <div class="loading-bar-wrap">
     <div class="loading-bar-scan"></div>
   </div>
-  <div class="loading-label">Initializing</div>
+  <div class="loading-label" id="loading-label">Initializing</div>
+  <div class="loading-enter" id="loading-enter" style="display:none">CLICK TO ENTER</div>
 </div>
 
 <div id="title-screen">
@@ -45,13 +67,27 @@
   <div class="gear-deco"></div>
   <h1>CONVERGENCE</h1>
   <div class="subtitle">Align the Crystal Chain</div>
-  <div id="title-highscores" class="highscores-table"></div>
-  <div id="title-level-wrap">
+  <div class="title-menu">
+    <button class="btn-start" onclick="startGame(1)">BEGIN</button>
+    <button class="btn-menu" onclick="openLevelsOverlay()">SELECT LEVEL</button>
+    <button class="btn-menu" onclick="openScoresOverlay()">HIGH SCORES</button>
+    <button class="btn-menu" onclick="openOptionsOverlay()">OPTIONS</button>
+  </div>
+</div>
+
+<div id="levels-overlay" class="menu-overlay">
+  <div class="menu-panel levels-panel">
+    <button class="btn-menu levels-back-btn" onclick="closeLevelsOverlay()">&#8592; BACK</button>
+    <h2 class="menu-panel-title">SELECT LEVEL</h2>
     <div class="level-picker" id="title-level-picker"></div>
   </div>
-  <div class="title-btn-row">
-    <button class="btn-start" onclick="startGame(_pickerSelected)">BEGIN</button>
-    <button class="btn-select-level" onclick="toggleTitlePicker()">SELECT LEVEL</button>
+</div>
+
+<div id="scores-overlay" class="menu-overlay">
+  <div class="menu-panel scores-panel">
+    <h2 class="menu-panel-title">HIGH SCORES</h2>
+    <div id="title-highscores" class="highscores-table"></div>
+    <button class="btn-menu" onclick="closeScoresOverlay()">BACK</button>
   </div>
 </div>
 
@@ -60,7 +96,8 @@
   <div class="final-score" id="final-score">Score: 0</div>
   <div class="final-score" id="final-level">Level: 1</div>
   <div id="go-highscores" class="highscores-table"></div>
-  <button class="btn-start" onclick="startGame()">TRY AGAIN</button>
+  <button class="btn-start" id="go-retry-btn" onclick="gameMode==='single' ? startSingleLevel(level) : startGame()">TRY AGAIN</button>
+  <button class="btn-menu" id="go-menu-btn" onclick="gameActive=false; document.getElementById('game-over').style.display='none'; document.getElementById('title-screen').style.display='flex'">MENU</button>
 </div>
 
 <div id="victory-screen">
@@ -72,9 +109,11 @@
 
 <div id="pause-screen">
   <h2>PAUSED</h2>
-  <div class="pause-hint">Press P or ESC to resume</div>
-  <div class="level-picker-label">JUMP TO LEVEL</div>
-  <div class="level-picker" id="pause-level-picker"></div>
+  <div class="pause-hint">Press P to resume</div>
+  <div class="pause-menu">
+    <button class="btn-menu" onclick="openOptionsOverlay()">OPTIONS</button>
+    <button class="btn-menu" onclick="gameActive=false; gamePaused=false; document.getElementById('pause-screen').style.display='none'; document.getElementById('title-screen').style.display='flex'">MAIN MENU</button>
+  </div>
 </div>
 
 <div id="level-banner"></div>
@@ -92,8 +131,11 @@
     <div class="ls-row" id="ls-time-row"><span class="ls-label">Time Bonus</span><span class="ls-value ls-good-val" id="ls-time">0</span></div>
     <div class="ls-divider"></div>
     <div class="ls-row ls-total"><span class="ls-label">Total</span><span class="ls-value" id="ls-total">0</span></div>
+    <div class="ls-divider"></div>
+    <div class="ls-row" id="ls-best-row" style="display:none"><span class="ls-label">Level Best</span><span class="ls-value" id="ls-best">—</span></div>
   </div>
   <button class="btn-start" id="ls-continue">CONTINUE</button>
+  <button class="btn-menu" id="ls-menu" style="display:none" onclick="document.getElementById('level-summary').style.display='none'; gameActive=false; document.getElementById('title-screen').style.display='flex'">MENU</button>
 </div>
 
 <div id="debug-overlay">
@@ -136,7 +178,6 @@
 <script src="main.js"></script>
 <script>
 // ─── LEVEL PICKER ───
-let _pickerSelected = 1;
 
 /* Catmull-Rom interpolation for smooth path preview */
 function catmullRomPoint(p0, p1, p2, p3, t) {
@@ -232,32 +273,21 @@ function drawPathPreview(canvas, mapDef) {
 const COLOR_HEX = ['#FF2255', '#00AAFF', '#00FF88', '#FFCC00', '#CC44FF', '#AACCEE'];
 
 function buildLevelPickers() {
-  ['title-level-picker', 'pause-level-picker'].forEach(id => {
-    const isPause = id === 'pause-level-picker';
-    const el = document.getElementById(id);
-    el.innerHTML = '';
+  const unlockedLevel = typeof loadUnlockedLevel === 'function' ? loadUnlockedLevel() : 1;
+  const lvlScores = typeof loadLevelScores === 'function' ? loadLevelScores() : {};
 
-    if (isPause) {
-      /* pause screen keeps simple numbered buttons */
-      for (let i = 1; i <= LEVELS.length; i++) {
-        const btn = document.createElement('button');
-        btn.className = 'lvl-btn';
-        btn.textContent = i;
-        btn.dataset.n = i;
-        btn.onclick = () => jumpToLevel(i);
-        el.appendChild(btn);
-      }
-      return;
-    }
+  const el = document.getElementById('title-level-picker');
+  el.innerHTML = '';
 
+  {
     /* title screen gets preview cards */
     for (let i = 1; i <= LEVELS.length; i++) {
       const lvl = LEVELS[i - 1];
       const map = MAPS[lvl.map];
-      const tierNum = Math.floor((i - 1) / MAPS.length) + 1;
+      const isLocked = (i > unlockedLevel);
 
       const card = document.createElement('button');
-      card.className = 'lvl-card' + (i === 1 ? ' lvl-card-active' : '');
+      card.className = 'lvl-card' + (isLocked ? ' lvl-card-locked' : '');
       card.dataset.n = i;
 
       /* path preview canvas */
@@ -273,7 +303,7 @@ function buildLevelPickers() {
 
       const num = document.createElement('div');
       num.className = 'lvl-num';
-      num.textContent = i;
+      num.textContent = isLocked ? '\u{1F512}' : i;
       info.appendChild(num);
 
       const name = document.createElement('div');
@@ -303,31 +333,78 @@ function buildLevelPickers() {
       meta.appendChild(par);
 
       info.appendChild(meta);
+
+      if (!isLocked && lvlScores[i]) {
+        const best = document.createElement('div');
+        best.className = 'lvl-best';
+        best.textContent = Number(lvlScores[i]).toLocaleString();
+        info.appendChild(best);
+      }
+
       card.appendChild(info);
 
-      card.onclick = () => {
-        _pickerSelected = i;
-        el.querySelectorAll('.lvl-card').forEach(b =>
-          b.classList.toggle('lvl-card-active', +b.dataset.n === i)
-        );
-      };
+      if (!isLocked) {
+        card.onclick = () => { startSingleLevel(i); };
+      }
 
       el.appendChild(card);
 
       /* draw the preview after the card is in the DOM */
       requestAnimationFrame(() => drawPathPreview(cvs, map));
     }
-  });
+  }
 }
 
-function toggleTitlePicker() {
-  const wrap = document.getElementById('title-level-wrap');
-  wrap.classList.toggle('open');
+function openLevelsOverlay() {
+  document.getElementById('levels-overlay').style.display = 'flex';
+}
+function closeLevelsOverlay() {
+  document.getElementById('levels-overlay').style.display = 'none';
+}
+function openScoresOverlay() {
+  renderHighScores('title-highscores');
+  document.getElementById('scores-overlay').style.display = 'flex';
+}
+function closeScoresOverlay() {
+  document.getElementById('scores-overlay').style.display = 'none';
+}
+function openOptionsOverlay() {
+  syncOptionsPanel();
+  const fsRow = document.getElementById('opt-fs-row');
+  if (fsRow) fsRow.style.display = document.fullscreenEnabled ? 'flex' : 'none';
+  document.getElementById('options-overlay').style.display = 'flex';
+}
+function closeOptionsOverlay() {
+  document.getElementById('options-overlay').style.display = 'none';
+}
+function syncOptionsPanel() {
+  const muteBtn = document.getElementById('opt-mute-btn');
+  if (muteBtn) {
+    muteBtn.textContent = isMuted ? 'OFF' : 'ON';
+    muteBtn.classList.toggle('opt-toggle-off', isMuted);
+  }
+  const slider = document.getElementById('opt-volume-slider');
+  if (slider) slider.value = isMuted ? 0 : Math.round(currentVolume * 100);
+  const fsBtn = document.getElementById('opt-fs-btn');
+  if (fsBtn) {
+    const isFs = !!document.fullscreenElement;
+    fsBtn.textContent = isFs ? 'ON' : 'OFF';
+    fsBtn.classList.toggle('opt-toggle-off', !isFs);
+  }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   buildLevelPickers();
-  renderHighScores('title-highscores');
+
+  document.addEventListener('mouseenter', e => {
+    if (e.target.closest('.btn-menu, .btn-start, .lvl-card:not(.lvl-card-locked)'))
+      playSound('menuhover');
+  }, true);
+
+  document.addEventListener('click', e => {
+    if (e.target.closest('.btn-menu, .btn-start, .lvl-card:not(.lvl-card-locked)'))
+      playSound('menuclick');
+  }, true);
 });
 </script>
 </body>

@@ -422,7 +422,9 @@ function levelUp() {
     document.getElementById('ls-time-par').textContent = fmt(par);
     document.getElementById('ls-time-row').style.display = timeBonus > 0 ? 'flex' : 'none';
     document.getElementById('ls-time').textContent = '+' + timeBonus.toLocaleString();
-    document.getElementById('ls-total').textContent = (levelScore + clearanceTotal + timeBonus).toLocaleString();
+    const levelTotal = levelScore + clearanceTotal + timeBonus;
+    document.getElementById('ls-total').textContent = levelTotal.toLocaleString();
+    document.getElementById('ls-score-current').textContent = levelTotal.toLocaleString();
 
     const isVictory = gameMode === 'story' && level >= LEVELS.length;
     const btn = document.getElementById('ls-continue');
@@ -460,22 +462,14 @@ function levelUp() {
     if (gameMode === 'story' && !debugUsedThisRun && level < LEVELS.length) unlockLevel(level + 1);
 
     // Per-level best score (counts in both story and single mode, never in debug)
-    const levelTotal = levelScore + clearanceTotal + timeBonus;
     const prevBest = loadLevelScores()[level] || 0;
     const isNewLevelBest = !debugUsedThisRun && saveLevelScore(level, levelTotal);
-    const bestRow = document.getElementById('ls-best-row');
-    const bestEl = document.getElementById('ls-best');
-    if (isNewLevelBest) {
-      bestRow.style.display = 'flex';
-      bestEl.textContent = 'NEW BEST!';
-      bestEl.className = 'ls-value ls-good-val';
-    } else if (prevBest > 0) {
-      bestRow.style.display = 'flex';
-      bestEl.textContent = prevBest.toLocaleString();
-      bestEl.className = 'ls-value';
-    } else {
-      bestRow.style.display = 'none';
-    }
+    const bestScoreEl = document.getElementById('ls-score-best');
+    const bestLabelEl = document.getElementById('ls-best-label');
+    const newBestEl = document.getElementById('ls-new-best');
+    bestLabelEl.textContent = isNewLevelBest ? 'PREVIOUS BEST' : 'BEST';
+    bestScoreEl.textContent = prevBest > 0 ? prevBest.toLocaleString() : '—';
+    newBestEl.style.display = isNewLevelBest ? 'block' : 'none';
 
     document.getElementById('level-summary').style.display = 'flex';
   }

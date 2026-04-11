@@ -109,8 +109,8 @@
 
 <div id="pause-screen">
   <h2>PAUSED</h2>
-  <div class="pause-hint">Press P to resume</div>
   <div class="pause-menu">
+    <button class="btn-menu" onclick="togglePause()">CONTINUE</button>
     <button class="btn-menu" onclick="openOptionsOverlay()">OPTIONS</button>
     <button class="btn-menu" onclick="gameActive=false; gamePaused=false; document.getElementById('pause-screen').style.display='none'; document.getElementById('title-screen').style.display='flex'">MAIN MENU</button>
   </div>
@@ -121,18 +121,34 @@
 <div id="level-summary">
   <h2 id="ls-title">LEVEL 1 CLEAR</h2>
   <div class="ls-track" id="ls-track"></div>
-  <div class="ls-stats">
-    <div class="ls-row"><span class="ls-label">Level Score</span><span class="ls-value" id="ls-score">0</span></div>
-    <div class="ls-row"><span class="ls-label">Space Bonus</span><span class="ls-value" id="ls-clearance">0</span></div>
-    <div class="ls-divider"></div>
-    <div class="ls-row ls-section-label"><span class="ls-label">TIME</span></div>
-    <div class="ls-row"><span class="ls-label">Your Time</span><span class="ls-value" id="ls-time-elapsed">0:00</span></div>
-    <div class="ls-row"><span class="ls-label">Par</span><span class="ls-value ls-par-val" id="ls-time-par">0:00</span></div>
-    <div class="ls-row" id="ls-time-row"><span class="ls-label">Time Bonus</span><span class="ls-value ls-good-val" id="ls-time">0</span></div>
-    <div class="ls-divider"></div>
-    <div class="ls-row ls-total"><span class="ls-label">Total</span><span class="ls-value" id="ls-total">0</span></div>
-    <div class="ls-divider"></div>
-    <div class="ls-row" id="ls-best-row" style="display:none"><span class="ls-label">Level Best</span><span class="ls-value" id="ls-best">—</span></div>
+  <div class="ls-columns">
+    <div class="ls-col ls-col-breakdown">
+      <div class="ls-col-header">BREAKDOWN</div>
+      <div class="ls-stats">
+        <div class="ls-row"><span class="ls-label">Level Score</span><span class="ls-value" id="ls-score">0</span></div>
+        <div class="ls-row"><span class="ls-label">Space Bonus</span><span class="ls-value" id="ls-clearance">0</span></div>
+        <div class="ls-divider"></div>
+        <div class="ls-row ls-section-label"><span class="ls-label">TIME</span></div>
+        <div class="ls-row"><span class="ls-label">Your Time</span><span class="ls-value" id="ls-time-elapsed">0:00</span></div>
+        <div class="ls-row"><span class="ls-label">Par</span><span class="ls-value ls-par-val" id="ls-time-par">0:00</span></div>
+        <div class="ls-row" id="ls-time-row"><span class="ls-label">Time Bonus</span><span class="ls-value ls-good-val" id="ls-time">0</span></div>
+        <div class="ls-divider"></div>
+        <div class="ls-row ls-total"><span class="ls-label">Total</span><span class="ls-value" id="ls-total">0</span></div>
+      </div>
+    </div>
+    <div class="ls-col-sep"></div>
+    <div class="ls-col ls-col-scores">
+      <div class="ls-col-header">SCORE</div>
+      <div class="ls-score-block">
+        <div class="ls-score-label">THIS RUN</div>
+        <div class="ls-score-big" id="ls-score-current">0</div>
+        <div class="ls-new-best" id="ls-new-best" style="display:none">NEW BEST!</div>
+      </div>
+      <div class="ls-score-block">
+        <div class="ls-score-label" id="ls-best-label">BEST</div>
+        <div class="ls-score-big" id="ls-score-best">—</div>
+      </div>
+    </div>
   </div>
   <button class="btn-start" id="ls-continue">CONTINUE</button>
   <button class="btn-menu" id="ls-menu" style="display:none" onclick="document.getElementById('level-summary').style.display='none'; gameActive=false; document.getElementById('title-screen').style.display='flex'">MENU</button>

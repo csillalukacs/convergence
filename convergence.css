@@ -447,7 +447,7 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 100;
-  background: rgba(0,0,8,0.80);
+  background: rgba(0,0,8,0.94);
 }
 
 #pause-screen h2 {
@@ -455,22 +455,37 @@ body {
   font-size: 48px;
   color: #aaddff;
   text-shadow: 0 0 30px rgba(136,204,255,0.6);
-  margin-bottom: 16px;
+  margin-bottom: 32px;
   letter-spacing: 4px;
-}
-
-#pause-screen .pause-hint {
-  font-family: 'Spectral', serif;
-  font-style: italic;
-  color: #446688;
-  font-size: 20px;
-  letter-spacing: 2px;
 }
 
 .pause-menu {
   display: flex;
+  flex-direction: column;
   gap: 16px;
-  margin-top: 8px;
+  align-items: stretch;
+  width: 240px;
+}
+
+.pause-menu .btn-menu {
+  width: 100%;
+}
+
+.pause-menu .btn-menu:first-child {
+  background: linear-gradient(135deg, #112244, #224488, #112244);
+  color: #aaddff;
+  border-color: #4488cc;
+  padding: 18px 36px;
+  font-size: 18px;
+  box-shadow: 0 0 20px rgba(136,204,255,0.2), inset 0 0 20px rgba(136,204,255,0.05);
+  transition: all 0.3s;
+}
+
+.pause-menu .btn-menu:first-child:hover {
+  background: linear-gradient(135deg, #224488, #336699, #224488);
+  box-shadow: 0 0 40px rgba(136,204,255,0.5), inset 0 0 30px rgba(136,204,255,0.1);
+  color: #ffffff;
+  transform: scale(1.05);
 }
 
 #game-over {
@@ -627,9 +642,71 @@ body {
   margin-bottom: 20px;
 }
 
+.ls-columns {
+  display: flex;
+  gap: 0;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.ls-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.ls-col-header {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #334455;
+  margin-bottom: 12px;
+}
+
+.ls-col-sep {
+  width: 1px;
+  background: linear-gradient(180deg, transparent, #336699, transparent);
+  margin: 0 32px;
+  align-self: stretch;
+}
+
+.ls-col-scores {
+  min-width: 160px;
+  justify-content: flex-start;
+  gap: 24px;
+}
+
+.ls-score-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ls-score-label {
+  font-family: 'Spectral', serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #446688;
+  text-transform: uppercase;
+}
+
+.ls-score-big {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 28px;
+  color: #aaddff;
+  letter-spacing: 2px;
+}
+
+.ls-new-best {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #55cc88;
+  text-shadow: 0 0 10px rgba(85,204,136,0.6);
+  margin-top: 2px;
+}
+
 .ls-stats {
-  min-width: 300px;
-  margin-bottom: 16px;
+  min-width: 260px;
 }
 
 .ls-row {

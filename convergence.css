@@ -216,6 +216,7 @@ body {
   justify-content: center;
   z-index: 100;
   background: radial-gradient(ellipse at center, #080820 0%, #000008 70%);
+  overflow: hidden;
 }
 
 #title-screen h1 {
@@ -232,7 +233,7 @@ body {
   font-style: italic;
   color: #446688;
   font-size: clamp(14px, 2vw, 20px);
-  margin-bottom: 50px;
+  margin-bottom: clamp(20px, 5vh, 50px);
   letter-spacing: 3px;
 }
 
@@ -275,10 +276,12 @@ body {
   position: fixed;
   inset: 0;
   display: none;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 110;
   background: rgba(0,0,8,0.88);
+  overflow: hidden;
 }
 
 .menu-panel {
@@ -1287,6 +1290,50 @@ body {
   #rotate-prompt { display: flex; }
 }
 
+/* Make overlays scrollable when viewport is too short */
+@media (max-height: 550px) {
+  #title-screen,
+  #pause-screen,
+  #game-over,
+  #victory-screen,
+  #level-summary,
+  .menu-overlay {
+    overflow-y: auto;
+    overflow-x: hidden;
+    justify-content: flex-start;
+    padding: 20px 0;
+  }
+
+  #title-screen > :first-child,
+  #pause-screen > :first-child,
+  #game-over > :first-child,
+  #victory-screen > :first-child,
+  #level-summary > :first-child { margin-top: auto; }
+
+  #title-screen > :last-child,
+  #pause-screen > :last-child,
+  #game-over > :last-child,
+  #victory-screen > :last-child,
+  #level-summary > :last-child { margin-bottom: auto; }
+
+  .menu-overlay > .menu-panel {
+    flex-shrink: 0;
+    max-height: none;
+  }
+
+  .menu-overlay > :first-child { margin-top: auto; }
+  .menu-overlay > :last-child { margin-bottom: auto; }
+
+  .menu-panel {
+    max-width: 95vw;
+    max-height: none;
+  }
+
+  .options-panel {
+    min-width: min(340px, 90vw);
+  }
+}
+
 /* Small landscape screens (phones in landscape) */
 @media (max-height: 450px) {
   #hud {
@@ -1418,9 +1465,6 @@ body {
   .menu-panel {
     padding: 24px 20px;
     gap: 16px;
-    max-width: 95vw;
-    max-height: 90vh;
-    overflow-y: auto;
   }
 
   .menu-panel-title {

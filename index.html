@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Convergence</title>
 <link rel="stylesheet" href="convergence.css">
 </head>
@@ -24,6 +24,11 @@
 </div>
 
 <div id="swap-hint">Right-click or Space to swap</div>
+
+<div id="mobile-controls">
+  <button id="mobile-swap-btn" ontouchstart="event.preventDefault(); onSwapAction();">SWAP</button>
+  <button id="mobile-pause-btn" ontouchstart="event.preventDefault(); togglePause();">&#10074;&#10074;</button>
+</div>
 
 <div id="audio-control">
   <button id="fullscreen-btn" onclick="toggleFullscreen()">FULL</button>
@@ -58,7 +63,7 @@
     <div class="loading-bar-scan"></div>
   </div>
   <div class="loading-label" id="loading-label">Initializing</div>
-  <div class="loading-enter" id="loading-enter" style="display:none">CLICK TO ENTER</div>
+  <div class="loading-enter" id="loading-enter" style="display:none">TAP TO ENTER</div>
 </div>
 
 <div id="title-screen">
@@ -152,6 +157,11 @@
   </div>
   <button class="btn-start" id="ls-continue">CONTINUE</button>
   <button class="btn-menu" id="ls-menu" style="display:none" onclick="document.getElementById('level-summary').style.display='none'; gameActive=false; document.getElementById('title-screen').style.display='flex'">MENU</button>
+</div>
+
+<div id="rotate-prompt">
+  <div class="rotate-icon">&#x21BB;</div>
+  <div class="rotate-text">Please rotate your device to landscape mode</div>
 </div>
 
 <div id="debug-overlay">
@@ -408,6 +418,17 @@ function syncOptionsPanel() {
     fsBtn.classList.toggle('opt-toggle-off', !isFs);
   }
 }
+
+function updateMobileControls() {
+  const el = document.getElementById('mobile-controls');
+  if (!el) return;
+  const isTouchDevice = matchMedia('(pointer: coarse)').matches;
+  const visible = isTouchDevice && gameActive && !gamePaused;
+  el.style.display = visible ? 'flex' : 'none';
+}
+
+// Poll mobile controls visibility (lightweight — only checks booleans)
+setInterval(updateMobileControls, 200);
 
 window.addEventListener('DOMContentLoaded', () => {
   buildLevelPickers();

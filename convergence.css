@@ -1164,3 +1164,406 @@ body {
 .gear-deco:nth-child(3) { width: 120px; height: 120px; top: 20%; right: 10%; animation-duration: 15s; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── MOBILE CONTROLS ─── */
+
+#mobile-controls {
+  display: none;
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  z-index: 15;
+  gap: 8px;
+  pointer-events: all;
+}
+
+#mobile-swap-btn,
+#mobile-pause-btn {
+  font-family: 'Cinzel Decorative', serif;
+  background: linear-gradient(135deg, rgba(8,16,40,0.85), rgba(4,8,24,0.9));
+  color: #88ccff;
+  border: 1px solid #336699;
+  border-radius: 6px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-transform: uppercase;
+  box-shadow: 0 0 12px rgba(136,204,255,0.15);
+  min-width: 48px;
+  min-height: 48px;
+  padding: 10px 16px;
+  touch-action: manipulation;
+}
+
+#mobile-pause-btn {
+  font-size: 14px;
+  padding: 10px 12px;
+}
+
+/* ─── LANDSCAPE ROTATION PROMPT ─── */
+
+#rotate-prompt {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000008;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.rotate-icon {
+  font-size: 64px;
+  color: #88ccff;
+  animation: rotateHint 2s ease-in-out infinite;
+}
+
+@keyframes rotateHint {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(90deg); }
+}
+
+.rotate-text {
+  font-family: 'Spectral', serif;
+  font-style: italic;
+  color: #668899;
+  font-size: 16px;
+  letter-spacing: 2px;
+  text-align: center;
+  padding: 0 24px;
+}
+
+/* ─── MOBILE RESPONSIVE ─── */
+
+@media (pointer: coarse) {
+  /* Mobile controls shown/hidden by JS; just hide desktop swap hint */
+  #swap-hint { display: none; }
+
+  /* Ensure all buttons meet 44px min tap target */
+  .btn-menu {
+    min-height: 44px;
+    padding: 12px 24px;
+    font-size: 13px;
+  }
+
+  .btn-start {
+    min-height: 48px;
+    padding: 14px 36px;
+  }
+
+  /* Larger slider thumb for touch */
+  .opt-slider::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+  .opt-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .opt-toggle {
+    min-height: 44px;
+    min-width: 80px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .lvl-card {
+    width: 130px;
+  }
+
+  .lvl-preview {
+    height: 80px;
+  }
+}
+
+/* Portrait warning on narrow mobile screens */
+@media (max-height: 500px) and (max-width: 500px) and (orientation: portrait),
+       (pointer: coarse) and (orientation: portrait) and (max-width: 600px) {
+  #rotate-prompt { display: flex; }
+}
+
+/* Small landscape screens (phones in landscape) */
+@media (max-height: 450px) {
+  #hud {
+    padding: 4px 8px;
+    gap: 6px;
+  }
+
+  .hud-panel {
+    padding: 3px 8px;
+    font-size: 9px;
+    width: auto;
+    min-width: 80px;
+    height: 32px;
+    letter-spacing: 1px;
+  }
+
+  .hud-panel .value {
+    font-size: 13px;
+  }
+
+  #progress-panel {
+    width: min(160px, 22vw);
+    height: 32px;
+    padding: 3px 8px;
+  }
+
+  #progress-label {
+    font-size: 7px;
+    letter-spacing: 2px;
+  }
+
+  .hud-timer {
+    min-width: 60px;
+    font-size: 9px;
+  }
+
+  .hud-timer #timer-val {
+    font-size: 12px;
+  }
+
+  /* Dialogs */
+  #pause-screen h2 {
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+
+  .pause-menu {
+    gap: 10px;
+    width: 200px;
+  }
+
+  .pause-menu .btn-menu:first-child {
+    padding: 12px 24px;
+    font-size: 14px;
+  }
+
+  #game-over h2 {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  #game-over .final-score,
+  #victory-screen .final-score {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .victory-title {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  .highscores-table {
+    margin: 8px 0;
+    max-height: 30vh;
+    overflow-y: auto;
+  }
+
+  /* Level summary */
+  #level-summary h2 {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+
+  .ls-track {
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .ls-columns {
+    margin-bottom: 12px;
+  }
+
+  .ls-stats {
+    min-width: 180px;
+  }
+
+  .ls-row {
+    padding: 3px 0;
+    font-size: 13px;
+  }
+
+  .ls-row.ls-total {
+    font-size: 16px;
+  }
+
+  .ls-score-big {
+    font-size: 20px;
+  }
+
+  .ls-col-sep {
+    margin: 0 16px;
+  }
+
+  /* Level banner */
+  #level-banner {
+    font-size: 28px;
+  }
+
+  /* Mobile controls position */
+  #mobile-controls {
+    bottom: 6px;
+    right: 6px;
+  }
+}
+
+/* Very narrow screens (small phones in landscape) */
+@media (max-width: 680px) {
+  .menu-panel {
+    padding: 24px 20px;
+    gap: 16px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .menu-panel-title {
+    font-size: 18px;
+    letter-spacing: 3px;
+  }
+
+  .levels-panel .level-picker {
+    width: auto;
+    max-width: 85vw;
+  }
+
+  .lvl-card {
+    width: 110px;
+  }
+
+  .lvl-preview {
+    height: 70px;
+  }
+
+  .lvl-info {
+    padding: 4px 6px 6px;
+  }
+
+  .lvl-name {
+    font-size: 9px;
+  }
+
+  /* Level summary columns stack on narrow screens */
+  .ls-columns {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .ls-col-sep {
+    width: 60%;
+    height: 1px;
+    margin: 0;
+    background: linear-gradient(90deg, transparent, #336699, transparent);
+  }
+
+  .ls-col-scores {
+    align-items: center;
+    text-align: center;
+  }
+
+  .ls-score-block {
+    align-items: center;
+  }
+
+  .options-panel {
+    min-width: auto;
+    width: 90vw;
+    max-width: 340px;
+  }
+
+  .scores-panel {
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  /* Game over / victory */
+  #game-over,
+  #victory-screen {
+    padding: 20px;
+    overflow-y: auto;
+  }
+}
+
+/* Extra small height (e.g. iPhone SE landscape) */
+@media (max-height: 360px) {
+  #hud {
+    padding: 2px 6px;
+    gap: 4px;
+  }
+
+  .hud-panel {
+    height: 26px;
+    padding: 2px 6px;
+    font-size: 8px;
+    min-width: 60px;
+  }
+
+  .hud-panel .value {
+    font-size: 11px;
+  }
+
+  #progress-panel {
+    height: 26px;
+    width: min(120px, 18vw);
+    padding: 2px 6px;
+  }
+
+  #progress-wrap {
+    height: 6px;
+  }
+
+  #progress-label {
+    font-size: 6px;
+  }
+
+  .hud-timer {
+    min-width: 50px;
+  }
+
+  .hud-timer #timer-val {
+    font-size: 10px;
+  }
+
+  #level-summary h2 {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+
+  #level-summary .btn-start {
+    padding: 10px 28px;
+    font-size: 14px;
+  }
+
+  .ls-row {
+    font-size: 11px;
+    padding: 2px 0;
+  }
+
+  .ls-row.ls-total {
+    font-size: 14px;
+  }
+
+  .ls-score-big {
+    font-size: 16px;
+  }
+
+  #pause-screen h2 {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+
+  #game-over h2 {
+    font-size: 20px;
+  }
+
+  .victory-title {
+    font-size: 20px;
+  }
+}

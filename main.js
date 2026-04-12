@@ -38,7 +38,7 @@ let shockwaves = []; // expanding ring visuals from blast
 function loadTracksForLevel(levelDef) {
   const map = MAPS[levelDef.map];
   const trackDefs = map.tracks || [{ waypoints: map.waypoints }];
-  tracks.forEach(t => { t.clearTrackVisuals(); t.clearBonusCrystals(); });
+  tracks.forEach(t => { clearTrackVisuals(t); clearBonusCrystals(t); });
   tracks = [];
   for (const td of trackDefs) {
     const t = new Track();
@@ -54,8 +54,8 @@ function resetTracksForLevel(levelDef) {
   if (tracks.length !== trackDefs.length) {
     tracks.forEach(t => {
       t.resetState();
-      t.clearTrackVisuals();
-      t.clearBonusCrystals();
+      clearTrackVisuals(t);
+      clearBonusCrystals(t);
     });
     tracks = [];
     for (const td of trackDefs) {
@@ -328,16 +328,6 @@ function startSingleLevel(n) {
   playSound('levelstart');
 }
 
-function jumpToLevel(n) {
-  document.getElementById('pause-screen').style.display = 'none';
-  debugUsedThisRun = true;
-  score = 0; level = n;
-  lives = 3; nextExtraLife = 50000;
-  const jumpDef = LEVELS[n - 1] || LEVELS[LEVELS.length - 1];
-  resetGameState(jumpDef);
-  showBanner('LEVEL ' + n + '\n' + MAPS[jumpDef.map].name);
-}
-
 function gameOver() {
   if (gameMode === 'single') {
     gameActive = false;
@@ -379,7 +369,7 @@ function gameOver() {
 
 function levelUp() {
   if (tracks.some(t => t.levelClearing)) return; // guard against double-call
-  tracks.forEach(t => { t.levelClearing = true; t.clearBonusCrystals(); });
+  tracks.forEach(t => { t.levelClearing = true; clearBonusCrystals(t); });
   playSound('levelup');
 
   // Per-level score

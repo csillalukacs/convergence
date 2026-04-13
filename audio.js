@@ -7,7 +7,7 @@ let audioCtx = null;
 let masterGain = null;
 let reverbConvolver = null;
 let reverbSend = null;
-let currentVolume = 0.75;
+let currentVolume = 0.35;
 let isMuted = false;
 
 function getAudioCtx() {
@@ -404,6 +404,8 @@ function playSound(name, ...args) {
 function toggleMute() {
   isMuted = !isMuted;
   if (masterGain) masterGain.gain.value = isMuted ? 0 : currentVolume;
+  if (isMuted) { if (typeof muteWorldMusic === 'function') muteWorldMusic(); }
+  else { if (typeof unmuteWorldMusic === 'function') unmuteWorldMusic(); }
   document.getElementById('mute-btn').classList.toggle('muted', isMuted);
   document.getElementById('mute-btn').textContent = isMuted ? 'MUTED' : 'SOUND';
   try { localStorage.setItem('convergence-muted', isMuted); } catch {}
@@ -413,6 +415,9 @@ function setVolume(val) {
   currentVolume = val / 100;
   isMuted = currentVolume === 0;
   if (masterGain) masterGain.gain.value = currentVolume;
+  if (typeof setMusicVolume === 'function') setMusicVolume(currentVolume);
+  if (isMuted) { if (typeof muteWorldMusic === 'function') muteWorldMusic(); }
+  else { if (typeof unmuteWorldMusic === 'function') unmuteWorldMusic(); }
   document.getElementById('mute-btn').classList.toggle('muted', isMuted);
   document.getElementById('mute-btn').textContent = isMuted ? 'MUTED' : 'SOUND';
   try {

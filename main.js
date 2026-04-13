@@ -142,6 +142,20 @@ function init() {
 // ─── LOADING / FULLSCREEN ───
 
 function hideLoadingScreen() {
+  const label = document.getElementById('loading-label');
+  const enter = document.getElementById('loading-enter');
+  const bar = document.querySelector('.loading-bar-wrap');
+  if (label) label.style.display = 'none';
+  if (bar) bar.style.display = 'none';
+  if (enter) enter.style.display = 'block';
+  const el = document.getElementById('loading-screen');
+  if (el) el.style.cursor = 'pointer';
+  el.addEventListener('click', onLoadingClick, { once: true });
+}
+
+function onLoadingClick() {
+  getAudioCtx().resume();
+  if (typeof Tone !== 'undefined') Tone.start().catch(() => {});
   const el = document.getElementById('loading-screen');
   if (!el) return;
   el.style.opacity = '0';
@@ -272,6 +286,8 @@ function togglePause() {
   if (document.getElementById('level-summary').style.display === 'flex') return;
   gamePaused = !gamePaused;
   playSound(gamePaused ? 'pause' : 'unpause');
+  if (gamePaused) { if (typeof pauseWorldMusic === 'function') pauseWorldMusic(); }
+  else { if (typeof resumeWorldMusic === 'function') resumeWorldMusic(); }
   document.getElementById('pause-screen').style.display = gamePaused ? 'flex' : 'none';
   if (!gamePaused) clock.getDelta(); // discard time accumulated while paused
 }
@@ -287,6 +303,7 @@ function resetGameState(levelDef) {
   gamePaused = false;
 
   if (typeof applyTheme === 'function') applyTheme(levelDef.tier || 0);
+  if (typeof startWorldMusic === 'function') startWorldMusic(levelDef.tier || 0);
   updateHUD(); updateProgressBar(); loadShooterBalls();
 }
 
@@ -327,6 +344,7 @@ function startSingleLevel(n) {
 function gameOver() {
   if (gameMode === 'single') {
     gameActive = false;
+    if (typeof stopWorldMusic === 'function') stopWorldMusic();
     playSound('gameover');
     document.getElementById('game-over').style.display = 'flex';
     document.getElementById('final-score').textContent = 'Score: ' + score.toLocaleString();
@@ -343,6 +361,7 @@ function gameOver() {
   updateHUD();
   if (lives < 0) {
     gameActive = false;
+    if (typeof stopWorldMusic === 'function') stopWorldMusic();
     playSound('gameover');
     const isNewHigh = saveHighScore(false);
     if (isNewHigh) playSound('newhighscore');
@@ -493,6 +512,7 @@ function victory() {
   gameActive = false;
   gamePaused = false;
   tracks.forEach(t => t.levelClearing = false);
+  if (typeof stopWorldMusic === 'function') stopWorldMusic();
   playSound('victory');
   const isNewHigh = saveHighScore(true);
   spawnVictoryParticles();

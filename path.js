@@ -18,7 +18,7 @@ const COLOR_EMISSIVE = [
   0x445566,
 ];
 
-const BALL_RADIUS = 0.75;
+const BALL_RADIUS = 0.8;
 const SHOOTER_POS = { x: 0, y: 0, z: 0 };
 
 const BALL_SPACING = BALL_RADIUS * 2.05;

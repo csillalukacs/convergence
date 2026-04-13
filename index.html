@@ -215,10 +215,19 @@ function catmullRomPoint(p0, p1, p2, p3, t) {
   };
 }
 
-function drawPathPreview(canvas, mapDef) {
+function drawPathPreview(canvas, mapDef, themeColor) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
+
+  // Tinted background
+  if (themeColor) {
+    const bg = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h) * 0.7);
+    bg.addColorStop(0, themeColor.bgInner);
+    bg.addColorStop(1, themeColor.bgOuter);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   const trackList = mapDef.tracks || [{ waypoints: mapDef.waypoints }];
 
@@ -242,7 +251,8 @@ function drawPathPreview(canvas, mapDef) {
     return { x: (p.x - minX) * scale + offX, y: h - ((p.y - minY) * scale + offY) };
   }
 
-  const trackColors = ['rgba(136,204,255,0.7)', 'rgba(136,255,204,0.7)'];
+  const baseColor = themeColor ? themeColor.path : 'rgba(136,204,255,0.7)';
+  const trackColors = [baseColor, themeColor ? themeColor.path2 : 'rgba(136,255,204,0.7)'];
 
   trackList.forEach((track, ti) => {
     const wp = track.waypoints;
@@ -283,12 +293,12 @@ function drawPathPreview(canvas, mapDef) {
 
     /* start marker (pipe) */
     const start = pts[0];
-    ctx.fillStyle = 'rgba(136,204,255,0.8)';
+    ctx.fillStyle = themeColor ? themeColor.start : 'rgba(136,204,255,0.8)';
     ctx.beginPath();
     ctx.arc(start.x, start.y, 3, 0, Math.PI * 2);
     ctx.fill();
 
-    /* end marker (skull) */
+    /* end marker (skull/vortex) */
     const end = pts[pts.length - 1];
     ctx.fillStyle = 'rgba(255,68,100,0.9)';
     ctx.beginPath();
@@ -299,6 +309,13 @@ function drawPathPreview(canvas, mapDef) {
 
 const COLOR_HEX = ['#FF2255', '#00AAFF', '#00FF88', '#FFCC00', '#CC44FF', '#AACCEE'];
 
+const TIER_UI = [
+  { accent: '#88ccff', path: 'rgba(136,204,255,0.75)', path2: 'rgba(136,255,204,0.75)', start: 'rgba(136,204,255,0.9)', bgInner: '#06091a', bgOuter: '#020408' },
+  { accent: '#cc44ff', path: 'rgba(204,100,255,0.75)', path2: 'rgba(255,100,220,0.75)', start: 'rgba(204,100,255,0.9)', bgInner: '#160828', bgOuter: '#08020e' },
+  { accent: '#00ffcc', path: 'rgba(0,220,180,0.75)',   path2: 'rgba(100,255,220,0.75)', start: 'rgba(0,220,180,0.9)',   bgInner: '#021a18', bgOuter: '#010a08' },
+  { accent: '#ff8800', path: 'rgba(255,160,40,0.75)',  path2: 'rgba(255,100,20,0.75)',  start: 'rgba(255,160,40,0.9)',  bgInner: '#1a0a00', bgOuter: '#0a0300' },
+];
+
 function buildLevelPickers() {
   const unlockedLevel = typeof loadUnlockedLevel === 'function' ? loadUnlockedLevel() : 1;
   const lvlScores = typeof loadLevelScores === 'function' ? loadLevelScores() : {};
@@ -308,13 +325,27 @@ function buildLevelPickers() {
 
   {
     /* title screen gets preview cards */
+    let lastTier = -1;
     for (let i = 1; i <= LEVELS.length; i++) {
       const lvl = LEVELS[i - 1];
       const map = MAPS[lvl.map];
+      const tier = lvl.tier || 0;
+      const ui = TIER_UI[tier];
+      const theme = typeof TIER_THEMES !== 'undefined' ? TIER_THEMES[tier] : null;
       const isLocked = (i > unlockedLevel);
 
+      /* insert world header when tier changes */
+      if (tier !== lastTier) {
+        lastTier = tier;
+        const header = document.createElement('div');
+        header.className = 'lvl-world-header lvl-world-tier-' + tier;
+        header.innerHTML = '<span class="lvl-world-num">WORLD ' + (tier + 1) + '</span>'
+          + '<span class="lvl-world-name">' + (theme ? theme.name.toUpperCase() : '') + '</span>';
+        el.appendChild(header);
+      }
+
       const card = document.createElement('button');
-      card.className = 'lvl-card' + (isLocked ? ' lvl-card-locked' : '');
+      card.className = 'lvl-card lvl-tier-' + tier + (isLocked ? ' lvl-card-locked' : '');
       card.dataset.n = i;
 
       /* path preview canvas */
@@ -377,7 +408,7 @@ function buildLevelPickers() {
       el.appendChild(card);
 
       /* draw the preview after the card is in the DOM */
-      requestAnimationFrame(() => drawPathPreview(cvs, map));
+      requestAnimationFrame(() => drawPathPreview(cvs, map, ui));
     }
   }
 }

@@ -78,10 +78,10 @@ function init() {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x000008);
+  renderer.setClearColor(TIER_THEMES[0].clearColor);
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x000208, 0.012);
+  scene.fog = new THREE.FogExp2(TIER_THEMES[0].bgColor, 0.012);
 
   const aspect = window.innerWidth / window.innerHeight;
   const f = 14;
@@ -91,15 +91,16 @@ function init() {
 
   clock = new THREE.Clock();
 
-  scene.add(new THREE.AmbientLight(0x112244, 1.2));
-  const dl = new THREE.DirectionalLight(0xaaddff, 1.8);
-  dl.position.set(5, 8, 15); scene.add(dl);
-  const dl2 = new THREE.DirectionalLight(0xff88ff, 0.9);
-  dl2.position.set(-8, -5, 10); scene.add(dl2);
-  const pl = new THREE.PointLight(0x88ccff, 1.8, 40);
-  pl.position.set(0, 0, 8); scene.add(pl);
-  const pl2 = new THREE.PointLight(0xffffff, 1.0, 25);
-  pl2.position.set(-6, 6, 10); scene.add(pl2);
+  sceneAmbient = new THREE.AmbientLight(0x112244, 1.2); scene.add(sceneAmbient);
+  sceneDir1 = new THREE.DirectionalLight(0xaaddff, 1.8);
+  sceneDir1.position.set(5, 8, 15); scene.add(sceneDir1);
+  sceneDir2 = new THREE.DirectionalLight(0xff88ff, 0.9);
+  sceneDir2.position.set(-8, -5, 10); scene.add(sceneDir2);
+  scenePoint1 = new THREE.PointLight(0x88ccff, 1.8, 40);
+  scenePoint1.position.set(0, 0, 8); scene.add(scenePoint1);
+  scenePoint2 = new THREE.PointLight(0xffffff, 1.0, 25);
+  scenePoint2.position.set(-6, 6, 10); scene.add(scenePoint2);
+  createFlashOverlay();
 
   loadAudioSettings();
 
@@ -265,6 +266,7 @@ function animate() {
     sw.mesh.material.opacity = (1 - t) * 0.7;
   }
 
+  if (typeof tickFlash === 'function') tickFlash(dt);
   if (typeof tickDebug === 'function') tickDebug();
 
   renderer.render(scene, camera);
@@ -291,6 +293,7 @@ function resetGameState(levelDef) {
   tracks.forEach(t => t.levelStartScore = score);
   gamePaused = false;
 
+  if (typeof applyTheme === 'function') applyTheme(levelDef.tier || 0);
   updateHUD(); updateProgressBar(); loadShooterBalls();
 }
 
@@ -538,6 +541,7 @@ function updateHUD() {
     tracks.forEach(t => { t.spawningDone = true; t.rollBackTimer = 2.0; });
     playSound('resonance');
     showBanner('NO MORE BALLS!');
+    if (typeof triggerFlash === 'function') triggerFlash(1.5);
   }
 }
 

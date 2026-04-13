@@ -223,6 +223,65 @@ const COLOR_TIERS = [3, 4, 5, 6];
 
 const BASE_CHAIN_SPEED = 2.5;
 
+const TIER_THEMES = [
+  {
+    // Tier 0 — The Void: cold deep space
+    name: 'The Void',
+    clearColor: 0x00000e,
+    bgColor: 0x00000e,
+    shardColors: [0xFF2255, 0x00AAFF, 0x00FF88, 0xFFCC00, 0xCC44FF, 0xffffff, 0x88ccff],
+    starPalette: [0xffffff, 0xaaddff, 0xff88cc, 0x88ffdd, 0xffddaa, 0xcc88ff],
+    vortexPalette: { outer: 0x440066, mid: 0x660088, inner: 0xaa22dd, core: 0x110022, arms: 0x440066 },
+    lights: { ambient: { color: 0x112244, intensity: 1.2 }, dir1: { color: 0xaaddff, intensity: 1.8 }, dir2: { color: 0xff88ff, intensity: 0.9 }, point1: { color: 0x88ccff, intensity: 1.8 }, point2: { color: 0xffffff, intensity: 1.0 } },
+    cssVars: { accent: '#88ccff', glowRgb: '136,204,255', border: '#1e3a55', barA: '#0055aa', barB: '#88ccff', barC: '#cc88ff' },
+    pipe: { conduit: [0x1a2244, 0x112244], flow: [0x88ccff, 0x336699], mouthRing: [0xaaddff, 0x4488bb], innerRing: [0x6688aa, 0x223355], rune: [0xaaddff, 0x4488cc] },
+    track: { outer: [0x88ccff, 0x224466], inner: [0xffffff, 0x99ddff] },
+    flashColor: 0x88ccff,
+  },
+  {
+    // Tier 1 — Nebula: deep violet
+    name: 'Nebula',
+    clearColor: 0x0d0020,
+    bgColor: 0x0d0020,
+    shardColors: [0xCC44FF, 0xFF44AA, 0xAA22FF, 0xFF88DD, 0x8833CC, 0xffffff, 0xDD99FF],
+    starPalette: [0xffffff, 0xdd99ff, 0xff88cc, 0xcc44ff, 0xffaaee, 0xaa66ff],
+    vortexPalette: { outer: 0x660099, mid: 0x8800bb, inner: 0xcc44ff, core: 0x220044, arms: 0x660099 },
+    lights: { ambient: { color: 0x180830, intensity: 1.2 }, dir1: { color: 0xcc88ff, intensity: 1.6 }, dir2: { color: 0xff44aa, intensity: 1.1 }, point1: { color: 0xaa44ff, intensity: 2.0 }, point2: { color: 0xff88dd, intensity: 0.8 } },
+    cssVars: { accent: '#cc44ff', glowRgb: '204,68,255', border: '#551188', barA: '#5500aa', barB: '#cc44ff', barC: '#ff88dd' },
+    pipe: { conduit: [0x1e0a38, 0x12062a], flow: [0xcc88ff, 0x663399], mouthRing: [0xdd99ff, 0x9944cc], innerRing: [0x7744aa, 0x441166], rune: [0xee99ff, 0xaa44cc] },
+    track: { outer: [0xcc88ff, 0x442266], inner: [0xffffff, 0xddaaff] },
+    flashColor: 0xcc44ff,
+  },
+  {
+    // Tier 2 — Crystal Reef: deep teal
+    name: 'Crystal Reef',
+    clearColor: 0x001818,
+    bgColor: 0x001818,
+    shardColors: [0x00FFCC, 0x00AAFF, 0x00FF88, 0x44FFEE, 0x0088AA, 0xffffff, 0x88FFDD],
+    starPalette: [0xffffff, 0x88ffee, 0x00ffcc, 0x44ddff, 0xaaffdd, 0x00bbaa],
+    vortexPalette: { outer: 0x006666, mid: 0x008899, inner: 0x00ddbb, core: 0x002233, arms: 0x006666 },
+    lights: { ambient: { color: 0x061a18, intensity: 1.2 }, dir1: { color: 0x44ffcc, intensity: 1.6 }, dir2: { color: 0x0088ff, intensity: 0.8 }, point1: { color: 0x00ffcc, intensity: 2.0 }, point2: { color: 0x88ffee, intensity: 0.8 } },
+    cssVars: { accent: '#00ffcc', glowRgb: '0,255,200', border: '#007755', barA: '#005544', barB: '#00ffcc', barC: '#44ffee' },
+    pipe: { conduit: [0x062a20, 0x041a14], flow: [0x44ffcc, 0x009966], mouthRing: [0x88ffee, 0x00aa88], innerRing: [0x009977, 0x004433], rune: [0x88ffee, 0x00ccaa] },
+    track: { outer: [0x44ffcc, 0x224433], inner: [0xffffff, 0x99ffee] },
+    flashColor: 0x00ffcc,
+  },
+  {
+    // Tier 3 — Solar Fringe: deep amber
+    name: 'Solar Fringe',
+    clearColor: 0x1a0800,
+    bgColor: 0x1a0800,
+    shardColors: [0xFF8800, 0xFF4400, 0xFFCC00, 0xFF6633, 0xFFAA44, 0xffffff, 0xFFDD88],
+    starPalette: [0xffffff, 0xffdd88, 0xff8800, 0xffaa44, 0xffcc66, 0xff6622],
+    vortexPalette: { outer: 0x884400, mid: 0xaa6600, inner: 0xff8800, core: 0x221100, arms: 0x884400 },
+    lights: { ambient: { color: 0x1a0800, intensity: 1.2 }, dir1: { color: 0xffaa44, intensity: 1.8 }, dir2: { color: 0xff4400, intensity: 0.7 }, point1: { color: 0xff8800, intensity: 2.2 }, point2: { color: 0xffdd88, intensity: 0.8 } },
+    cssVars: { accent: '#ffaa44', glowRgb: '255,170,68', border: '#884400', barA: '#773300', barB: '#ffaa44', barC: '#ffdd88' },
+    pipe: { conduit: [0x2a1000, 0x1a0800], flow: [0xff8800, 0x884400], mouthRing: [0xffaa44, 0xaa5500], innerRing: [0x884400, 0x442200], rune: [0xffcc66, 0xcc6600] },
+    track: { outer: [0xffaa44, 0x664422], inner: [0xffffff, 0xffddaa] },
+    flashColor: 0xff8800,
+  },
+];
+
 const TIER_CONFIG = [
   { thresholds: [750, 900, 1100, 1300, 1500], parTime: 70 },
   { thresholds: [1000, 1200, 1500, 1800, 2100], parTime: 80 },
@@ -243,6 +302,7 @@ function generateLevels() {
         progressThreshold:
           cfg.thresholds[mi] || cfg.thresholds[cfg.thresholds.length - 1],
         parTime: cfg.parTime,
+        tier: ti,
       });
     }
   }

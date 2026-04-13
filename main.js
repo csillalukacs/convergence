@@ -130,6 +130,7 @@ function init() {
     if (typeof handleDebugKeyUp === 'function') handleDebugKeyUp(e);
   });
 
+  document.addEventListener('pointerdown', resumeAudioOnInteraction);
   animate();
   hideLoadingScreen();
 
@@ -141,23 +142,15 @@ function init() {
 // ─── LOADING / FULLSCREEN ───
 
 function hideLoadingScreen() {
-  const label = document.getElementById('loading-label');
-  const enter = document.getElementById('loading-enter');
-  const bar = document.querySelector('.loading-bar-wrap');
-  if (label) label.style.display = 'none';
-  if (bar) bar.style.display = 'none';
-  if (enter) enter.style.display = 'block';
-  const el = document.getElementById('loading-screen');
-  if (el) el.style.cursor = 'pointer';
-  el.addEventListener('click', onLoadingClick, { once: true });
-}
-
-function onLoadingClick() {
-  getAudioCtx().resume();
   const el = document.getElementById('loading-screen');
   if (!el) return;
   el.style.opacity = '0';
-  setTimeout(() => el.remove(), 1);
+  setTimeout(() => el.remove(), 600);
+}
+
+function resumeAudioOnInteraction() {
+  try { getAudioCtx().resume(); } catch (e) {}
+  document.removeEventListener('pointerdown', resumeAudioOnInteraction);
 }
 
 function toggleFullscreen() {

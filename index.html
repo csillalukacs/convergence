@@ -63,15 +63,16 @@
     <div class="loading-bar-scan"></div>
   </div>
   <div class="loading-label" id="loading-label">Initializing</div>
-  <div class="loading-enter" id="loading-enter" style="display:none">TAP TO ENTER</div>
 </div>
 
 <div id="title-screen">
   <div class="gear-deco"></div>
   <div class="gear-deco"></div>
   <div class="gear-deco"></div>
-  <h1>CONVERGENCE</h1>
-  <div class="subtitle">Align the Crystal Chain</div>
+  <div class="title-text">
+    <h1>CONVERGENCE</h1>
+    <div class="subtitle">Align the Crystal Chain</div>
+  </div>
   <div class="title-menu">
     <button class="btn-start" onclick="startGame(1)">BEGIN</button>
     <button class="btn-menu" onclick="openLevelsOverlay()">SELECT LEVEL</button>
@@ -82,8 +83,10 @@
 
 <div id="levels-overlay" class="menu-overlay">
   <div class="menu-panel levels-panel">
-    <button class="btn-menu levels-back-btn" onclick="closeLevelsOverlay()">&#8592; BACK</button>
-    <h2 class="menu-panel-title">SELECT LEVEL</h2>
+    <div class="levels-header">
+      <button class="btn-menu levels-back-btn" onclick="closeLevelsOverlay()">&#8592; BACK</button>
+      <h2 class="menu-panel-title">SELECT LEVEL</h2>
+    </div>
     <div class="level-picker" id="title-level-picker"></div>
   </div>
 </div>
@@ -155,13 +158,16 @@
       </div>
     </div>
   </div>
-  <button class="btn-start" id="ls-continue">CONTINUE</button>
-  <button class="btn-menu" id="ls-menu" style="display:none" onclick="document.getElementById('level-summary').style.display='none'; gameActive=false; document.getElementById('title-screen').style.display='flex'">MENU</button>
+  <div class="ls-actions">
+    <button class="btn-start" id="ls-continue">CONTINUE</button>
+    <button class="btn-menu" id="ls-menu" style="display:none" onclick="document.getElementById('level-summary').style.display='none'; gameActive=false; document.getElementById('title-screen').style.display='flex'">MENU</button>
+  </div>
 </div>
 
-<div id="rotate-prompt">
+<div id="rotate-prompt" onclick="this.style.display='none'">
   <div class="rotate-icon">&#x21BB;</div>
   <div class="rotate-text">Please rotate your device to landscape mode</div>
+  <button class="btn-menu" style="margin-top:12px" onclick="this.parentElement.style.display='none'">CONTINUE ANYWAY</button>
 </div>
 
 <div id="debug-overlay">
@@ -466,12 +472,12 @@ window.addEventListener('DOMContentLoaded', () => {
   buildLevelPickers();
 
   document.addEventListener('mouseenter', e => {
-    if (e.target.closest('.btn-menu, .btn-start, .lvl-card:not(.lvl-card-locked)'))
+    if (e.target.closest && e.target.closest('.btn-menu, .btn-start, .lvl-card:not(.lvl-card-locked)'))
       playSound('menuhover');
   }, true);
 
   document.addEventListener('click', e => {
-    if (e.target.closest('.btn-menu, .btn-start, .lvl-card:not(.lvl-card-locked)'))
+    if (e.target.closest && e.target.closest('.btn-menu, .btn-start, .lvl-card:not(.lvl-card-locked)'))
       playSound('menuclick');
   }, true);
 });

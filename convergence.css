@@ -244,6 +244,7 @@ body {
   font-size: clamp(14px, 2vw, 20px);
   margin-bottom: clamp(20px, 5vh, 50px);
   letter-spacing: 3px;
+  text-align: center;
 }
 
 .title-menu {
@@ -316,23 +317,40 @@ body {
 .levels-panel {
   max-width: 92vw;
   max-height: 90vh;
-  overflow-y: auto;
-}
-
-.levels-panel::-webkit-scrollbar { width: 6px; }
-.levels-panel::-webkit-scrollbar-track { background: transparent; }
-.levels-panel::-webkit-scrollbar-thumb {
-  background: rgba(68,119,170,0.4);
-  border-radius: 3px;
+  overflow: hidden;
+  padding: 24px 12px;
 }
 
 .levels-panel .level-picker {
   width: 790px;
   max-width: 90vw;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.levels-panel .level-picker::-webkit-scrollbar { width: 6px; }
+.levels-panel .level-picker::-webkit-scrollbar-track { background: transparent; }
+.levels-panel .level-picker::-webkit-scrollbar-thumb {
+  background: rgba(68,119,170,0.4);
+  border-radius: 3px;
+}
+
+.levels-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.levels-header .menu-panel-title {
+  margin: 0;
 }
 
 .levels-back-btn {
-  align-self: flex-start;
+  position: absolute;
+  left: 0;
 }
 
 /* ─── OPTIONS PANEL ─── */
@@ -735,6 +753,13 @@ body {
   font-size: 20px;
   color: #ffffff;
   text-shadow: 0 0 10px rgba(136,204,255,0.6);
+}
+
+.ls-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
 }
 
 .ls-label { color: #668899; }
@@ -1190,15 +1215,6 @@ body {
   text-transform: uppercase;
 }
 
-.loading-enter {
-  font-family: 'Spectral', serif;
-  font-style: italic;
-  color: #446688;
-  font-size: 13px;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  animation: loadingPulse 2s ease-in-out infinite;
-}
 
 /* ─── FULLSCREEN BUTTON ─── */
 
@@ -1316,6 +1332,36 @@ body {
   /* Mobile controls shown/hidden by JS; just hide desktop swap hint */
   #swap-hint { display: none; }
 
+  /* Full-screen centered menu on mobile */
+  #title-screen {
+    justify-content: center;
+    padding: 0;
+  }
+
+  #title-screen .gear-deco {
+    display: none;
+  }
+
+  .title-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #title-screen h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    margin-bottom: 6px;
+  }
+
+  #title-screen .subtitle {
+    font-size: clamp(12px, 2vw, 16px);
+    margin-bottom: clamp(24px, 4vh, 40px);
+  }
+
+  .title-menu {
+    width: min(260px, 80vw);
+  }
+
   /* Ensure all buttons meet 44px min tap target */
   .btn-menu {
     min-height: 44px;
@@ -1403,6 +1449,63 @@ body {
 
   .options-panel {
     min-width: min(340px, 90vw);
+  }
+}
+
+/* Landscape layout: title left, menu right */
+@media (max-height: 500px) and (orientation: landscape) {
+  #title-screen {
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-evenly;
+    padding: 0 6vw;
+    overflow: hidden;
+  }
+
+  #title-screen > :first-child { margin-top: 0; }
+  #title-screen > :last-child { margin-bottom: 0; }
+
+  #title-screen .gear-deco {
+    display: none;
+  }
+
+  .title-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+  }
+
+  #title-screen h1 {
+    font-size: clamp(24px, 5vh, 48px);
+    margin-bottom: 6px;
+    letter-spacing: 3px;
+    text-align: center;
+  }
+
+  #title-screen .subtitle {
+    font-size: clamp(11px, 1.8vh, 16px);
+    margin-bottom: 0;
+    text-align: center;
+    letter-spacing: 2px;
+  }
+
+  .title-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+    justify-content: center;
+    flex: 1;
+    padding: 16px 0;
+  }
+
+  .title-menu .btn-start,
+  .title-menu .btn-menu {
+    padding: 8px 20px;
+    font-size: clamp(11px, 1.8vh, 14px);
+    flex: 1;
   }
 }
 

@@ -8,6 +8,7 @@ let masterGain = null;
 let reverbConvolver = null;
 let reverbSend = null;
 let currentVolume = 0.35;
+let currentMusicVolume = 0.70;
 let isMuted = false;
 
 function getAudioCtx() {
@@ -411,33 +412,39 @@ function toggleMute() {
   try { localStorage.setItem('convergence-muted', isMuted); } catch {}
 }
 
-function setVolume(val) {
+function setSfxVolume(val) {
   currentVolume = val / 100;
-  isMuted = currentVolume === 0;
-  if (masterGain) masterGain.gain.value = currentVolume;
-  if (typeof setMusicVolume === 'function') setMusicVolume(currentVolume);
-  if (isMuted) { if (typeof muteWorldMusic === 'function') muteWorldMusic(); }
-  else { if (typeof unmuteWorldMusic === 'function') unmuteWorldMusic(); }
-  document.getElementById('mute-btn').classList.toggle('muted', isMuted);
-  document.getElementById('mute-btn').textContent = isMuted ? 'MUTED' : 'SOUND';
-  try {
-    localStorage.setItem('convergence-volume', val);
-    localStorage.setItem('convergence-muted', isMuted);
-  } catch {}
+  if (masterGain) masterGain.gain.value = isMuted ? 0 : currentVolume;
+  try { localStorage.setItem('convergence-sfx-volume', val); } catch {}
+}
+
+function setMusicVolumeControl(val) {
+  currentMusicVolume = val / 100;
+  if (!isMuted && typeof setMusicVolume === 'function') setMusicVolume(currentMusicVolume);
+  try { localStorage.setItem('convergence-music-volume', val); } catch {}
 }
 
 function loadAudioSettings() {
   try {
-    const vol = localStorage.getItem('convergence-volume');
+    const sfxVol = localStorage.getItem('convergence-sfx-volume');
+    const musicVol = localStorage.getItem('convergence-music-volume');
     const muted = localStorage.getItem('convergence-muted');
-    if (vol !== null) {
-      currentVolume = Number(vol) / 100;
-      document.getElementById('volume-slider').value = vol;
+
+    if (sfxVol !== null) {
+      currentVolume = Number(sfxVol) / 100;
+      const el = document.getElementById('sfx-volume-slider');
+      if (el) el.value = sfxVol;
+    }
+    if (musicVol !== null) {
+      currentMusicVolume = Number(musicVol) / 100;
+      const el = document.getElementById('music-volume-slider');
+      if (el) el.value = musicVol;
     }
     if (muted !== null) {
       isMuted = muted === 'true';
     }
     if (masterGain) masterGain.gain.value = isMuted ? 0 : currentVolume;
+    if (!isMuted && typeof setMusicVolume === 'function') setMusicVolume(currentMusicVolume);
     document.getElementById('mute-btn').classList.toggle('muted', isMuted);
     document.getElementById('mute-btn').textContent = isMuted ? 'MUTED' : 'SOUND';
   } catch {}

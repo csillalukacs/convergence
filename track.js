@@ -506,46 +506,46 @@ class Track {
         }
       }
 
-      for (let i = 0; i < this.chain.length; i++) {
-        const ball = this.chain[i];
-        if (!ball.alive) continue;
-        const dx = proj.mesh.position.x - ball.mesh.position.x;
-        const dy = proj.mesh.position.y - ball.mesh.position.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < BALL_RADIUS * 2.1) {
-          const tangent = this.getPathTangentFromS(ball.s);
-          const dot = tangent.x * dx / dist + tangent.y * dy / dist;
-          const insertIdx = dot > 0 ? i : i + 1;
-
+      // Bonus crystal pickup (checked first so crystals near the chain are reachable)
+      for (let ci = this.bonusCrystals.length - 1; ci >= 0; ci--) {
+        const c = this.bonusCrystals[ci];
+        if (!c.alive) continue;
+        const dx = proj.mesh.position.x - c.mesh.position.x;
+        const dy = proj.mesh.position.y - c.mesh.position.y;
+        if (dx * dx + dy * dy < (BALL_RADIUS + 1.0) * (BALL_RADIUS + 1.0)) {
+          c.alive = false;
+          scene.remove(c.mesh);
+          c.mesh.traverse(child => { if (child.geometry) child.geometry.dispose(); if (child.material) child.material.dispose(); });
+          this.bonusCrystals.splice(ci, 1);
+          this.bonusCrystalSpawnTimer = 14.0; // BONUS_CRYSTAL_INTERVAL
           scene.remove(proj.mesh); disposeMesh(proj.mesh); proj.alive = false;
-          this.pendingGapBonus = proj.gapBonus;
-          playSound('hit');
-          this.insertBallInChain(insertIdx, proj.colorIdx, i);
-          this.checkMatches(insertIdx);
+          playSound('crystal');
+          score += 500;
+          updateHUD();
+          spawnScoreText(c.mesh.position.clone(), 500);
+          spawnParticleBurst(c.mesh.position, 14, 0xFFDD00, { minSize: 0.07, maxSize: 0.14, minSpeed: 2, maxSpeed: 7, decay: 0.020 });
           break;
         }
       }
 
-      // Bonus crystal pickup
       if (proj.alive) {
-        for (let ci = this.bonusCrystals.length - 1; ci >= 0; ci--) {
-          const c = this.bonusCrystals[ci];
-          if (!c.alive) continue;
-          const dx = proj.mesh.position.x - c.mesh.position.x;
-          const dy = proj.mesh.position.y - c.mesh.position.y;
-          if (dx * dx + dy * dy < (BALL_RADIUS + 1.0) * (BALL_RADIUS + 1.0)) {
-            c.alive = false;
-            scene.remove(c.mesh);
-            c.mesh.traverse(child => { if (child.geometry) child.geometry.dispose(); if (child.material) child.material.dispose(); });
-            this.bonusCrystals.splice(ci, 1);
-            this.bonusCrystalSpawnTimer = 14.0; // BONUS_CRYSTAL_INTERVAL
+        for (let i = 0; i < this.chain.length; i++) {
+          const ball = this.chain[i];
+          if (!ball.alive) continue;
+          const dx = proj.mesh.position.x - ball.mesh.position.x;
+          const dy = proj.mesh.position.y - ball.mesh.position.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < BALL_RADIUS * 2.1) {
+            const tangent = this.getPathTangentFromS(ball.s);
+            const dot = tangent.x * dx / dist + tangent.y * dy / dist;
+            const insertIdx = dot > 0 ? i : i + 1;
+
             scene.remove(proj.mesh); disposeMesh(proj.mesh); proj.alive = false;
-            playSound('crystal');
-            score += 500;
-            updateHUD();
-            spawnScoreText(c.mesh.position.clone(), 500);
-            spawnParticleBurst(c.mesh.position, 14, 0xFFDD00, { minSize: 0.07, maxSize: 0.14, minSpeed: 2, maxSpeed: 7, decay: 0.020 });
+            this.pendingGapBonus = proj.gapBonus;
+            playSound('hit');
+            this.insertBallInChain(insertIdx, proj.colorIdx, i);
+            this.checkMatches(insertIdx);
             break;
           }
         }

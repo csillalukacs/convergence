@@ -142,20 +142,6 @@ function init() {
 // ─── LOADING / FULLSCREEN ───
 
 function hideLoadingScreen() {
-  const label = document.getElementById('loading-label');
-  const enter = document.getElementById('loading-enter');
-  const bar = document.querySelector('.loading-bar-wrap');
-  if (label) label.style.display = 'none';
-  if (bar) bar.style.display = 'none';
-  if (enter) enter.style.display = 'block';
-  const el = document.getElementById('loading-screen');
-  if (el) el.style.cursor = 'pointer';
-  el.addEventListener('click', onLoadingClick, { once: true });
-}
-
-function onLoadingClick() {
-  getAudioCtx().resume();
-  if (typeof Tone !== 'undefined') Tone.start().catch(() => {});
   const el = document.getElementById('loading-screen');
   if (!el) return;
   el.style.opacity = '0';

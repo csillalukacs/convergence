@@ -454,6 +454,24 @@ const SOUND_DEFS = [
     buttons: [{ label: 'Play', args: [] }],
   },
   {
+    name: 'rollin',
+    desc: 'Rapid rising arpeggio — balls rolling onto screen at level start. Duration (s) stretches the arpeggio.',
+    buttons: [
+      { label: 'Short (0.6s)', args: [0.6] },
+      { label: 'Medium (1.5s)', args: [1.5] },
+      { label: 'Long (3s)', args: [3.0] },
+    ],
+  },
+  {
+    name: 'rollback',
+    desc: 'Descending arpeggio — chain rolls back when resonance peaks. Duration (s) stretches the arpeggio.',
+    buttons: [
+      { label: 'Short (1s)', args: [1.0] },
+      { label: 'Medium (3s)', args: [3.0] },
+      { label: 'Long (5s)', args: [5.0] },
+    ],
+  },
+  {
     name: 'cleartick',
     desc: 'Quick soft tick — level clearance bonus counting.',
     buttons: [{ label: 'Play', args: [] }],

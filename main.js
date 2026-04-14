@@ -23,7 +23,8 @@ let lives = 3;
 let nextExtraLife = 50000;
 let gameActive = false;
 let gamePaused = false;
-let gameMode = 'story'; // 'story' | 'single'
+let gameMode = 'story'; // 'story' | 'single' | 'infinity'
+let infinityConfig = { mapIdx: 0, colors: 3 };
 let mouseX = 0, mouseY = 0;
 
 let tracks = []; // Track instances — one per path in the current level
@@ -235,6 +236,11 @@ function animate() {
     for (const t of tracks) t.checkProjectileCollisions(dt);
     updateTimer();
 
+    // Infinity mode: after resonance rollback completes, level up without clearing
+    if (gameMode === 'infinity' && tracks.every(t => t.spawningDone && t.rollBackTimer <= 0)) {
+      infinityLevelUp();
+    }
+
     // Level clear when all tracks are cleared
     if (tracks.every(t => t.isCleared())) levelUp();
   }
@@ -295,7 +301,7 @@ function resetGameState(levelDef) {
 
 function hideAllScreens() {
   ['title-screen','game-over','victory-screen','level-summary','pause-screen',
-   'levels-overlay','scores-overlay'].forEach(id => {
+   'levels-overlay','scores-overlay','infinity-overlay'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -327,8 +333,33 @@ function startSingleLevel(n) {
   playSound('levelstart');
 }
 
+function getInfinityLevelDef() {
+  return {
+    map: infinityConfig.mapIdx,
+    colors: infinityConfig.colors,
+    chainSpeed: BASE_CHAIN_SPEED + (level - 1) * 0.3,
+    progressThreshold: 1000,
+    parTime: 0,
+    tier: Math.min(3, Math.floor((level - 1) / 5)),
+  };
+}
+
+function startInfinityMode(mapIdx, colors) {
+  hideAllScreens();
+  gameMode = 'infinity';
+  infinityConfig = { mapIdx, colors };
+  score = 0; level = 1;
+  lives = 0; nextExtraLife = Infinity;
+  debugUsedThisRun = false;
+  const def = getInfinityLevelDef();
+  resetGameState(def);
+  gameActive = true;
+  showBanner('INFINITY MODE\n' + MAPS[mapIdx].name);
+  playSound('levelstart');
+}
+
 function gameOver() {
-  if (gameMode === 'single') {
+  if (gameMode === 'single' || gameMode === 'infinity') {
     gameActive = false;
     if (typeof stopWorldMusic === 'function') stopWorldMusic();
     playSound('gameover');
@@ -336,11 +367,23 @@ function gameOver() {
     document.getElementById('final-score').textContent = 'Score: ' + score.toLocaleString();
     document.getElementById('final-level').textContent = 'Level: ' + level;
     const goTitle = document.getElementById('go-title');
-    goTitle.textContent = 'CONVERGENCE LOST';
-    goTitle.classList.remove('go-highscore');
-    document.getElementById('go-retry-btn').style.display = 'inline-block';
+    if (gameMode === 'infinity') {
+      const isNewHigh = saveInfinityHighScore();
+      if (isNewHigh) playSound('newhighscore');
+      goTitle.textContent = isNewHigh ? 'NEW HIGH SCORE!' : 'CONVERGENCE LOST';
+      goTitle.classList.toggle('go-highscore', isNewHigh);
+      renderInfinityHighScores('go-highscores');
+    } else {
+      goTitle.textContent = 'CONVERGENCE LOST';
+      goTitle.classList.remove('go-highscore');
+      renderHighScores('go-highscores');
+    }
+    const retryBtn = document.getElementById('go-retry-btn');
+    retryBtn.style.display = 'inline-block';
+    retryBtn.onclick = gameMode === 'infinity'
+      ? () => startInfinityMode(infinityConfig.mapIdx, infinityConfig.colors)
+      : () => startSingleLevel(level);
     document.getElementById('go-menu-btn').style.display = 'inline-block';
-    renderHighScores('go-highscores');
     return;
   }
   lives--;
@@ -357,7 +400,9 @@ function gameOver() {
     const goTitle = document.getElementById('go-title');
     goTitle.textContent = isNewHigh ? 'NEW HIGH SCORE!' : 'CONVERGENCE LOST';
     goTitle.classList.toggle('go-highscore', isNewHigh);
-    document.getElementById('go-retry-btn').style.display = 'inline-block';
+    const retryBtn = document.getElementById('go-retry-btn');
+    retryBtn.style.display = 'inline-block';
+    retryBtn.onclick = () => startGame();
     document.getElementById('go-menu-btn').style.display = 'none';
     renderHighScores('go-highscores');
   } else {
@@ -368,7 +413,34 @@ function gameOver() {
   }
 }
 
+function infinityLevelUp() {
+  level++;
+  const newDef = getInfinityLevelDef();
+  const prevTier = Math.min(3, Math.floor((level - 2) / 5));
+
+  tracks.forEach(t => {
+    t.spawningDone = false;
+    t.rollBackTimer = 0;
+    t.levelStartScore = score;
+    t.progress = 0;
+    t.chainSpeed = newDef.chainSpeed;
+    t.progressMax = newDef.progressThreshold;
+    t.levelClearing = false;
+    t.levelElapsedTime = 0;
+  });
+
+  if (typeof applyTheme === 'function' && newDef.tier !== prevTier) {
+    applyTheme(newDef.tier);
+  }
+
+  updateHUD();
+  updateProgressBar();
+  showBanner('LEVEL ' + level);
+  playSound('levelup');
+}
+
 function levelUp() {
+  if (gameMode === 'infinity') return; // handled by infinityLevelUp()
   if (tracks.some(t => t.levelClearing)) return; // guard against double-call
   tracks.forEach(t => { t.levelClearing = true; clearBonusCrystals(t); });
   playSound('levelup');
@@ -517,7 +589,10 @@ function showBanner(text) {
 function updateHUD() {
   document.getElementById('score-val').textContent = score;
   document.getElementById('level-val').textContent = level;
-  if (gameMode === 'single') {
+  if (gameMode === 'infinity') {
+    document.getElementById('lives-val').textContent = '∞';
+    document.getElementById('lives-label').textContent = 'INFINITY';
+  } else if (gameMode === 'single') {
     document.getElementById('lives-val').textContent = '—';
     document.getElementById('lives-label').textContent = 'Single Level';
   } else {
@@ -537,7 +612,7 @@ function updateHUD() {
   }
   updateProgressBar();
   if (tracks.every(t => t.progress >= 1) && tracks.some(t => !t.spawningDone)) {
-    tracks.forEach(t => { t.spawningDone = true; t.rollBackTimer = 2.0; });
+    tracks.forEach(t => { t.spawningDone = true; t.rollBackTimer = 3.0; });
     playSound('resonance');
     showBanner('NO MORE BALLS!');
     if (typeof triggerFlash === 'function') triggerFlash(1.5);
@@ -547,10 +622,18 @@ function updateHUD() {
 function updateProgressBar() {
   const avgProgress = tracks.reduce((sum, t) => sum + t.progress, 0) / tracks.length;
   document.getElementById('progress-bar').style.width = (avgProgress * 100) + '%';
-  document.getElementById('progress-label').textContent = tracks.every(t => t.spawningDone) ? 'RESONANCE PEAKED — CLEAR THE CHAIN!' : 'RESONANCE';
+  document.getElementById('progress-label').textContent = tracks.every(t => t.spawningDone)
+    ? (gameMode === 'infinity' ? 'RESONANCE PEAKED — LEVEL UP!' : 'RESONANCE PEAKED — CLEAR THE CHAIN!')
+    : 'RESONANCE';
 }
 
 function updateTimer() {
+  const panel = document.getElementById('timer-panel');
+  if (gameMode === 'infinity') {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
   const elapsed = Math.max(...tracks.map(t => t.levelElapsedTime));
   const levelDef = LEVELS[level - 1] || LEVELS[LEVELS.length - 1];
   const par = levelDef.parTime || 0;
@@ -560,7 +643,6 @@ function updateTimer() {
   document.getElementById('timer-val').textContent = mins + ':' + String(secs).padStart(2, '0');
   document.getElementById('timer-par').textContent = '';
 
-  const panel = document.getElementById('timer-panel');
   panel.classList.toggle('under-par', elapsed < par);
   panel.classList.toggle('over-par', elapsed >= par);
 }
@@ -625,6 +707,49 @@ function renderHighScores(containerId) {
       `<span class="hs-rank">${i + 1}.</span>` +
       `<span class="hs-score">${s.score.toLocaleString()}</span>` +
       `<span class="hs-level">Lv ${s.level}${s.won ? ' \u2605' : ''}</span>` +
+      `<span class="hs-date">${s.date}</span>` +
+    `</div>`
+  ).join('');
+}
+
+// ─── INFINITY HIGH SCORES ───
+
+function loadInfinityScores() {
+  try {
+    return JSON.parse(localStorage.getItem('convergence-infinity-scores')) || {};
+  } catch { return {}; }
+}
+
+function saveInfinityHighScore() {
+  if (debugUsedThisRun || score === 0) return false;
+  const key = infinityConfig.mapIdx + '-' + infinityConfig.colors;
+  const all = loadInfinityScores();
+  const list = all[key] || [];
+  const wouldPlace = list.length < 5 || score > list[list.length - 1].score;
+  if (!wouldPlace) return false;
+  list.push({ score, level, date: new Date().toISOString().slice(0, 10) });
+  list.sort((a, b) => b.score - a.score);
+  if (list.length > 5) list.length = 5;
+  all[key] = list;
+  localStorage.setItem('convergence-infinity-scores', JSON.stringify(all));
+  return true;
+}
+
+function renderInfinityHighScores(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const key = infinityConfig.mapIdx + '-' + infinityConfig.colors;
+  const all = loadInfinityScores();
+  const list = all[key] || [];
+  if (list.length === 0) {
+    el.innerHTML = '<div class="hs-empty">No high scores yet</div>';
+    return;
+  }
+  el.innerHTML = list.map((s, i) =>
+    `<div class="hs-row">` +
+      `<span class="hs-rank">${i + 1}.</span>` +
+      `<span class="hs-score">${s.score.toLocaleString()}</span>` +
+      `<span class="hs-level">Lv ${s.level}</span>` +
       `<span class="hs-date">${s.date}</span>` +
     `</div>`
   ).join('');

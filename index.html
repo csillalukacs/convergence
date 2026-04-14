@@ -87,6 +87,7 @@
     </div>
     <div class="title-menu">
       <button class="btn-start" onclick="startGame(1)">BEGIN</button>
+      <button class="btn-menu" onclick="openInfinityOverlay()">INFINITY</button>
       <button class="btn-menu" onclick="openLevelsOverlay()">SELECT LEVEL</button>
       <button class="btn-menu" onclick="openScoresOverlay()">HIGH SCORES</button>
       <button class="btn-menu" onclick="openOptionsOverlay()">OPTIONS</button>
@@ -111,13 +112,35 @@
     </div>
   </div>
 
+  <div id="infinity-overlay" class="menu-overlay">
+    <div class="menu-panel infinity-panel">
+      <h2 class="menu-panel-title">INFINITY MODE</h2>
+      <div class="inf-section">
+        <div class="inf-label">MAP</div>
+        <div class="inf-map-picker">
+          <button class="inf-arrow" onclick="infinityMapNav(-1)">&#8592;</button>
+          <div class="inf-preview-wrap">
+            <canvas id="inf-map-preview" class="inf-preview" width="200" height="140"></canvas>
+            <div class="inf-map-name" id="inf-map-name"></div>
+          </div>
+          <button class="inf-arrow" onclick="infinityMapNav(1)">&#8594;</button>
+        </div>
+      </div>
+      <div class="inf-section">
+        <div class="inf-label">COLORS</div>
+        <div class="inf-color-picker" id="inf-color-picker"></div>
+      </div>
+      <button class="btn-start" onclick="launchInfinityMode()">START</button>
+      <button class="btn-menu" onclick="closeInfinityOverlay()">BACK</button>
+    </div>
+  </div>
+
   <div id="game-over">
     <h2 id="go-title">CONVERGENCE LOST</h2>
     <div class="final-score" id="final-score">Score: 0</div>
     <div class="final-score" id="final-level">Level: 1</div>
     <div id="go-highscores" class="highscores-table"></div>
-    <button class="btn-start" id="go-retry-btn"
-      onclick="gameMode==='single' ? startSingleLevel(level) : startGame()">TRY AGAIN</button>
+    <button class="btn-start" id="go-retry-btn">TRY AGAIN</button>
     <button class="btn-menu" id="go-menu-btn"
       onclick="gameActive=false; if(typeof stopWorldMusic==='function') stopWorldMusic(); document.getElementById('game-over').style.display='none'; document.getElementById('title-screen').style.display='flex'">MENU</button>
   </div>
@@ -445,6 +468,58 @@
           requestAnimationFrame(() => drawPathPreview(cvs, map, ui));
         }
       }
+    }
+
+    // ─── INFINITY MODE PICKER ───
+
+    let infSelectedMap = 0;
+    let infSelectedColors = 3;
+
+    function openInfinityOverlay() {
+      buildInfinityColorPicker();
+      updateInfinityMapPreview();
+      document.getElementById('infinity-overlay').style.display = 'flex';
+    }
+    function closeInfinityOverlay() {
+      document.getElementById('infinity-overlay').style.display = 'none';
+    }
+
+    function infinityMapNav(dir) {
+      infSelectedMap = (infSelectedMap + dir + MAPS.length) % MAPS.length;
+      updateInfinityMapPreview();
+    }
+
+    function updateInfinityMapPreview() {
+      const canvas = document.getElementById('inf-map-preview');
+      const map = MAPS[infSelectedMap];
+      drawPathPreview(canvas, map, TIER_UI[0]);
+      document.getElementById('inf-map-name').textContent = map.name;
+    }
+
+    function buildInfinityColorPicker() {
+      const el = document.getElementById('inf-color-picker');
+      el.innerHTML = '';
+      for (let c = 3; c <= 6; c++) {
+        const btn = document.createElement('button');
+        btn.className = 'inf-color-btn' + (c === infSelectedColors ? ' active' : '');
+        for (let d = 0; d < c; d++) {
+          const dot = document.createElement('span');
+          dot.className = 'inf-color-dot';
+          dot.style.background = COLOR_HEX[d];
+          btn.appendChild(dot);
+        }
+        btn.onclick = () => {
+          infSelectedColors = c;
+          el.querySelectorAll('.inf-color-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        };
+        el.appendChild(btn);
+      }
+    }
+
+    function launchInfinityMode() {
+      closeInfinityOverlay();
+      startInfinityMode(infSelectedMap, infSelectedColors);
     }
 
     function openLevelsOverlay() {

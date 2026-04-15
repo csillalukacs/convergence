@@ -60,17 +60,17 @@ class Track {
     this.pendingGapBonus = false;
 
     // ─── Powerup timers ───
-    this.pauseSpawnTimer = 15;
-    this.backSpawnTimer = 20;
-    this.blastSpawnTimer = 25;
-    this.chromaticSpawnTimer = 30;
+    this.pauseSpawnTimer = 15 + Math.random() * 8;
+    this.backSpawnTimer = 20 + Math.random() * 8;
+    this.blastSpawnTimer = 25 + Math.random() * 8;
+    this.chromaticSpawnTimer = 30 + Math.random() * 8;
 
     // ─── Visuals owned by track ───
     this.chromaticAnimations = [];
     this.trackMeshes = [];
     this.vortexMeshes = null; // { outer, mid, inner, core, arms[] } for danger animation
     this.bonusCrystals = [];
-    this.bonusCrystalSpawnTimer = 8.0;
+    this.bonusCrystalSpawnTimer = 8.0 + Math.random() * 6;
 
     // ─── Audio timers ───
     this.dangerPulseTimer = 0;
@@ -755,11 +755,11 @@ class Track {
     this.chainFreezeTimer = 0;
     this.powerupBackTimer = 0;
     this.rearSegmentPauseTimer = 0;
-    this.pauseSpawnTimer = 15;
-    this.backSpawnTimer = 20;
-    this.blastSpawnTimer = 25;
-    this.chromaticSpawnTimer = 30;
-    this.bonusCrystalSpawnTimer = 8.0;
+    this.pauseSpawnTimer = 15 + Math.random() * 8;
+    this.backSpawnTimer = 20 + Math.random() * 8;
+    this.blastSpawnTimer = 25 + Math.random() * 8;
+    this.chromaticSpawnTimer = 30 + Math.random() * 8;
+    this.bonusCrystalSpawnTimer = 8.0 + Math.random() * 6;
     this.lastFrontS = 0;
     this.pendingGapBonus = false;
     this.levelElapsedTime = 0;

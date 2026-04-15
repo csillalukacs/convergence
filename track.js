@@ -605,6 +605,7 @@ class Track {
       const maxTrackBalls = Math.floor((this.pathLength * fillFraction) / BALL_SPACING);
       const rollInLimit = Math.min(40, maxTrackBalls);
       const rollingIn = this.rollInSpawned < rollInLimit;
+      this.rollingIn = rollingIn;
       if (!this.spawningDone) {
         while (this.chain.length === 0 || this.chain[this.chain.length - 1].s > -BALL_SPACING) {
           this.spawnChainBall();

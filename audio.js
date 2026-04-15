@@ -387,42 +387,6 @@ const SOUNDS = {
     crystalBellAt(1568, t + 0.18, 0.26, 0.16);
   },
 
-  // Rapid rising arpeggio — balls rolling onto screen at level start.
-  // duration: seconds the arpeggio should span (matches roll-in duration).
-  rollin: (duration = 1.0) => {
-    const ctx = getAudioCtx();
-    const t = ctx.currentTime;
-    // Pentatonic-ish rising scale spanning three octaves
-    const scale = [
-      261.63, 311.13, 392, 466.16, 523.25, 622.25, 783.99, 932.33, 1046.5,
-      1244.5, 1568, 1864.7, 2093,
-    ];
-    const noteCount = Math.max(6, Math.min(50, Math.round(duration / 0.09)));
-    const spacing = 0.05;
-    const bellDur = 0.2;
-    for (let i = 0; i < noteCount; i++) {
-      const f = scale[i % scale.length];
-      crystalBellAt(f, t + i * spacing, bellDur, 0.3);
-    }
-  },
-
-  // Descending arpeggio — chain rolls back when resonance peaks.
-  // Same scale as rollin, reversed, stretched to the roll-back duration.
-  rollback: (duration = 3.0) => {
-    const ctx = getAudioCtx();
-    const t = ctx.currentTime;
-    const scale = [
-      2093, 1864.7, 1568, 1244.5, 1046.5, 932.33, 783.99, 622.25, 523.25,
-      466.16, 392, 311.13, 261.63,
-    ];
-    const noteCount = Math.max(6, Math.min(50, Math.round(duration / 0.09)));
-    const spacing = 0.05;
-    const bellDur = 0.2;
-    for (let i = 0; i < noteCount; i++) {
-      const f = scale[i % scale.length];
-      crystalBellAt(f, t + i * spacing, bellDur, 0.3);
-    }
-  },
 
   // Quick ascending trill — time bonus awarded
   timebonus: () => {
@@ -442,6 +406,57 @@ function playSound(name, ...args) {
     SOUNDS[name](...args);
   } catch (e) {
     console.warn("Audio error:", e);
+  }
+}
+
+// ─── LOOPING SOUNDS (start/stop) ───
+
+const LOOPING_SOUNDS = {
+  rollin: {
+    scale: [261.63, 311.13, 392, 466.16, 523.25, 622.25, 783.99, 932.33, 1046.5, 1244.5, 1568, 1864.7, 2093],
+    spacing: 0.05,
+    bellDur: 0.2,
+    vol: 0.3,
+  },
+  rollback: {
+    scale: [2093, 1864.7, 1568, 1244.5, 1046.5, 932.33, 783.99, 622.25, 523.25, 466.16, 392, 311.13, 261.63],
+    spacing: 0.05,
+    bellDur: 0.2,
+    vol: 0.3,
+  },
+};
+
+const activeLoops = {};
+
+function startSound(name) {
+  if (isMuted || activeLoops[name]) return;
+  const cfg = LOOPING_SOUNDS[name];
+  if (!cfg) return;
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") ctx.resume();
+    let i = 0;
+    let nextT = ctx.currentTime;
+    const scheduleAhead = 0.2;
+    const tick = () => {
+      while (nextT < getAudioCtx().currentTime + scheduleAhead) {
+        const f = cfg.scale[i % cfg.scale.length];
+        crystalBellAt(f, nextT, cfg.bellDur, cfg.vol);
+        nextT += cfg.spacing;
+        i++;
+      }
+    };
+    tick();
+    activeLoops[name] = setInterval(tick, 50);
+  } catch (e) {
+    console.warn("Audio error:", e);
+  }
+}
+
+function stopSound(name) {
+  if (activeLoops[name]) {
+    clearInterval(activeLoops[name]);
+    delete activeLoops[name];
   }
 }
 

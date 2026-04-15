@@ -298,6 +298,9 @@ function animate() {
   if (gameActive && !gamePaused) {
     for (const t of tracks) t.update(dt);
 
+    if (!tracks.some((t) => t.rollingIn)) stopSound("rollin");
+    if (!tracks.some((t) => t.rollBackTimer > 0)) stopSound("rollback");
+
     // Game over if any track reaches skull
     if (tracks.some((t) => t.isGameOver())) gameOver();
 
@@ -401,21 +404,7 @@ function resetGameState(levelDef) {
   updateHUD();
   updateProgressBar();
   loadShooterBalls();
-  playSound("rollin", computeRollInDuration());
-}
-
-// Estimated seconds for the longest track's roll-in burst to finish.
-// Mirrors track.js: rollInLimit = min(40, floor(pathLength * fillFraction / BALL_SPACING)),
-// roll-in speed = 16.0 units/sec.
-function computeRollInDuration() {
-  const fillFraction = tracks.length > 1 ? 0.25 : 0.5;
-  let maxLimit = 0;
-  for (const t of tracks) {
-    const maxBalls = Math.floor((t.pathLength * fillFraction) / BALL_SPACING);
-    const limit = Math.min(40, maxBalls);
-    if (limit > maxLimit) maxLimit = limit;
-  }
-  return Math.max(0.4, (maxLimit * BALL_SPACING) / 16.0);
+  startSound("rollin");
 }
 
 function hideAllScreens() {
@@ -573,7 +562,7 @@ function infinityLevelUp() {
   updateProgressBar();
   showBanner("LEVEL " + level);
   playSound("levelup");
-  playSound("rollin", computeRollInDuration());
+  startSound("rollin");
 }
 
 function levelUp() {
@@ -785,7 +774,7 @@ function updateHUD() {
       t.rollBackTimer = 3.0;
     });
     playSound("resonance");
-    playSound("rollback", 3.0);
+    startSound("rollback");
     showBanner("NO MORE BALLS!");
     if (typeof triggerFlash === "function") triggerFlash(1.5);
   }

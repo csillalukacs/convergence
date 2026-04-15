@@ -7,8 +7,9 @@ let audioCtx = null;
 let masterGain = null;
 let reverbConvolver = null;
 let reverbSend = null;
-let currentVolume = 0.35;
-let currentMusicVolume = 0.7;
+const SFX_SCALE = 0.5; // SFX max gain relative to music max — keeps sfx from overpowering music
+let currentVolume = 0.35 * SFX_SCALE;
+let currentMusicVolume = 0.70;
 let isMuted = false;
 
 function getAudioCtx() {
@@ -462,7 +463,7 @@ function toggleMute() {
 }
 
 function setSfxVolume(val) {
-  currentVolume = val / 100;
+  currentVolume = (val / 100) * SFX_SCALE;
   if (masterGain) masterGain.gain.value = isMuted ? 0 : currentVolume;
   try {
     localStorage.setItem("convergence-sfx-volume", val);
@@ -485,8 +486,8 @@ function loadAudioSettings() {
     const muted = localStorage.getItem("convergence-muted");
 
     if (sfxVol !== null) {
-      currentVolume = Number(sfxVol) / 100;
-      const el = document.getElementById("sfx-volume-slider");
+      currentVolume = (Number(sfxVol) / 100) * SFX_SCALE;
+      const el = document.getElementById('sfx-volume-slider');
       if (el) el.value = sfxVol;
     }
     if (musicVol !== null) {

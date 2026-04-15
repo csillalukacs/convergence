@@ -551,7 +551,7 @@
         muteBtn.classList.toggle('opt-toggle-off', isMuted);
       }
       const sfxSlider = document.getElementById('opt-sfx-slider');
-      if (sfxSlider) sfxSlider.value = Math.round(currentVolume * 100);
+      if (sfxSlider) sfxSlider.value = Math.round((currentVolume / SFX_SCALE) * 100);
       const musicSlider = document.getElementById('opt-music-slider');
       if (musicSlider) musicSlider.value = Math.round(currentMusicVolume * 100);
       const fsBtn = document.getElementById('opt-fs-btn');

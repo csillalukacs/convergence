@@ -971,7 +971,7 @@ body {
   z-index: 50;
   transform: translate(-50%, -50%);
   opacity: 1;
-  transition: transform 2.5s ease-out, opacity 2.5s ease-out;
+  animation: popup-enter 2.5s ease-out forwards;
   white-space: nowrap;
   letter-spacing: 2px;
 }

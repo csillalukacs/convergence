@@ -470,6 +470,10 @@ class Track {
       if (pushing) continue;
 
       // Orphan gap found — schedule a collapse so it closes properly
+      console.warn('[healOrphanGaps] Orphan gap at index', i, '→', i + 1,
+        '| dist:', dist.toFixed(2), '| spacing:', BALL_SPACING.toFixed(2),
+        '| front.s:', front.s.toFixed(2), '| back.s:', back.s.toFixed(2),
+        '| gaps:', this.gaps.length, '| pushForwards:', this.pushForwards.length);
       this.scheduleCollapse(i + 1);
     }
   }

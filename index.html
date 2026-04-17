@@ -59,6 +59,11 @@
           <input type="range" class="opt-slider" id="opt-music-slider" min="0" max="100" value="70"
             oninput="setMusicVolumeControl(this.value)">
         </div>
+        <div class="opt-row">
+          <span class="opt-label">GRAPHICS</span>
+          <button class="opt-toggle" id="opt-gfx-btn"
+            onclick="toggleGfxQuality(); syncOptionsPanel()">HIGH</button>
+        </div>
         <div class="opt-row" id="opt-fs-row">
           <span class="opt-label">FULLSCREEN</span>
           <button class="opt-toggle" id="opt-fs-btn"
@@ -553,6 +558,9 @@
     function closeOptionsOverlay() {
       document.getElementById('options-overlay').style.display = 'none';
     }
+    function toggleGfxQuality() {
+      setGfxQuality(gfxQuality === 'high' ? 'low' : 'high');
+    }
     function syncOptionsPanel() {
       const muteBtn = document.getElementById('opt-mute-btn');
       if (muteBtn) {
@@ -568,6 +576,12 @@
         const isFs = !!document.fullscreenElement;
         fsBtn.textContent = isFs ? 'ON' : 'OFF';
         fsBtn.classList.toggle('opt-toggle-off', !isFs);
+      }
+      const gfxBtn = document.getElementById('opt-gfx-btn');
+      if (gfxBtn) {
+        const isLow = gfxQuality === 'low';
+        gfxBtn.textContent = isLow ? 'LOW' : 'HIGH';
+        gfxBtn.classList.toggle('opt-toggle-off', isLow);
       }
     }
 

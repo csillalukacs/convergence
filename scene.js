@@ -188,10 +188,10 @@ function createShooter() {
   scene.add(shooterPivot);
 
   // Arcane Orb — floating crystal orb with orbiting rings
-  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12),
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.45, _lo() ? 12 : 16, _lo() ? 8 : 12),
     new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.9, roughness: 0.0, emissive: 0x4488cc, transparent: true, opacity: 0.8 }));
   shooterPivot.add(orb);
-  const inner = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10),
+  const inner = new THREE.Mesh(new THREE.SphereGeometry(0.3, _lo() ? 10 : 12, _lo() ? 7 : 10),
     new THREE.MeshBasicMaterial({ color: 0xaaddff, transparent: true, opacity: 0.4 }));
   shooterPivot.add(inner);
   for (const ra of [0, Math.PI / 3, -Math.PI / 3]) {
@@ -496,16 +496,30 @@ function _sg(key, factory) {
   return _sharedGeoms[key];
 }
 
-function getSharedBallGeom()      { return _sg('ball',       () => new THREE.SphereGeometry(BALL_RADIUS, 16, 12)); }
-function _particleSphereGeom()    { return _sg('pSphere',    () => new THREE.SphereGeometry(1, 4, 4)); }
+// Graphics quality: 'high' (default) or 'low'
+let gfxQuality = localStorage.getItem('convergence-gfx') || 'high';
+const _lo = () => gfxQuality === 'low';
+
+function getSharedBallGeom()      { return _sg('ball',       () => new THREE.SphereGeometry(BALL_RADIUS, _lo() ? 12 : 16, _lo() ? 8 : 12)); }
+function _particleSphereGeom()    { return _sg('pSphere',    () => new THREE.SphereGeometry(1, 4, _lo() ? 3 : 4)); }
 function _particleOctaGeom()      { return _sg('pOcta',      () => new THREE.OctahedronGeometry(1, 0)); }
-function _starGeom()              { return _sg('star',        () => new THREE.SphereGeometry(1, 4, 4)); }
-function _fogBlobGeom()           { return _sg('fogBlob',    () => new THREE.SphereGeometry(1, 7, 5)); }
+function _starGeom()              { return _sg('star',        () => new THREE.SphereGeometry(1, _lo() ? 3 : 4, _lo() ? 2 : 4)); }
+function _fogBlobGeom()           { return _sg('fogBlob',    () => new THREE.SphereGeometry(1, _lo() ? 5 : 7, _lo() ? 4 : 5)); }
 function _bgIcoGeom()             { return _sg('bgIco',      () => new THREE.IcosahedronGeometry(1, 0)); }
 function _bgOctaGeom()            { return _sg('bgOcta',     () => new THREE.OctahedronGeometry(1, 0)); }
-function _previewBallGeom()       { return _sg('preview',    () => new THREE.SphereGeometry(1, 12, 10)); }
-function _haloGeom()              { return _sg('halo',       () => new THREE.SphereGeometry(1, 8, 6)); }
-function _vortexCoreGeom()        { return _sg('vortexCore', () => new THREE.SphereGeometry(1, 16, 12)); }
+function _previewBallGeom()       { return _sg('preview',    () => new THREE.SphereGeometry(1, _lo() ? 10 : 12, _lo() ? 7 : 10)); }
+function _haloGeom()              { return _sg('halo',       () => new THREE.SphereGeometry(1, _lo() ? 6 : 8, _lo() ? 4 : 6)); }
+function _vortexCoreGeom()        { return _sg('vortexCore', () => new THREE.SphereGeometry(1, _lo() ? 10 : 16, _lo() ? 7 : 12)); }
+
+function setGfxQuality(q) {
+  gfxQuality = q;
+  localStorage.setItem('convergence-gfx', q);
+  // Flush cached geometries so they're rebuilt with new segment counts
+  for (const key of Object.keys(_sharedGeoms)) {
+    // Don't dispose — meshes may still reference them; just drop from cache
+    delete _sharedGeoms[key];
+  }
+}
 
 function createBallMesh(colorIdx) {
   return new THREE.Mesh(getSharedBallGeom(),

@@ -156,7 +156,7 @@ function init() {
       togglePause();
     }
 
-    if (e.code === "Backquote") {
+    if (e.code === "Backquote" || e.key === "`") {
       if (typeof toggleDebugMode === "function") toggleDebugMode();
       return;
     }

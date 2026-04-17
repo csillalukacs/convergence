@@ -427,27 +427,28 @@ const LOOPING_SOUNDS = {
 };
 
 const activeLoops = {};
+const pausedLoops = {};
 
-function startSound(name) {
+function startSound(name, startI = 0) {
   if (isMuted || activeLoops[name]) return;
   const cfg = LOOPING_SOUNDS[name];
   if (!cfg) return;
   try {
     const ctx = getAudioCtx();
     if (ctx.state === "suspended") ctx.resume();
-    let i = 0;
-    let nextT = ctx.currentTime;
+    const state = { i: startI, nextT: ctx.currentTime };
     const scheduleAhead = 0.2;
     const tick = () => {
-      while (nextT < getAudioCtx().currentTime + scheduleAhead) {
-        const f = cfg.scale[i % cfg.scale.length];
-        crystalBellAt(f, nextT, cfg.bellDur, cfg.vol);
-        nextT += cfg.spacing;
-        i++;
+      while (state.nextT < getAudioCtx().currentTime + scheduleAhead) {
+        const f = cfg.scale[state.i % cfg.scale.length];
+        crystalBellAt(f, state.nextT, cfg.bellDur, cfg.vol);
+        state.nextT += cfg.spacing;
+        state.i++;
       }
     };
     tick();
-    activeLoops[name] = setInterval(tick, 50);
+    state.intervalId = setInterval(tick, 50);
+    activeLoops[name] = state;
   } catch (e) {
     console.warn("Audio error:", e);
   }
@@ -455,8 +456,23 @@ function startSound(name) {
 
 function stopSound(name) {
   if (activeLoops[name]) {
-    clearInterval(activeLoops[name]);
+    clearInterval(activeLoops[name].intervalId);
     delete activeLoops[name];
+  }
+}
+
+function pauseLoopingSounds() {
+  for (const name in activeLoops) {
+    pausedLoops[name] = { i: activeLoops[name].i };
+    clearInterval(activeLoops[name].intervalId);
+    delete activeLoops[name];
+  }
+}
+
+function resumeLoopingSounds() {
+  for (const name in pausedLoops) {
+    startSound(name, pausedLoops[name].i);
+    delete pausedLoops[name];
   }
 }
 

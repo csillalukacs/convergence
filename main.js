@@ -385,8 +385,10 @@ function togglePause() {
   gamePaused = !gamePaused;
   playSound(gamePaused ? "pause" : "unpause");
   if (gamePaused) {
+    pauseLoopingSounds();
     if (typeof pauseWorldMusic === "function") pauseWorldMusic();
   } else {
+    resumeLoopingSounds();
     if (typeof resumeWorldMusic === "function") resumeWorldMusic();
   }
   document.getElementById("pause-screen").style.display = gamePaused

@@ -74,6 +74,9 @@ class Track {
 
     // ─── Audio timers ───
     this.dangerPulseTimer = 0;
+
+    // ─── Perf: throttle healOrphanGaps ───
+    this._healFrame = 0;
   }
 
   // ─── PATH METHODS (from path.js) ───
@@ -674,7 +677,7 @@ class Track {
 
       this.updateCollapses(dt);
       this.updatePushForwards(dt);
-      this.healOrphanGaps();
+      if (++this._healFrame % 10 === 0) this.healOrphanGaps();
       this.tickBallPowerups(dt);
 
       if (!this.spawningDone) {

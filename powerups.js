@@ -116,13 +116,15 @@ function createPowerupSprite(type) {
 }
 
 function createPowerupHalo() {
-  return new THREE.Mesh(
-    new THREE.SphereGeometry(BALL_RADIUS * 1.55, 8, 6),
+  const m = new THREE.Mesh(
+    _haloGeom(),
     new THREE.MeshBasicMaterial({
       color: 0xaaddff, transparent: true, opacity: 0,
       side: THREE.BackSide, depthWrite: false
     })
   );
+  m.scale.setScalar(BALL_RADIUS * 1.55);
+  return m;
 }
 
 // ─── TRACK POWERUP METHODS (from track.js) ───

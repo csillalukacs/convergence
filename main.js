@@ -326,10 +326,15 @@ function animate() {
     p.position.y += p.userData.vy * dt;
     p.userData.life -= p.userData.decay;
     p.material.opacity = Math.max(0, p.userData.life);
-    p.scale.setScalar(Math.max(0.01, p.userData.life));
+    const lf = Math.max(0.01, p.userData.life);
+    if (p.userData.baseScaleY !== undefined) {
+      p.scale.set(p.userData.baseScaleX * lf, p.userData.baseScaleY * lf, p.userData.baseScaleZ * lf);
+    } else {
+      p.scale.setScalar((p.userData.baseScale || 1) * lf);
+    }
     if (p.userData.life <= 0) {
       scene.remove(p);
-      p.geometry.dispose();
+      if (!p.geometry._shared) p.geometry.dispose();
       p.material.dispose();
       particles.splice(i, 1);
     }
@@ -382,7 +387,7 @@ function resetGameState(levelDef) {
   projectiles = [];
   particles.forEach((p) => {
     scene.remove(p);
-    p.geometry.dispose();
+    if (!p.geometry._shared) p.geometry.dispose();
     p.material.dispose();
   });
   particles = [];

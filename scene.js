@@ -30,14 +30,15 @@ function _buildShards(theme, hw, hh) {
     const fogColors = [0x330055, 0x550088, 0x220044, 0x440066, 0x110033];
     for (let i = 0; i < 16; i++) {
       const col = fogColors[Math.floor(Math.random() * fogColors.length)];
-      const size = 2.5 + Math.random() * 5.0;
+      const blobSize = 2.5 + Math.random() * 5.0;
       const blob = new THREE.Mesh(
-        new THREE.SphereGeometry(size, 7, 5),
+        _fogBlobGeom(),
         new THREE.MeshBasicMaterial({
           color: col, transparent: true,
           opacity: 0.04 + Math.random() * 0.09, depthWrite: false
         })
       );
+      blob.scale.setScalar(blobSize);
       blob.position.set((Math.random() - 0.5) * hw * 2, (Math.random() - 0.5) * hh * 2, -3.5 - Math.random() * 2);
       blob.userData.spinSpeed = (Math.random() - 0.5) * 0.025;
       scene.add(blob); bgShards.push(blob);
@@ -45,14 +46,15 @@ function _buildShards(theme, hw, hh) {
     // Shard layer: bright icosahedron crystal shards floating in the fog
     for (let i = 0; i < 14; i++) {
       const col = pick(theme.shardColors);
-      const size = 0.1 + Math.random() * 0.38;
+      const shardSize = 0.1 + Math.random() * 0.38;
       const shard = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(size, 0),
+        _bgIcoGeom(),
         new THREE.MeshStandardMaterial({
           color: col, emissive: col, emissiveIntensity: 0.5,
           metalness: 0.2, roughness: 0.0, transparent: true, opacity: 0.5 + Math.random() * 0.35
         })
       );
+      shard.scale.setScalar(shardSize);
       shard.position.set((Math.random() - 0.5) * hw * 2, (Math.random() - 0.5) * hh * 2, -1.5 - Math.random() * 2);
       shard.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
       shard.userData.spinSpeed = (Math.random() - 0.5) * 0.45;
@@ -96,14 +98,15 @@ function _buildShards(theme, hw, hh) {
     // The Void: sharp octahedron crystal shards
     for (let i = 0; i < 20; i++) {
       const col = pick(theme.shardColors);
-      const size = 0.12 + Math.random() * 0.45;
+      const shardSize = 0.12 + Math.random() * 0.45;
       const shard = new THREE.Mesh(
-        new THREE.OctahedronGeometry(size, 0),
+        _bgOctaGeom(),
         new THREE.MeshStandardMaterial({
           color: col, emissive: col, emissiveIntensity: 0.35,
           metalness: 0.3, roughness: 0.0, transparent: true, opacity: 0.55 + Math.random() * 0.3
         })
       );
+      shard.scale.setScalar(shardSize);
       shard.position.set((Math.random() - 0.5) * hw * 2, (Math.random() - 0.5) * hh * 2, -1.5 - Math.random() * 2);
       shard.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
       shard.userData.spinSpeed = (Math.random() - 0.5) * 0.5;
@@ -123,7 +126,9 @@ function createBackground() {
   for (let i = 0; i < 80; i++) {
     const col = theme.starPalette[Math.floor(Math.random() * theme.starPalette.length)];
     const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: Math.random() * 0.5 + 0.1 });
-    const s = new THREE.Mesh(new THREE.SphereGeometry(0.02 + Math.random() * 0.04, 4, 4), mat);
+    const starSize = 0.02 + Math.random() * 0.04;
+    const s = new THREE.Mesh(_starGeom(), mat);
+    s.scale.setScalar(starSize);
     s.position.set((Math.random() - 0.5) * hw * 2, (Math.random() - 0.5) * hh * 2, -1 + Math.random() * 2);
     s.userData = { vy: (Math.random() - 0.3) * 0.3, vx: (Math.random() - 0.5) * 0.12, baseOp: mat.opacity };
     scene.add(s); bgStars.push(s);
@@ -163,8 +168,7 @@ function applyTheme(tierIndex) {
   // Destroy and rebuild shards with new geometry
   bgShards.forEach(s => {
     scene.remove(s);
-    s.geometry.dispose();
-    s.material.dispose();
+    if (s.material) s.material.dispose();
   });
   bgShards = [];
   _buildShards(theme, camera.right + 4, camera.top + 3);
@@ -212,8 +216,10 @@ function pickColor() {
 }
 
 function makeBallPreview(colorIdx, size) {
-  return new THREE.Mesh(new THREE.SphereGeometry(size, 12, 10),
+  const m = new THREE.Mesh(_previewBallGeom(),
     new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
+  m.scale.setScalar(size);
+  return m;
 }
 
 function loadShooterBalls(primary, next) {
@@ -481,12 +487,25 @@ function texSpiral(ctx, S, cols) {
 
 // ─── CHAIN BALL MESH ───
 
-// Shared geometry for chain balls — avoids allocating hundreds of identical SphereGeometry objects
-let _sharedBallGeom = null;
-function getSharedBallGeom() {
-  if (!_sharedBallGeom) _sharedBallGeom = new THREE.SphereGeometry(BALL_RADIUS, 16, 12);
-  return _sharedBallGeom;
+// ─── SHARED GEOMETRIES ───
+// Reuse geometry instances to avoid allocating hundreds of identical buffers.
+
+const _sharedGeoms = {};
+function _sg(key, factory) {
+  if (!_sharedGeoms[key]) { _sharedGeoms[key] = factory(); _sharedGeoms[key]._shared = true; }
+  return _sharedGeoms[key];
 }
+
+function getSharedBallGeom()      { return _sg('ball',       () => new THREE.SphereGeometry(BALL_RADIUS, 16, 12)); }
+function _particleSphereGeom()    { return _sg('pSphere',    () => new THREE.SphereGeometry(1, 4, 4)); }
+function _particleOctaGeom()      { return _sg('pOcta',      () => new THREE.OctahedronGeometry(1, 0)); }
+function _starGeom()              { return _sg('star',        () => new THREE.SphereGeometry(1, 4, 4)); }
+function _fogBlobGeom()           { return _sg('fogBlob',    () => new THREE.SphereGeometry(1, 7, 5)); }
+function _bgIcoGeom()             { return _sg('bgIco',      () => new THREE.IcosahedronGeometry(1, 0)); }
+function _bgOctaGeom()            { return _sg('bgOcta',     () => new THREE.OctahedronGeometry(1, 0)); }
+function _previewBallGeom()       { return _sg('preview',    () => new THREE.SphereGeometry(1, 12, 10)); }
+function _haloGeom()              { return _sg('halo',       () => new THREE.SphereGeometry(1, 8, 6)); }
+function _vortexCoreGeom()        { return _sg('vortexCore', () => new THREE.SphereGeometry(1, 16, 12)); }
 
 function createBallMesh(colorIdx) {
   return new THREE.Mesh(getSharedBallGeom(),
@@ -512,12 +531,14 @@ function spawnParticleBurst(pos, count, colors, { minSize = 0.06, maxSize = 0.14
   for (let i = 0; i < count; i++) {
     const col = colArr[i % colArr.length];
     const size = minSize + Math.random() * (maxSize - minSize);
-    const mesh = geo === 'sphere'
-      ? new THREE.Mesh(new THREE.SphereGeometry(size, 4, 4), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity }))
-      : new THREE.Mesh(new THREE.OctahedronGeometry(size, 0), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity }));
+    const mesh = new THREE.Mesh(
+      geo === 'sphere' ? _particleSphereGeom() : _particleOctaGeom(),
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity })
+    );
+    mesh.scale.setScalar(size);
     mesh.position.copy(pos);
     const a = Math.random() * Math.PI * 2, sp = minSpeed + Math.random() * (maxSpeed - minSpeed);
-    mesh.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: decay + Math.random() * decayRand };
+    mesh.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: decay + Math.random() * decayRand, baseScale: size };
     scene.add(mesh); particles.push(mesh);
   }
 }
@@ -543,13 +564,13 @@ function explodeBall(ball) {
     const sp = 6 + Math.random() * 5;
     const len = 0.22 + Math.random() * 0.18;
     const mesh = new THREE.Mesh(
-      new THREE.OctahedronGeometry(len, 0),
+      _particleOctaGeom(),
       new THREE.MeshBasicMaterial({ color: strCol[i % 2], transparent: true, opacity: 0.9 })
     );
-    mesh.scale.set(0.18, 1, 0.18); // elongate along local Y
+    mesh.scale.set(0.18 * len, len, 0.18 * len); // elongate along local Y
     mesh.rotation.z = a;
     mesh.position.copy(pos);
-    mesh.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: 0.045 + Math.random() * 0.02 };
+    mesh.userData = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, decay: 0.045 + Math.random() * 0.02, baseScaleX: 0.18 * len, baseScaleY: len, baseScaleZ: 0.18 * len };
     scene.add(mesh); particles.push(mesh);
   }
 
@@ -595,8 +616,9 @@ function _createSkullEnd(track) {
     const inner = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.055, 8, 16),
       new THREE.MeshStandardMaterial({ color: 0xee55ff, metalness: 0.5, roughness: 0.0, emissive: 0xcc44ff }));
     inner.position.copy(ep); add(inner);
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.30, 16, 12),
+    const core = new THREE.Mesh(_vortexCoreGeom(),
       new THREE.MeshStandardMaterial({ color: 0x000000, metalness: 1.0, roughness: 0.0, emissive: 0x220044 }));
+    core.scale.setScalar(0.30);
     core.position.copy(ep); core.position.z = 0.05; add(core);
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
@@ -644,8 +666,9 @@ function _createSkullEnd(track) {
     const inner = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.08, 8, 16),
       new THREE.MeshStandardMaterial({ color: 0xff8800, metalness: 0.5, roughness: 0.0, emissive: 0xff8800 }));
     inner.position.copy(ep); add(inner);
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.30, 16, 12),
+    const core = new THREE.Mesh(_vortexCoreGeom(),
       new THREE.MeshStandardMaterial({ color: 0x110500, metalness: 1.0, roughness: 0.0, emissive: 0x221100 }));
+    core.scale.setScalar(0.30);
     core.position.copy(ep); core.position.z = 0.05; add(core);
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2;
@@ -668,8 +691,9 @@ function _createSkullEnd(track) {
     const inner = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.06, 8, 16),
       new THREE.MeshStandardMaterial({ color: 0xcc44ff, metalness: 0.5, roughness: 0.0, emissive: 0xaa22dd }));
     inner.position.copy(ep); add(inner);
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 12),
+    const core = new THREE.Mesh(_vortexCoreGeom(),
       new THREE.MeshStandardMaterial({ color: 0x000000, metalness: 1.0, roughness: 0.0, emissive: 0x110022 }));
+    core.scale.setScalar(0.25);
     core.position.copy(ep); core.position.z = 0.05; add(core);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
@@ -823,7 +847,7 @@ function _createPipeEntrance(track) {
 function clearTrackVisuals(track) {
   track.trackMeshes.forEach(m => {
     scene.remove(m);
-    if (m.geometry) m.geometry.dispose();
+    if (m.geometry && !m.geometry._shared) m.geometry.dispose();
     if (m.material) m.material.dispose();
   });
   track.trackMeshes = [];
@@ -852,17 +876,19 @@ function spawnBonusCrystal(track) {
       new THREE.MeshStandardMaterial({ color: 0xDD99FF, emissive: 0xAA44FF, emissiveIntensity: 2.5, metalness: 0.1, roughness: 0.0 })
     );
     mid = new THREE.Mesh(
-      new THREE.SphereGeometry(0.9, 8, 6),
+      _haloGeom(),
       new THREE.MeshStandardMaterial({ color: 0xCC44FF, emissive: 0x8800CC, emissiveIntensity: 0.6, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
     );
+    mid.scale.setScalar(0.9);
     cage = new THREE.Mesh(
       new THREE.IcosahedronGeometry(1.12, 1),
       new THREE.MeshBasicMaterial({ color: 0xFF88EE, transparent: true, opacity: 0.5, wireframe: true })
     );
     glow = new THREE.Mesh(
-      new THREE.SphereGeometry(1.55, 8, 6),
+      _haloGeom(),
       new THREE.MeshBasicMaterial({ color: 0xAA44FF, transparent: true, opacity: 0.08, side: THREE.BackSide, depthWrite: false })
     );
+    glow.scale.setScalar(1.55);
 
   } else if (currentTier === 2) {
     // Crystal Reef: elongated teal spike with equatorial ring
@@ -887,9 +913,10 @@ function spawnBonusCrystal(track) {
     ring2.rotation.x = Math.PI / 2;
     group.add(ring2);
     glow = new THREE.Mesh(
-      new THREE.SphereGeometry(1.5, 8, 6),
+      _haloGeom(),
       new THREE.MeshBasicMaterial({ color: 0x00FFCC, transparent: true, opacity: 0.07, side: THREE.BackSide, depthWrite: false })
     );
+    glow.scale.setScalar(1.5);
 
   } else if (currentTier === 3) {
     // Solar Fringe: faceted amber dodecahedron with solar rings
@@ -913,9 +940,10 @@ function spawnBonusCrystal(track) {
     ring2.rotation.x = Math.PI / 2;
     group.add(ring2);
     glow = new THREE.Mesh(
-      new THREE.SphereGeometry(1.6, 8, 6),
+      _haloGeom(),
       new THREE.MeshBasicMaterial({ color: 0xFF8800, transparent: true, opacity: 0.09, side: THREE.BackSide, depthWrite: false })
     );
+    glow.scale.setScalar(1.6);
 
   } else {
     // The Void: sharp gold octahedron (default)
@@ -932,9 +960,10 @@ function spawnBonusCrystal(track) {
       new THREE.MeshBasicMaterial({ color: 0xFFEE44, transparent: true, opacity: 0.55, wireframe: true })
     );
     glow = new THREE.Mesh(
-      new THREE.SphereGeometry(1.5, 8, 6),
+      _haloGeom(),
       new THREE.MeshBasicMaterial({ color: 0xFFCC00, transparent: true, opacity: 0.07, side: THREE.BackSide, depthWrite: false })
     );
+    glow.scale.setScalar(1.5);
   }
 
   group.add(core, mid, cage, glow);
@@ -950,7 +979,7 @@ function clearBonusCrystals(track) {
   track.bonusCrystals.forEach(c => {
     scene.remove(c.mesh);
     c.mesh.traverse(child => {
-      if (child.geometry) child.geometry.dispose();
+      if (child.geometry && !child.geometry._shared) child.geometry.dispose();
       if (child.material) child.material.dispose();
     });
   });

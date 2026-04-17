@@ -129,6 +129,7 @@ function init() {
   canvas.addEventListener("mousemove", (e) => {
     mouseX = e.clientX;
     mouseY = e.clientY;
+    invalidateAim();
   });
   canvas.addEventListener("click", onShoot);
   canvas.addEventListener("contextmenu", (e) => {
@@ -142,6 +143,7 @@ function init() {
       e.preventDefault();
       mouseX = e.touches[0].clientX;
       mouseY = e.touches[0].clientY;
+      invalidateAim();
     },
     { passive: false }
   );
@@ -248,18 +250,28 @@ function onTouchStart(e) {
   }
   mouseX = e.touches[0].clientX;
   mouseY = e.touches[0].clientY;
+  invalidateAim();
   onShoot({ clientX: mouseX, clientY: mouseY, button: 0 });
 }
 
+const _aimWp = new THREE.Vector3();
+const _aimDir = new THREE.Vector2();
+let _aimDirty = true;
+
+function invalidateAim() { _aimDirty = true; }
+
 function getAimDir(cx, cy) {
+  if (!_aimDirty) return _aimDir;
   const rect = renderer.domElement.getBoundingClientRect();
   const ndcX = ((cx - rect.left) / rect.width) * 2 - 1;
   const ndcY = -((cy - rect.top) / rect.height) * 2 + 1;
-  const wp = new THREE.Vector3(ndcX, ndcY, 0).unproject(camera);
-  return new THREE.Vector2(
-    wp.x - SHOOTER_POS.x,
-    wp.y - SHOOTER_POS.y
+  _aimWp.set(ndcX, ndcY, 0).unproject(camera);
+  _aimDir.set(
+    _aimWp.x - SHOOTER_POS.x,
+    _aimWp.y - SHOOTER_POS.y
   ).normalize();
+  _aimDirty = false;
+  return _aimDir;
 }
 
 // ─── GAME LOOP ───

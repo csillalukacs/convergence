@@ -519,7 +519,7 @@ function _mat(props) {
   return new THREE.MeshPhongMaterial(p);
 }
 
-function getSharedBallGeom()      { return _sg('ball',       () => new THREE.SphereGeometry(BALL_RADIUS, _lo() ? 12 : 16, _lo() ? 8 : 12)); }
+function getSharedBallGeom()      { return _sg('ball',       () => new THREE.SphereGeometry(BALL_RADIUS, _lo() ? 6 : 16, _lo() ? 4 : 12)); }
 function _particleSphereGeom()    { return _sg('pSphere',    () => new THREE.SphereGeometry(1, 4, _lo() ? 3 : 4)); }
 function _particleOctaGeom()      { return _sg('pOcta',      () => new THREE.OctahedronGeometry(1, 0)); }
 function _starGeom()              { return _sg('star',        () => new THREE.SphereGeometry(1, _lo() ? 3 : 4, _lo() ? 2 : 4)); }
@@ -1027,7 +1027,6 @@ function clearBonusCrystals(track) {
 // ─── VICTORY ───
 
 function spawnVictoryParticles() {
-  if (_noPart()) return;
   // Cascade of crystal bursts from multiple points
   const allColors = COLORS.slice(0, 6);
   const lo = _lo();

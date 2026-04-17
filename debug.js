@@ -8,6 +8,8 @@ let debugFastForward = false;
 let debugShowGaps = false;
 let debugGapMarkers = [];
 let _debugRingGeom = null;
+let _fpsFrames = 0;
+let _fpsLast = performance.now();
 
 function toggleDebugMode() {
   debugMode = !debugMode;
@@ -40,6 +42,14 @@ function handleDebugKeyUp(e) {
 
 function tickDebug() {
   if (!gameActive) return;
+  _fpsFrames++;
+  const now = performance.now();
+  if (now - _fpsLast >= 500) {
+    const fps = Math.round(_fpsFrames * 1000 / (now - _fpsLast));
+    document.getElementById('dbg-fps').textContent = fps;
+    _fpsFrames = 0;
+    _fpsLast = now;
+  }
   const totalGaps = tracks.reduce((sum, t) => sum + t.gaps.length, 0);
   document.getElementById('dbg-gap-count').textContent = totalGaps;
   if (debugShowGaps) updateDebugGapMarkers();

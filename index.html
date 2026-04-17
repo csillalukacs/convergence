@@ -559,7 +559,8 @@
       document.getElementById('options-overlay').style.display = 'none';
     }
     function toggleGfxQuality() {
-      setGfxQuality(gfxQuality === 'high' ? 'low' : 'high');
+      const next = gfxQuality === 'high' ? 'low' : gfxQuality === 'low' ? 'none' : 'high';
+      setGfxQuality(next);
     }
     function syncOptionsPanel() {
       const muteBtn = document.getElementById('opt-mute-btn');
@@ -579,9 +580,8 @@
       }
       const gfxBtn = document.getElementById('opt-gfx-btn');
       if (gfxBtn) {
-        const isLow = gfxQuality === 'low';
-        gfxBtn.textContent = isLow ? 'LOW' : 'HIGH';
-        gfxBtn.classList.toggle('opt-toggle-off', isLow);
+        gfxBtn.textContent = gfxQuality === 'high' ? 'HIGH' : gfxQuality === 'low' ? 'LOW' : 'NONE';
+        gfxBtn.classList.toggle('opt-toggle-off', gfxQuality !== 'high');
       }
     }
 

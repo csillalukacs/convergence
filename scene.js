@@ -498,9 +498,10 @@ function _sg(key, factory) {
   return _sharedGeoms[key];
 }
 
-// Graphics quality: 'high' (default) or 'low'
+// Graphics quality: 'high' (default), 'low', or 'none' (no particles)
 let gfxQuality = localStorage.getItem('convergence-gfx') || 'high';
-const _lo = () => gfxQuality === 'low';
+const _lo = () => gfxQuality === 'low' || gfxQuality === 'none';
+const _noPart = () => gfxQuality === 'none';
 
 // Material helper: PBR on high, Phong on low. Accepts MeshStandardMaterial props,
 // translates metalness/roughness → shininess for Phong.
@@ -559,8 +560,8 @@ function disposeMesh(mesh) {
 
 // Spawn a burst of particles at pos. colors can be a single hex or an array (cycled per particle).
 function spawnParticleBurst(pos, count, colors, { minSize = 0.06, maxSize = 0.14, minSpeed = 2, maxSpeed = 4, decay = 0.022, decayRand = 0.02, opacity = 1, geo = 'octa' } = {}) {
-  const lo = _lo();
-  if (lo) count = Math.max(1, Math.round(count * 0.35));
+  if (_noPart()) return;
+  if (_lo()) count = Math.max(1, Math.round(count * 0.35));
   const colArr = Array.isArray(colors) ? colors : [colors];
   for (let i = 0; i < count; i++) {
     const col = colArr[i % colArr.length];
@@ -581,6 +582,7 @@ function explodeBall(ball) {
   const pos = ball.mesh.position.clone();
   scene.remove(ball.mesh);
   disposeMesh(ball.mesh);
+  if (_noPart()) return;
 
   const ballColor = COLORS[ball.colorIdx];
   const flashCol = TIER_THEMES[currentTier].flashColor;
@@ -1025,6 +1027,7 @@ function clearBonusCrystals(track) {
 // ─── VICTORY ───
 
 function spawnVictoryParticles() {
+  if (_noPart()) return;
   // Cascade of crystal bursts from multiple points
   const allColors = COLORS.slice(0, 6);
   const lo = _lo();

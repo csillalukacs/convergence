@@ -201,21 +201,23 @@ Track.prototype.activateBlast = function(s) {
   showBanner('NOVA BLAST!');
   playSound('powerup');
 
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(1, 0.12, 8, 32),
-    new THREE.MeshBasicMaterial({ color: 0xFF8800, transparent: true, opacity: 0.7, depthWrite: false })
-  );
-  ring.position.copy(blastPos); ring.position.z = 0.2;
-  scene.add(ring);
-  shockwaves.push({ mesh: ring, life: 0.55, maxLife: 0.55 });
+  if (!_noPart()) {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1, 0.12, 8, 32),
+      new THREE.MeshBasicMaterial({ color: 0xFF8800, transparent: true, opacity: 0.7, depthWrite: false })
+    );
+    ring.position.copy(blastPos); ring.position.z = 0.2;
+    scene.add(ring);
+    shockwaves.push({ mesh: ring, life: 0.55, maxLife: 0.55 });
 
-  const ring2 = new THREE.Mesh(
-    new THREE.TorusGeometry(1, 0.07, 6, 28),
-    new THREE.MeshBasicMaterial({ color: 0xFFFFAA, transparent: true, opacity: 0.5, depthWrite: false })
-  );
-  ring2.position.copy(blastPos); ring2.position.z = 0.15;
-  scene.add(ring2);
-  shockwaves.push({ mesh: ring2, life: 0.4, maxLife: 0.4 });
+    const ring2 = new THREE.Mesh(
+      new THREE.TorusGeometry(1, 0.07, 6, 28),
+      new THREE.MeshBasicMaterial({ color: 0xFFFFAA, transparent: true, opacity: 0.5, depthWrite: false })
+    );
+    ring2.position.copy(blastPos); ring2.position.z = 0.15;
+    scene.add(ring2);
+    shockwaves.push({ mesh: ring2, life: 0.4, maxLife: 0.4 });
+  }
 
   let blastCount = 0;
   for (let i = 0; i < this.chain.length; i++) {

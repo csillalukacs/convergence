@@ -25,10 +25,11 @@ function tickFlash() {}
 function _buildShards(theme, hw, hh) {
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
+  const lo = _lo();
   if (theme.name === 'Nebula') {
     // Fog layer: overlapping large semi-transparent blobs in different colors
     const fogColors = [0x330055, 0x550088, 0x220044, 0x440066, 0x110033];
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < (lo ? 6 : 16); i++) {
       const col = fogColors[Math.floor(Math.random() * fogColors.length)];
       const blobSize = 2.5 + Math.random() * 5.0;
       const blob = new THREE.Mesh(
@@ -44,7 +45,7 @@ function _buildShards(theme, hw, hh) {
       scene.add(blob); bgShards.push(blob);
     }
     // Shard layer: bright icosahedron crystal shards floating in the fog
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < (lo ? 5 : 14); i++) {
       const col = pick(theme.shardColors);
       const shardSize = 0.1 + Math.random() * 0.38;
       const shard = new THREE.Mesh(
@@ -62,7 +63,7 @@ function _buildShards(theme, hw, hh) {
     }
   } else if (theme.name === 'Crystal Reef') {
     // Tall thin mineral spires
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < (lo ? 7 : 18); i++) {
       const col = pick(theme.shardColors);
       const height = 0.5 + Math.random() * 1.4;
       const shard = new THREE.Mesh(
@@ -79,7 +80,7 @@ function _buildShards(theme, hw, hh) {
     }
   } else if (theme.name === 'Solar Fringe') {
     // Glowing rings / solar loops
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < (lo ? 6 : 15); i++) {
       const col = pick(theme.shardColors);
       const r = 0.22 + Math.random() * 0.65;
       const shard = new THREE.Mesh(
@@ -96,7 +97,7 @@ function _buildShards(theme, hw, hh) {
     }
   } else {
     // The Void: sharp octahedron crystal shards
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < (lo ? 8 : 20); i++) {
       const col = pick(theme.shardColors);
       const shardSize = 0.12 + Math.random() * 0.45;
       const shard = new THREE.Mesh(
@@ -123,7 +124,7 @@ function createBackground() {
   _buildShards(theme, hw, hh);
 
   // Twinkling stars
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < (_lo() ? 30 : 80); i++) {
     const col = theme.starPalette[Math.floor(Math.random() * theme.starPalette.length)];
     const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: Math.random() * 0.5 + 0.1 });
     const starSize = 0.02 + Math.random() * 0.04;
@@ -558,6 +559,8 @@ function disposeMesh(mesh) {
 
 // Spawn a burst of particles at pos. colors can be a single hex or an array (cycled per particle).
 function spawnParticleBurst(pos, count, colors, { minSize = 0.06, maxSize = 0.14, minSpeed = 2, maxSpeed = 4, decay = 0.022, decayRand = 0.02, opacity = 1, geo = 'octa' } = {}) {
+  const lo = _lo();
+  if (lo) count = Math.max(1, Math.round(count * 0.35));
   const colArr = Array.isArray(colors) ? colors : [colors];
   for (let i = 0; i < count; i++) {
     const col = colArr[i % colArr.length];
@@ -590,7 +593,8 @@ function explodeBall(ball) {
 
   // Streak particles — fast, elongated, fly outward
   const strCol = [ballColor, flashCol];
-  for (let i = 0; i < 8; i++) {
+  const streakCount = _lo() ? 3 : 8;
+  for (let i = 0; i < streakCount; i++) {
     const a = (i / 8) * Math.PI * 2 + Math.random() * 0.4;
     const sp = 6 + Math.random() * 5;
     const len = 0.22 + Math.random() * 0.18;
@@ -605,7 +609,8 @@ function explodeBall(ball) {
     scene.add(mesh); particles.push(mesh);
   }
 
-  // Shockwave ring
+  // Shockwave ring (skip on low graphics)
+  if (_lo()) return;
   const ring = new THREE.Mesh(
     new THREE.TorusGeometry(0.25, 0.04, 6, 24),
     new THREE.MeshBasicMaterial({ color: flashCol, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
@@ -1022,9 +1027,12 @@ function clearBonusCrystals(track) {
 function spawnVictoryParticles() {
   // Cascade of crystal bursts from multiple points
   const allColors = COLORS.slice(0, 6);
-  for (let wave = 0; wave < 5; wave++) {
+  const lo = _lo();
+  const waveCount = lo ? 2 : 5;
+  const burstsPerWave = lo ? 2 : 4;
+  for (let wave = 0; wave < waveCount; wave++) {
     setTimeout(() => {
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < burstsPerWave; i++) {
         const pos = new THREE.Vector3(
           (Math.random() - 0.5) * 20,
           (Math.random() - 0.5) * 16,

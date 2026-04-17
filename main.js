@@ -104,18 +104,19 @@ function init() {
 
   clock = new THREE.Clock();
 
-  sceneAmbient = new THREE.AmbientLight(0x112244, 1.2);
+  const lo = _lo();
+  sceneAmbient = new THREE.AmbientLight(0x112244, lo ? 0.55 : 1.2);
   scene.add(sceneAmbient);
-  sceneDir1 = new THREE.DirectionalLight(0xaaddff, 1.8);
+  sceneDir1 = new THREE.DirectionalLight(0xaaddff, lo ? 0.8 : 1.8);
   sceneDir1.position.set(5, 8, 15);
   scene.add(sceneDir1);
-  sceneDir2 = new THREE.DirectionalLight(0xff88ff, 0.9);
+  sceneDir2 = new THREE.DirectionalLight(0xff88ff, lo ? 0 : 0.9);
   sceneDir2.position.set(-8, -5, 10);
   scene.add(sceneDir2);
-  scenePoint1 = new THREE.PointLight(0x88ccff, 1.8, 40);
+  scenePoint1 = new THREE.PointLight(0x88ccff, lo ? 0 : 1.8, 40);
   scenePoint1.position.set(0, 0, 8);
   scene.add(scenePoint1);
-  scenePoint2 = new THREE.PointLight(0xffffff, 1.0, 25);
+  scenePoint2 = new THREE.PointLight(0xffffff, lo ? 0 : 1.0, 25);
   scenePoint2.position.set(-6, 6, 10);
   scene.add(scenePoint2);
   createFlashOverlay();

@@ -49,7 +49,7 @@ function _buildShards(theme, hw, hh) {
       const shardSize = 0.1 + Math.random() * 0.38;
       const shard = new THREE.Mesh(
         _bgIcoGeom(),
-        new THREE.MeshStandardMaterial({
+        _mat({
           color: col, emissive: col, emissiveIntensity: 0.5,
           metalness: 0.2, roughness: 0.0, transparent: true, opacity: 0.5 + Math.random() * 0.35
         })
@@ -67,7 +67,7 @@ function _buildShards(theme, hw, hh) {
       const height = 0.5 + Math.random() * 1.4;
       const shard = new THREE.Mesh(
         new THREE.ConeGeometry(0.06 + Math.random() * 0.09, height, 5, 1),
-        new THREE.MeshStandardMaterial({
+        _mat({
           color: col, emissive: col, emissiveIntensity: 0.4,
           metalness: 0.2, roughness: 0.0, transparent: true, opacity: 0.45 + Math.random() * 0.35
         })
@@ -84,7 +84,7 @@ function _buildShards(theme, hw, hh) {
       const r = 0.22 + Math.random() * 0.65;
       const shard = new THREE.Mesh(
         new THREE.TorusGeometry(r, r * 0.2, 6, 18),
-        new THREE.MeshStandardMaterial({
+        _mat({
           color: col, emissive: col, emissiveIntensity: 0.55,
           metalness: 0.4, roughness: 0.0, transparent: true, opacity: 0.45 + Math.random() * 0.35
         })
@@ -101,7 +101,7 @@ function _buildShards(theme, hw, hh) {
       const shardSize = 0.12 + Math.random() * 0.45;
       const shard = new THREE.Mesh(
         _bgOctaGeom(),
-        new THREE.MeshStandardMaterial({
+        _mat({
           color: col, emissive: col, emissiveIntensity: 0.35,
           metalness: 0.3, roughness: 0.0, transparent: true, opacity: 0.55 + Math.random() * 0.3
         })
@@ -143,14 +143,15 @@ function applyTheme(tierIndex) {
   renderer.setClearColor(theme.clearColor);
   scene.fog.color.setHex(theme.bgColor);
 
-  // Lighting
+  // Lighting — low-gfx: single directional only (no specular hotspots)
   if (sceneAmbient) {
     const l = theme.lights;
-    sceneAmbient.color.setHex(l.ambient.color); sceneAmbient.intensity = l.ambient.intensity;
-    sceneDir1.color.setHex(l.dir1.color);       sceneDir1.intensity   = l.dir1.intensity;
-    sceneDir2.color.setHex(l.dir2.color);       sceneDir2.intensity   = l.dir2.intensity;
-    scenePoint1.color.setHex(l.point1.color);   scenePoint1.intensity = l.point1.intensity;
-    scenePoint2.color.setHex(l.point2.color);   scenePoint2.intensity = l.point2.intensity;
+    const lo = _lo();
+    sceneAmbient.color.setHex(l.ambient.color); sceneAmbient.intensity = lo ? 0.55 : l.ambient.intensity;
+    sceneDir1.color.setHex(l.dir1.color);       sceneDir1.intensity   = lo ? 0.8  : l.dir1.intensity;
+    sceneDir2.color.setHex(l.dir2.color);       sceneDir2.intensity   = lo ? 0    : l.dir2.intensity;
+    scenePoint1.color.setHex(l.point1.color);   scenePoint1.intensity = lo ? 0    : l.point1.intensity;
+    scenePoint2.color.setHex(l.point2.color);   scenePoint2.intensity = lo ? 0    : l.point2.intensity;
   }
 
   // CSS custom properties for HUD
@@ -189,21 +190,21 @@ function createShooter() {
 
   // Arcane Orb — floating crystal orb with orbiting rings
   const orb = new THREE.Mesh(new THREE.SphereGeometry(0.45, _lo() ? 12 : 16, _lo() ? 8 : 12),
-    new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.9, roughness: 0.0, emissive: 0x4488cc, transparent: true, opacity: 0.8 }));
+    _mat({ color: 0x88ccff, metalness: 0.9, roughness: 0.0, emissive: 0x4488cc, transparent: true, opacity: 0.8 }));
   shooterPivot.add(orb);
   const inner = new THREE.Mesh(new THREE.SphereGeometry(0.3, _lo() ? 10 : 12, _lo() ? 7 : 10),
     new THREE.MeshBasicMaterial({ color: 0xaaddff, transparent: true, opacity: 0.4 }));
   shooterPivot.add(inner);
   for (const ra of [0, Math.PI / 3, -Math.PI / 3]) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.65, 0.03, 8, 24),
-      new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.9, roughness: 0.0, emissive: 0x6699cc }));
+      _mat({ color: 0xaaddff, metalness: 0.9, roughness: 0.0, emissive: 0x6699cc }));
     ring.rotation.x = ra; ring.rotation.y = ra * 0.5; shooterPivot.add(ring);
   }
   const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.9, 6),
-    new THREE.MeshStandardMaterial({ color: 0xaaddff, metalness: 0.8, roughness: 0.05, emissive: 0x224466, transparent: true, opacity: 0.7 }));
+    _mat({ color: 0xaaddff, metalness: 0.8, roughness: 0.05, emissive: 0x224466, transparent: true, opacity: 0.7 }));
   barrel.position.y = 0.8; shooterPivot.add(barrel);
   const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.0, emissive: 0x88ccff }));
+    _mat({ color: 0xffffff, metalness: 1, roughness: 0.0, emissive: 0x88ccff }));
   tip.position.y = 1.3; shooterPivot.add(tip);
 
   loadShooterBalls();
@@ -217,7 +218,7 @@ function pickColor() {
 
 function makeBallPreview(colorIdx, size) {
   const m = new THREE.Mesh(_previewBallGeom(),
-    new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
+    _mat({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
   m.scale.setScalar(size);
   return m;
 }
@@ -500,6 +501,22 @@ function _sg(key, factory) {
 let gfxQuality = localStorage.getItem('convergence-gfx') || 'high';
 const _lo = () => gfxQuality === 'low';
 
+// Material helper: PBR on high, Phong on low. Accepts MeshStandardMaterial props,
+// translates metalness/roughness → shininess for Phong.
+function _mat(props) {
+  if (!_lo()) return new THREE.MeshStandardMaterial(props);
+  const p = Object.assign({}, props);
+  // Convert PBR → Phong: high metalness + low roughness = high shininess
+  const metalness = p.metalness ?? 0;
+  const roughness = p.roughness ?? 1;
+  p.shininess = Math.round((1 - roughness) * 80 + metalness * 40);
+  // Boost specular for metallic surfaces
+  p.specular = metalness > 0.5 ? 0x444444 : 0x222222;
+  delete p.metalness;
+  delete p.roughness;
+  return new THREE.MeshPhongMaterial(p);
+}
+
 function getSharedBallGeom()      { return _sg('ball',       () => new THREE.SphereGeometry(BALL_RADIUS, _lo() ? 12 : 16, _lo() ? 8 : 12)); }
 function _particleSphereGeom()    { return _sg('pSphere',    () => new THREE.SphereGeometry(1, 4, _lo() ? 3 : 4)); }
 function _particleOctaGeom()      { return _sg('pOcta',      () => new THREE.OctahedronGeometry(1, 0)); }
@@ -523,7 +540,7 @@ function setGfxQuality(q) {
 
 function createBallMesh(colorIdx) {
   return new THREE.Mesh(getSharedBallGeom(),
-    new THREE.MeshStandardMaterial({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
+    _mat({ map: getBallTexture(colorIdx), color: 0xffffff, metalness: 0.8, roughness: 0.05, emissive: COLOR_EMISSIVE[colorIdx] }));
 }
 
 // Dispose a mesh's material (and owned textures). Does NOT dispose shared geometry.
@@ -604,10 +621,10 @@ function createTrackVisuals(track) {
   const tc = TIER_THEMES[currentTier].track;
   const curve = new THREE.CatmullRomCurve3(track.pathPoints);
   const t1 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.15, 8, false),
-    new THREE.MeshStandardMaterial({ color: tc.outer[0], metalness: 0.1, roughness: 0.0, emissive: tc.outer[1], transparent: true, opacity: 0.30 }));
+    _mat({ color: tc.outer[0], metalness: 0.1, roughness: 0.0, emissive: tc.outer[1], transparent: true, opacity: 0.30 }));
   t1.position.z = -0.3; scene.add(t1); track.trackMeshes.push(t1);
   const t2 = new THREE.Mesh(new THREE.TubeGeometry(curve, 300, 0.05, 6, false),
-    new THREE.MeshStandardMaterial({ color: tc.inner[0], metalness: 0.0, roughness: 0.0, emissive: tc.inner[1] }));
+    _mat({ color: tc.inner[0], metalness: 0.0, roughness: 0.0, emissive: tc.inner[1] }));
   t2.position.z = -0.25; scene.add(t2); track.trackMeshes.push(t2);
 
   _createPipeEntrance(track);
@@ -622,22 +639,22 @@ function _createSkullEnd(track) {
   if (currentTier === 1) {
     // Nebula Drift — larger soft magenta rings, 8 wispy arms
     const outer = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.10, 12, 28),
-      new THREE.MeshStandardMaterial({ color: 0x330055, metalness: 0.8, roughness: 0.1, emissive: 0x660099 }));
+      _mat({ color: 0x330055, metalness: 0.8, roughness: 0.1, emissive: 0x660099 }));
     outer.position.copy(ep); outer.position.z = -0.1; add(outer);
     const mid = new THREE.Mesh(new THREE.TorusGeometry(0.65, 0.075, 10, 22),
-      new THREE.MeshStandardMaterial({ color: 0x9900cc, metalness: 0.7, roughness: 0.1, emissive: 0x8800bb }));
+      _mat({ color: 0x9900cc, metalness: 0.7, roughness: 0.1, emissive: 0x8800bb }));
     mid.position.copy(ep); mid.position.z = -0.05; add(mid);
     const inner = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.055, 8, 16),
-      new THREE.MeshStandardMaterial({ color: 0xee55ff, metalness: 0.5, roughness: 0.0, emissive: 0xcc44ff }));
+      _mat({ color: 0xee55ff, metalness: 0.5, roughness: 0.0, emissive: 0xcc44ff }));
     inner.position.copy(ep); add(inner);
     const core = new THREE.Mesh(_vortexCoreGeom(),
-      new THREE.MeshStandardMaterial({ color: 0x000000, metalness: 1.0, roughness: 0.0, emissive: 0x220044 }));
+      _mat({ color: 0x000000, metalness: 1.0, roughness: 0.0, emissive: 0x220044 }));
     core.scale.setScalar(0.30);
     core.position.copy(ep); core.position.z = 0.05; add(core);
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
       const arm = new THREE.Mesh(new THREE.PlaneGeometry(0.065, 0.95),
-        new THREE.MeshStandardMaterial({ color: 0xaa22ee, emissive: 0x660099, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+        _mat({ color: 0xaa22ee, emissive: 0x660099, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
       arm.position.copy(ep);
       arm.position.x += Math.cos(a) * 0.3; arm.position.y += Math.sin(a) * 0.3; arm.position.z = 0.02;
       arm.rotation.z = a + 0.4; add(arm); arms.push(arm);
@@ -647,21 +664,21 @@ function _createSkullEnd(track) {
   } else if (currentTier === 2) {
     // Crystal Maw — teal rings with 8 inward-pointing crystal spike arms
     const outer = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.10, 12, 24),
-      new THREE.MeshStandardMaterial({ color: 0x003333, metalness: 0.9, roughness: 0.05, emissive: 0x006666 }));
+      _mat({ color: 0x003333, metalness: 0.9, roughness: 0.05, emissive: 0x006666 }));
     outer.position.copy(ep); outer.position.z = -0.1; add(outer);
     const mid = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.075, 10, 20),
-      new THREE.MeshStandardMaterial({ color: 0x007788, metalness: 0.7, roughness: 0.05, emissive: 0x008899 }));
+      _mat({ color: 0x007788, metalness: 0.7, roughness: 0.05, emissive: 0x008899 }));
     mid.position.copy(ep); mid.position.z = -0.05; add(mid);
     const inner = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.055, 8, 16),
-      new THREE.MeshStandardMaterial({ color: 0x00ccaa, metalness: 0.5, roughness: 0.0, emissive: 0x00ddbb }));
+      _mat({ color: 0x00ccaa, metalness: 0.5, roughness: 0.0, emissive: 0x00ddbb }));
     inner.position.copy(ep); add(inner);
     const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0),
-      new THREE.MeshStandardMaterial({ color: 0x001122, metalness: 1.0, roughness: 0.0, emissive: 0x002233 }));
+      _mat({ color: 0x001122, metalness: 1.0, roughness: 0.0, emissive: 0x002233 }));
     core.position.copy(ep); core.position.z = 0.05; add(core);
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
       const arm = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.52, 4, 1),
-        new THREE.MeshStandardMaterial({ color: 0x00ccaa, emissive: 0x006666, transparent: true, opacity: 0.75 }));
+        _mat({ color: 0x00ccaa, emissive: 0x006666, transparent: true, opacity: 0.75 }));
       arm.position.copy(ep);
       arm.position.x += Math.cos(a) * 0.3; arm.position.y += Math.sin(a) * 0.3; arm.position.z = 0.02;
       // point toward center: cone tip is +Y by default, rotate so it aims inward
@@ -672,22 +689,22 @@ function _createSkullEnd(track) {
   } else if (currentTier === 3) {
     // Solar Drain — thick amber rings, 4 wide solar flare arms
     const outer = new THREE.Mesh(new THREE.TorusGeometry(0.90, 0.15, 12, 24),
-      new THREE.MeshStandardMaterial({ color: 0x331100, metalness: 0.8, roughness: 0.1, emissive: 0x884400 }));
+      _mat({ color: 0x331100, metalness: 0.8, roughness: 0.1, emissive: 0x884400 }));
     outer.position.copy(ep); outer.position.z = -0.1; add(outer);
     const mid = new THREE.Mesh(new THREE.TorusGeometry(0.60, 0.10, 10, 20),
-      new THREE.MeshStandardMaterial({ color: 0xaa4400, metalness: 0.7, roughness: 0.1, emissive: 0xaa6600 }));
+      _mat({ color: 0xaa4400, metalness: 0.7, roughness: 0.1, emissive: 0xaa6600 }));
     mid.position.copy(ep); mid.position.z = -0.05; add(mid);
     const inner = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.08, 8, 16),
-      new THREE.MeshStandardMaterial({ color: 0xff8800, metalness: 0.5, roughness: 0.0, emissive: 0xff8800 }));
+      _mat({ color: 0xff8800, metalness: 0.5, roughness: 0.0, emissive: 0xff8800 }));
     inner.position.copy(ep); add(inner);
     const core = new THREE.Mesh(_vortexCoreGeom(),
-      new THREE.MeshStandardMaterial({ color: 0x110500, metalness: 1.0, roughness: 0.0, emissive: 0x221100 }));
+      _mat({ color: 0x110500, metalness: 1.0, roughness: 0.0, emissive: 0x221100 }));
     core.scale.setScalar(0.30);
     core.position.copy(ep); core.position.z = 0.05; add(core);
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2;
       const arm = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.85),
-        new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: 0x884400, transparent: true, opacity: 0.65, side: THREE.DoubleSide }));
+        _mat({ color: 0xff6600, emissive: 0x884400, transparent: true, opacity: 0.65, side: THREE.DoubleSide }));
       arm.position.copy(ep);
       arm.position.x += Math.cos(a) * 0.3; arm.position.y += Math.sin(a) * 0.3; arm.position.z = 0.02;
       arm.rotation.z = a + 0.4; add(arm); arms.push(arm);
@@ -697,22 +714,22 @@ function _createSkullEnd(track) {
   } else {
     // Void Vortex — concentric purple rings with spiral arms and dark core (default)
     const outer = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.12, 12, 24),
-      new THREE.MeshStandardMaterial({ color: 0x220033, metalness: 0.9, roughness: 0.1, emissive: 0x440066 }));
+      _mat({ color: 0x220033, metalness: 0.9, roughness: 0.1, emissive: 0x440066 }));
     outer.position.copy(ep); outer.position.z = -0.1; add(outer);
     const mid = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.08, 10, 20),
-      new THREE.MeshStandardMaterial({ color: 0x8800aa, metalness: 0.7, roughness: 0.1, emissive: 0x660088 }));
+      _mat({ color: 0x8800aa, metalness: 0.7, roughness: 0.1, emissive: 0x660088 }));
     mid.position.copy(ep); mid.position.z = -0.05; add(mid);
     const inner = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.06, 8, 16),
-      new THREE.MeshStandardMaterial({ color: 0xcc44ff, metalness: 0.5, roughness: 0.0, emissive: 0xaa22dd }));
+      _mat({ color: 0xcc44ff, metalness: 0.5, roughness: 0.0, emissive: 0xaa22dd }));
     inner.position.copy(ep); add(inner);
     const core = new THREE.Mesh(_vortexCoreGeom(),
-      new THREE.MeshStandardMaterial({ color: 0x000000, metalness: 1.0, roughness: 0.0, emissive: 0x110022 }));
+      _mat({ color: 0x000000, metalness: 1.0, roughness: 0.0, emissive: 0x110022 }));
     core.scale.setScalar(0.25);
     core.position.copy(ep); core.position.z = 0.05; add(core);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
       const arm = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.7),
-        new THREE.MeshStandardMaterial({ color: 0x8800cc, emissive: 0x440066, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
+        _mat({ color: 0x8800cc, emissive: 0x440066, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
       arm.position.copy(ep);
       arm.position.x += Math.cos(a) * 0.3; arm.position.y += Math.sin(a) * 0.3; arm.position.z = 0.02;
       arm.rotation.z = a + 0.4; add(arm); arms.push(arm);
@@ -812,14 +829,14 @@ function _createPipeEntrance(track) {
   // Translucent energy conduit (outer shell)
   const conduit = new THREE.Mesh(
     new THREE.CylinderGeometry(PIPE_RADIUS, PIPE_RADIUS * 0.95, PIPE_LENGTH, 20, 1, true),
-    new THREE.MeshStandardMaterial({ color: pc.conduit[0], metalness: 0.8, roughness: 0.05, emissive: pc.conduit[1], side: THREE.DoubleSide, transparent: true, opacity: 0.55 })
+    _mat({ color: pc.conduit[0], metalness: 0.8, roughness: 0.05, emissive: pc.conduit[1], side: THREE.DoubleSide, transparent: true, opacity: 0.55 })
   );
   conduit.position.copy(pipeCenter); conduit.quaternion.copy(quatCyl); add(conduit);
 
   // Inner energy flow (bright core tube)
   const flow = new THREE.Mesh(
     new THREE.CylinderGeometry(PIPE_RADIUS * 0.6, PIPE_RADIUS * 0.6, PIPE_LENGTH, 12, 1, true),
-    new THREE.MeshStandardMaterial({ color: pc.flow[0], metalness: 0.0, roughness: 0.0, emissive: pc.flow[1], emissiveIntensity: 0.8, transparent: true, opacity: 0.15, side: THREE.BackSide })
+    _mat({ color: pc.flow[0], metalness: 0.0, roughness: 0.0, emissive: pc.flow[1], emissiveIntensity: 0.8, transparent: true, opacity: 0.15, side: THREE.BackSide })
   );
   flow.position.copy(pipeCenter); flow.quaternion.copy(quatCyl); add(flow);
 
@@ -836,7 +853,7 @@ function _createPipeEntrance(track) {
     const thickness = isMouth ? 0.08 : 0.04;
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(radius, thickness, 8, 20),
-      new THREE.MeshStandardMaterial({
+      _mat({
         color: isMouth ? pc.mouthRing[0] : pc.innerRing[0],
         metalness: 0.9, roughness: 0.0,
         emissive: isMouth ? pc.mouthRing[1] : pc.innerRing[1],
@@ -851,7 +868,7 @@ function _createPipeEntrance(track) {
   const perp = new THREE.Vector3(-tangent.y, tangent.x, 0).normalize();
   for (const side of [-1, 1]) {
     const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0),
-      new THREE.MeshStandardMaterial({ color: pc.rune[0], metalness: 0.5, roughness: 0.0, emissive: pc.rune[1], emissiveIntensity: 1.5 }));
+      _mat({ color: pc.rune[0], metalness: 0.5, roughness: 0.0, emissive: pc.rune[1], emissiveIntensity: 1.5 }));
     rune.position.copy(mouthPos).addScaledVector(perp, side * (PIPE_RADIUS + 0.25));
     rune.position.z = 0.05;
     add(rune);
@@ -887,11 +904,11 @@ function spawnBonusCrystal(track) {
     // Nebula: rounded icosahedron, soft violet aura
     core = new THREE.Mesh(
       new THREE.IcosahedronGeometry(0.56, 0),
-      new THREE.MeshStandardMaterial({ color: 0xDD99FF, emissive: 0xAA44FF, emissiveIntensity: 2.5, metalness: 0.1, roughness: 0.0 })
+      _mat({ color: 0xDD99FF, emissive: 0xAA44FF, emissiveIntensity: 2.5, metalness: 0.1, roughness: 0.0 })
     );
     mid = new THREE.Mesh(
       _haloGeom(),
-      new THREE.MeshStandardMaterial({ color: 0xCC44FF, emissive: 0x8800CC, emissiveIntensity: 0.6, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+      _mat({ color: 0xCC44FF, emissive: 0x8800CC, emissiveIntensity: 0.6, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
     );
     mid.scale.setScalar(0.9);
     cage = new THREE.Mesh(
@@ -908,12 +925,12 @@ function spawnBonusCrystal(track) {
     // Crystal Reef: elongated teal spike with equatorial ring
     core = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.5, 0),
-      new THREE.MeshStandardMaterial({ color: 0x88FFEE, emissive: 0x00CCAA, emissiveIntensity: 2.5, metalness: 0.4, roughness: 0.0 })
+      _mat({ color: 0x88FFEE, emissive: 0x00CCAA, emissiveIntensity: 2.5, metalness: 0.4, roughness: 0.0 })
     );
     core.scale.set(0.55, 1.9, 0.55);
     mid = new THREE.Mesh(
       new THREE.TorusGeometry(0.82, 0.07, 6, 18),
-      new THREE.MeshStandardMaterial({ color: 0x44FFDD, emissive: 0x00AACC, emissiveIntensity: 1.0, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+      _mat({ color: 0x44FFDD, emissive: 0x00AACC, emissiveIntensity: 1.0, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
     );
     cage = new THREE.Mesh(
       new THREE.OctahedronGeometry(1.12, 0),
@@ -936,11 +953,11 @@ function spawnBonusCrystal(track) {
     // Solar Fringe: faceted amber dodecahedron with solar rings
     core = new THREE.Mesh(
       new THREE.DodecahedronGeometry(0.56, 0),
-      new THREE.MeshStandardMaterial({ color: 0xFFDD88, emissive: 0xFF8800, emissiveIntensity: 2.8, metalness: 0.5, roughness: 0.0 })
+      _mat({ color: 0xFFDD88, emissive: 0xFF8800, emissiveIntensity: 2.8, metalness: 0.5, roughness: 0.0 })
     );
     mid = new THREE.Mesh(
       new THREE.TorusGeometry(0.9, 0.07, 6, 20),
-      new THREE.MeshStandardMaterial({ color: 0xFF8800, emissive: 0xFF6600, emissiveIntensity: 1.2, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+      _mat({ color: 0xFF8800, emissive: 0xFF6600, emissiveIntensity: 1.2, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
     );
     cage = new THREE.Mesh(
       new THREE.TorusGeometry(1.15, 0.045, 6, 20),
@@ -963,11 +980,11 @@ function spawnBonusCrystal(track) {
     // The Void: sharp gold octahedron (default)
     core = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.62, 0),
-      new THREE.MeshStandardMaterial({ color: 0xFFFFCC, emissive: 0xFFCC00, emissiveIntensity: 2.5, metalness: 0.3, roughness: 0.0 })
+      _mat({ color: 0xFFFFCC, emissive: 0xFFCC00, emissiveIntensity: 2.5, metalness: 0.3, roughness: 0.0 })
     );
     mid = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.92, 1),
-      new THREE.MeshStandardMaterial({ color: 0xFFAA00, emissive: 0xFF8800, emissiveIntensity: 1.0, transparent: true, opacity: 0.38, side: THREE.DoubleSide })
+      _mat({ color: 0xFFAA00, emissive: 0xFF8800, emissiveIntensity: 1.0, transparent: true, opacity: 0.38, side: THREE.DoubleSide })
     );
     cage = new THREE.Mesh(
       new THREE.OctahedronGeometry(1.15, 0),

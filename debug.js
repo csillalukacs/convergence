@@ -40,6 +40,12 @@ function handleDebugKeyUp(e) {
   if (e.code === 'KeyA') debugFastForward = false;
 }
 
+let _dbgFrameStart = 0;
+let _dbgFrameTime = 0;
+
+function debugFrameStart() { _dbgFrameStart = performance.now(); }
+function debugFrameEnd()   { _dbgFrameTime = performance.now() - _dbgFrameStart; }
+
 function tickDebug() {
   if (!gameActive) return;
   _fpsFrames++;
@@ -47,6 +53,26 @@ function tickDebug() {
   if (now - _fpsLast >= 500) {
     const fps = Math.round(_fpsFrames * 1000 / (now - _fpsLast));
     document.getElementById('dbg-fps').textContent = fps;
+    document.getElementById('dbg-ft').textContent = _dbgFrameTime.toFixed(1);
+
+    // Renderer stats
+    const info = renderer.info;
+    document.getElementById('dbg-draws').textContent = info.render.calls;
+    document.getElementById('dbg-tris').textContent = info.render.triangles;
+    document.getElementById('dbg-geoms').textContent = info.memory.geometries;
+    document.getElementById('dbg-texs').textContent = info.memory.textures;
+
+    // Scene objects
+    let objCount = 0;
+    scene.traverse(() => objCount++);
+    document.getElementById('dbg-objs').textContent = objCount;
+
+    // Game objects
+    const totalBalls = tracks.reduce((sum, t) => sum + t.chain.length, 0);
+    document.getElementById('dbg-balls').textContent = totalBalls;
+    document.getElementById('dbg-particles').textContent = particles.length;
+    document.getElementById('dbg-projectiles').textContent = projectiles.length;
+
     _fpsFrames = 0;
     _fpsLast = now;
   }

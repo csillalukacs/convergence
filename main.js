@@ -278,6 +278,7 @@ function getAimDir(cx, cy) {
 
 function animate() {
   requestAnimationFrame(animate);
+  if (typeof debugFrameStart === "function") debugFrameStart();
   const dt = Math.min(clock.getDelta(), 0.05);
 
   if (gameActive && !gamePaused) {
@@ -368,9 +369,11 @@ function animate() {
   }
 
   if (typeof tickFlash === "function") tickFlash(dt);
-  if (typeof tickDebug === "function") tickDebug();
 
   renderer.render(scene, camera);
+
+  if (typeof debugFrameEnd === "function") debugFrameEnd();
+  if (typeof tickDebug === "function") tickDebug();
 }
 
 // ─── GAME STATE ───
